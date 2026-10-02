@@ -3,11 +3,14 @@ const express = require('express');
 const { z } = require('zod');
 const Aidat = require('../models/Aidat');
 const Site = require('../models/Site');
+const Bina = require('../models/Bina');
+const Daire = require('../models/Daire');
 const Kullanici = require('../models/Kullanici');
 const dogrula = require('../middleware/dogrula');
 const { tutarKurali } = require('../middleware/dogrula');
 const { girisGerekli, sadeceSakin } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
+const { pushGonder, ayYazisi } = require('../services/bildirim');
 
 const router = express.Router();
 
@@ -79,6 +82,7 @@ router.get('/benim', async (req, res) => {
 // POST /api/aidatlar
 // Kim kullanabilir: sakin. Kendi dairesi için "aidatı verdim" bildirimi oluşturur (durum: bekliyor).
 // Aynı ay için bekleyen veya onaylanmış bir bildirim varsa yenisi kabul edilmez (409).
+// Kayıt oluşunca sitenin yöneticisine "yeni aidat bildirimi" push bildirimi gönderilir.
 router.post('/', dogrula(bildirimSemasi), async (req, res) => {
   const { siteId, daireId } = req.kullanici;
   const { ay, yil, tutar, odemeYontemi, aciklama } = req.body;
@@ -105,6 +109,28 @@ router.post('/', dogrula(bildirimSemasi), async (req, res) => {
     odemeYontemi,
     aciklama,
   });
+
+  // Yöneticiye "yeni aidat bildirimi" push'u gider; bekleyen bildirimleri onaylaması gerektiğini öğrenir.
+  // Yönetici, sakinin kendi sitesindeki (token'dan gelen siteId) "yonetici" rolündeki kişidir; her sitenin
+  // tek yöneticisi vardır. Daire adı (örn. "A5") Daire + Bina kayıtlarından birleştirilir; hepsi siteId ile filtrelenir.
+  // Bildirim gönderilemezse aidat bildirimi yine kaydedilmiş sayılır; hata sadece loglanır.
+  try {
+    const yonetici = await Kullanici.findOne({ siteId, rol: 'yonetici', pushToken: { $ne: null } })
+      .select('pushToken')
+      .lean();
+    if (yonetici) {
+      const daire = await Daire.findOne({ _id: daireId, siteId }).select('binaId daireNo').lean();
+      const bina = daire && (await Bina.findOne({ _id: daire.binaId, siteId }).select('ad').lean());
+      const daireAdi = bina ? `${bina.ad}${daire.daireNo}` : 'Bir daire';
+      await pushGonder([yonetici.pushToken], {
+        baslik: 'Yeni aidat bildirimi',
+        icerik: `${daireAdi}: ${ayYazisi(ay, yil)} aidatını ödediğini bildirdi. Onay bekliyor.`,
+        veri: { ekran: 'BekleyenBildirimler' },
+      });
+    }
+  } catch (hata) {
+    console.error('Aidat bildirimi push gönderilemedi:', hata.message);
+  }
 
   res.status(201).json({ id: aidat._id, durum: aidat.durum });
 });

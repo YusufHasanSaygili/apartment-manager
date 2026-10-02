@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 3.3
+**Mevcut görev:** 4.1
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -90,7 +90,7 @@ Kurallar:
   - Bildirim izni, push token'ın kaydedilmesi, duyuru yapılınca push gönderme
   - Deneme: Yönetici duyuru yapar, sakinin telefonuna bildirim düşer
 
-- [ ] **3.3 Aidat sonucu bildirimi**
+- [x] **3.3 Aidat sonucu bildirimi**
   - Aidat onaylanınca veya reddedilince sakine push; yeni aidat bildirimi gelince yöneticiye push
   - Deneme: Onay/red sonrası sakine bildirim gelir
 

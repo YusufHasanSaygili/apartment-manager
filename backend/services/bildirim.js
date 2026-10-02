@@ -18,6 +18,9 @@ async function pushGonder(tokenlar, { baslik, icerik, veri = {} }) {
       const cevap = await fetch(EXPO_PUSH_ADRESI, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        // 5 sn zaman sınırı: Expo cevap vermezse istek iptal edilir; böylece duyuru/aidat onayı yapan
+        // kullanıcı bildirim yüzünden yükleniyor ekranında beklemez (hata aşağıdaki catch'e düşer).
+        signal: AbortSignal.timeout(5000),
         body: JSON.stringify(
           parca.map((to) => ({ to, title: baslik, body: icerik, data: veri, sound: 'default', channelId: 'varsayilan' }))
         ),
@@ -45,4 +48,10 @@ async function pushGonder(tokenlar, { baslik, icerik, veri = {} }) {
   }
 }
 
-module.exports = { pushGonder };
+// Bildirim metinlerinde ay numarası yerine adı yazılsın diye ("10/2026" değil "Ekim 2026").
+const AY_ADLARI = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+// ay 1-12 arasıdır; dizi 0'dan başladığı için ay - 1 ile doğru ay adı alınır (1 → "Ocak").
+const ayYazisi = (ay, yil) => `${AY_ADLARI[ay - 1]} ${yil}`;
+
+// pushGonder ve ayYazisi dışarı açılır: duyuru ve aidat route'ları bildirim göndermek için bunları kullanır.
+module.exports = { pushGonder, ayYazisi };

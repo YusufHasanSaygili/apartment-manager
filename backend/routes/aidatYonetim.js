@@ -10,6 +10,7 @@ const Site = require('../models/Site');
 const dogrula = require('../middleware/dogrula');
 const { girisGerekli, sadeceYonetici } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
+const { pushGonder, ayYazisi } = require('../services/bildirim');
 
 const router = express.Router();
 
@@ -199,6 +200,36 @@ async function durumDegistir(req, res, yeniDurum) {
   if (!aidat) {
     throw new ApiHatasi(404, 'Bildirim bulunamadı veya zaten sonuçlandırılmış.');
   }
+
+  // Sakine sonucu push ile bildirir: onaylandıysa "ödendi", reddedildiyse tekrar bildirim atabileceği söylenir.
+  // Alıcı, aidatın dairesinde oturan sakindir; sorgu siteId ile filtrelenir (başka sitedeki kimseye gitmez).
+  // Bildirim gönderilemezse onay/red yine geçerlidir; hata sadece loglanır.
+  try {
+    const sakin = await Kullanici.findOne({
+      siteId: aidat.siteId,
+      daireId: aidat.daireId,
+      rol: 'sakin',
+      pushToken: { $ne: null },
+    })
+      .select('pushToken')
+      .lean();
+    if (sakin) {
+      const ay = ayYazisi(aidat.ay, aidat.yil);
+      await pushGonder(
+        [sakin.pushToken],
+        yeniDurum === 'onaylandi'
+          ? { baslik: 'Aidatınız onaylandı', icerik: `${ay} aidatınız ödendi olarak işlendi.`, veri: { ekran: 'AidatTakvimi' } }
+          : {
+              baslik: 'Aidat bildiriminiz reddedildi',
+              icerik: `${ay} bildiriminiz yönetici tarafından reddedildi. Bilgileri kontrol edip tekrar bildirebilirsiniz.`,
+              veri: { ekran: 'AidatBildir' },
+            }
+      );
+    }
+  } catch (hata) {
+    console.error('Aidat sonucu push gönderilemedi:', hata.message);
+  }
+
   res.json({ id: aidat._id, durum: aidat.durum });
 }
 
@@ -206,11 +237,13 @@ async function durumDegistir(req, res, yeniDurum) {
 // Kim kullanabilir: yönetici. Bildirimi onaylar; o ay o daire için "ödendi" sayılır.
 // Aynı daire + ay için ikinci bir onaylı kayıt oluşamaz: Aidat modelindeki kural bir ayda
 // tek bekleyen/onaylı kayda izin verir.
+// Onaydan sonra sakine "Aidatınız onaylandı" push bildirimi gider (durumDegistir içinde).
 // durumDegistir async olduğu için 404 hatası Express 5 tarafından yakalanıp merkezi hata yakalayıcıya gider.
 router.post('/:id/onayla', (req, res) => durumDegistir(req, res, 'onaylandi'));
 
 // POST /api/yonetim/aidatlar/:id/reddet
 // Kim kullanabilir: yönetici. Bildirimi reddeder; sakin aynı ay için yeniden bildirim gönderebilir.
+// Reddedince sakine "bildiriminiz reddedildi" push bildirimi gider (durumDegistir içinde).
 router.post('/:id/reddet', (req, res) => durumDegistir(req, res, 'reddedildi'));
 
 module.exports = router;
