@@ -11,6 +11,7 @@ import AcilisEkrani from './screens/AcilisEkrani';
 import SiteOlusturEkrani from './screens/SiteOlusturEkrani';
 import GirisEkrani from './screens/GirisEkrani';
 import YoneticiAnaEkrani from './screens/YoneticiAnaEkrani';
+import KurulumEkrani from './screens/KurulumEkrani';
 import { renkler } from './tema';
 
 // Stack navigator: ekranları üst üste dizer; yeni ekran açılınca öncekinin üstüne
@@ -40,7 +41,11 @@ function Ekranlar() {
       }}
     >
       {oturum ? (
-        <Stack.Screen name="YoneticiAna" component={YoneticiAnaEkrani} options={{ title: 'Apartmanım' }} />
+        <>
+          <Stack.Screen name="YoneticiAna" component={YoneticiAnaEkrani} options={{ title: 'Apartmanım' }} />
+          {/* Kurulum ekranı: yönetici ana ekranındaki "Bina ve daire kurulumu" butonuyla açılır */}
+          <Stack.Screen name="Kurulum" component={KurulumEkrani} options={{ title: 'Bina ve daire kurulumu' }} />
+        </>
       ) : (
         <>
           {/* Açılış ekranında üst başlık çubuğu gizlenir, ekranın kendi başlığı var */}
