@@ -1,7 +1,7 @@
 // Sakin ana ekranı: davet koduyla katılan sakin giriş yapınca bu ekranı görür.
 // Site ve daire bilgisini, "Aidat bildirimi gönder" butonunu ve gönderdiği son 2 bildirimi
 // (durumlarıyla) gösterir; tüm aylar "Aidat takvimim" ekranındadır. "Duyurular" butonuyla sitenin
-// duyuru listesine geçilir. Mesajlar ilerleyen görevlerde eklenecek.
+// duyuru listesine, "Yöneticiye mesaj" butonuyla yöneticiyle sohbete geçilir.
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -76,6 +76,8 @@ export default function SakinAnaEkrani({ navigation }) {
       <Buton baslik="Aidat takvimim" tur="ikincil" onPress={() => navigation.navigate('AidatTakvimi')} />
       {/* "Duyurular" butonu: basınca sitenin duyuru listesi açılır */}
       <Buton baslik="Duyurular" tur="ikincil" onPress={() => navigation.navigate('Duyurular')} />
+      {/* "Yöneticiye mesaj" butonu: basınca Sohbet ekranı açılır; sakin sadece sitenin yöneticisiyle yazışabilir */}
+      <Buton baslik="Yöneticiye mesaj" tur="ikincil" onPress={() => navigation.navigate('Sohbet')} />
 
       <Text style={styles.listeBaslik}>Son bildirimlerim</Text>
       <Text style={styles.bos}>Tüm aylar için "Aidat takvimim" ekranına bakın.</Text>

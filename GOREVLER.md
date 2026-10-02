@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 4.1
+**Mevcut görev:** 4.2
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -96,7 +96,7 @@ Kurallar:
 
 ## Aşama 4 — Mesajlaşma
 
-- [ ] **4.1 Mesajlaşma temeli**
+- [x] **4.1 Mesajlaşma temeli**
   - Mesaj modeli, mesaj gönderme ve geçmiş route'ları
   - Mobil: Yönetici için sohbet listesi, ortak sohbet ekranı, sakin için tek sohbet (yönetici)
   - Deneme: Mesaj gönderilir, sayfa yenilenince karşı tarafta görünür

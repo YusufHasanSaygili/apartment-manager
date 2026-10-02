@@ -23,6 +23,8 @@ import DaireHaritasiEkrani from './screens/DaireHaritasiEkrani';
 import AidatTakvimiEkrani from './screens/AidatTakvimiEkrani';
 import DuyurularEkrani from './screens/DuyurularEkrani';
 import DuyuruYazEkrani from './screens/DuyuruYazEkrani';
+import SohbetlerEkrani from './screens/SohbetlerEkrani';
+import SohbetEkrani from './screens/SohbetEkrani';
 import { renkler } from './tema';
 
 // Stack navigator: ekranları üst üste dizer; yeni ekran açılınca öncekinin üstüne
@@ -90,9 +92,13 @@ function Ekranlar() {
             component={DuyuruYazEkrani}
             options={({ route }) => ({ title: route.params?.duyuru ? 'Duyuruyu düzenle' : 'Yeni duyuru' })}
           />
+          {/* Mesajlar (yönetici): ana ekrandaki "Mesajlar" butonuyla sakin listesi açılır; bir sakine dokununca
+              Sohbet ekranı o sakinle açılır, başlıkta sakinin adı ve dairesi görünür */}
+          <Stack.Screen name="Sohbetler" component={SohbetlerEkrani} options={{ title: 'Mesajlar' }} />
+          <Stack.Screen name="Sohbet" component={SohbetEkrani} options={({ route }) => ({ title: route.params.baslik })} />
         </>
       ) : oturum ? (
-        // Sakin ekranları: ana ekran, aidat bildirimi, aidat takvimi ve duyurular (mesaj ileride eklenecek).
+        // Sakin ekranları: ana ekran, aidat bildirimi, aidat takvimi, duyurular ve yöneticiyle sohbet.
         <>
           <Stack.Screen name="SakinAna" component={SakinAnaEkrani} options={{ title: 'Apartmanım' }} />
           <Stack.Screen name="AidatBildir" component={AidatBildirEkrani} options={{ title: 'Aidat bildirimi' }} />
@@ -100,6 +106,8 @@ function Ekranlar() {
           <Stack.Screen name="AidatTakvimi" component={AidatTakvimiEkrani} options={{ title: 'Aidat takvimim' }} />
           {/* Duyurular (sakin): aynı ekran, sadece okuma */}
           <Stack.Screen name="Duyurular" component={DuyurularEkrani} options={{ title: 'Duyurular' }} />
+          {/* Sohbet (sakin): aynı ekran, kisiId verilmeden açılır → sakinin konuşabileceği tek kişi olan yönetici */}
+          <Stack.Screen name="Sohbet" component={SohbetEkrani} options={{ title: 'Yönetici ile mesajlar' }} />
         </>
       ) : (
         <>
