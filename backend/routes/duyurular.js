@@ -2,6 +2,8 @@
 const express = require('express');
 const { z } = require('zod');
 const Duyuru = require('../models/Duyuru');
+const Kullanici = require('../models/Kullanici');
+const { pushGonder } = require('../services/bildirim');
 const dogrula = require('../middleware/dogrula');
 const { girisGerekli, sadeceYonetici } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
@@ -27,11 +29,26 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/duyurular
-// Kim kullanabilir: sadece yönetici. Kendi sitesine yeni duyuru yapar.
-// (Duyurunun telefonlara bildirim olarak gitmesi Görev 3.2'de eklenecek.)
+// Kim kullanabilir: sadece yönetici. Kendi sitesine yeni duyuru yapar ve sitedeki herkesin
+// telefonuna push bildirim gönderir (duyuruyu yapan yönetici hariç).
 router.post('/', sadeceYonetici, dogrula(duyuruSemasi), async (req, res) => {
-  const duyuru = await Duyuru.create({ siteId: req.kullanici.siteId, ...req.body });
+  const { siteId, id } = req.kullanici;
+  const duyuru = await Duyuru.create({ siteId, ...req.body });
   res.status(201).json({ id: duyuru._id, baslik: duyuru.baslik, icerik: duyuru.icerik, tarih: duyuru.tarih });
+
+  // Bildirim cevaptan SONRA gönderilir: yönetici bildirimlerin gitmesini beklemez.
+  // Sadece aynı sitedeki ve push token'ı olan kullanıcılara gider (site izolasyonu).
+  // veri.ekran: bildirime dokununca hangi ekranın açılacağı bilgisi (mobil tarafta henüz okunmuyor).
+  // Cevap zaten gittiği için buradaki hatalar kullanıcıya iletilemez; sadece sunucu konsoluna yazılır.
+  try {
+    const alicilar = await Kullanici.find({ siteId, _id: { $ne: id }, pushToken: { $ne: null } }).select('pushToken').lean();
+    await pushGonder(
+      alicilar.map((k) => k.pushToken),
+      { baslik: `Duyuru: ${duyuru.baslik}`, icerik: duyuru.icerik, veri: { ekran: 'Duyurular' } }
+    );
+  } catch (hata) {
+    console.error('Duyuru bildirimi gönderilemedi:', hata.message);
+  }
 });
 
 // PUT /api/duyurular/:id

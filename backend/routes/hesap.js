@@ -1,4 +1,5 @@
-// Hesap route'ları: site oluşturma, davet koduyla katılma, giriş ve oturum sahibini sorgulama.
+// Hesap route'ları: site oluşturma, davet koduyla katılma, giriş, oturum sahibini sorgulama
+// ve telefonun push bildirim adresini (push token) kaydetme/silme.
 const express = require('express');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
@@ -175,6 +176,35 @@ router.post('/giris', girisSiniri, dogrula(girisSemasi), async (req, res) => {
   if (!bilgi) throw new ApiHatasi(401, 'E-posta veya şifre hatalı.');
 
   res.json({ token: tokenUret(kullanici._id), ...bilgi });
+});
+
+// Push token kuralı: Expo'nun verdiği biçimde olmalı (başka bir adrese bildirim gönderilemesin).
+const pushTokenSemasi = z.object({
+  token: z
+    .string({ error: 'Token girilmeli' })
+    .max(200, 'Token geçersiz')
+    .regex(/^Expo(nent)?PushToken\[.+\]$/, 'Token geçersiz'),
+});
+
+// PUT /api/hesap/push-token
+// Kim kullanabilir: giriş yapmış herkes. Telefonun push adresini kullanıcının hesabına kaydeder;
+// duyuru vb. bildirimler bu adrese gönderilir. Aynı telefon daha önce başka bir hesapta kayıtlıysa
+// oradan silinir (telefonda önce A sonra B giriş yaptıysa, A'nın bildirimleri bu telefona gelmesin).
+// O temizlikte siteId filtresi bilerek yok: telefon başka sitedeki bir hesapta kayıtlı olabilir.
+// Sadece pushToken alanı null yapılır, başka sitenin hiçbir verisi okunmaz veya cevapta gönderilmez.
+// Kendi hesabı ise istekten değil token'dan gelen req.kullanici.id ile güncellenir.
+router.put('/push-token', girisGerekli, dogrula(pushTokenSemasi), async (req, res) => {
+  const { token } = req.body;
+  await Kullanici.updateMany({ pushToken: token, _id: { $ne: req.kullanici.id } }, { pushToken: null });
+  await Kullanici.updateOne({ _id: req.kullanici.id }, { pushToken: token });
+  res.status(204).end();
+});
+
+// DELETE /api/hesap/push-token
+// Kim kullanabilir: giriş yapmış herkes. Çıkış yaparken çağrılır; bu hesaba artık bildirim gitmez.
+router.delete('/push-token', girisGerekli, async (req, res) => {
+  await Kullanici.updateOne({ _id: req.kullanici.id }, { pushToken: null });
+  res.status(204).end();
 });
 
 // GET /api/hesap/ben

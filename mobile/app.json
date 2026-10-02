@@ -15,13 +15,22 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "package": "com.apartmanim.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      "expo-notifications"
+    ],
+    "owner": "neoballs",
+    "extra": {
+      "eas": {
+        "projectId": "71206ca0-3976-415a-a362-07e3cfa65a8e"
+      }
+    }
   }
 }

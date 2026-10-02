@@ -19,6 +19,9 @@ const kullaniciSemasi = new mongoose.Schema(
     // Sakinin dairesi (davet koduyla katılırken bağlanır). Yönetici için null.
     // Sakin sadece bu dairenin verisini görebilir; bu yüzden istekten değil buradan okunur.
     daireId: { type: mongoose.Schema.Types.ObjectId, ref: 'Daire', default: null },
+    // Telefonun Expo push adresi ("ExponentPushToken[...]"). Bildirim bu adrese gönderilir.
+    // Giriş yapınca kaydedilir, çıkış yapınca silinir (çıkış yapmış telefona bildirim gitmesin).
+    pushToken: { type: String, default: null },
   },
   { timestamps: true }
 );

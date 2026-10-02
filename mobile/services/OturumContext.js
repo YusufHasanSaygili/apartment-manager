@@ -5,6 +5,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import api, { tokenAyarla } from './api';
+import { pushTokenAl } from './bildirim';
 
 // Token telefonda bu anahtar adıyla saklanır.
 const TOKEN_ANAHTARI = 'oturumToken';
@@ -45,6 +46,18 @@ export function OturumProvider({ children }) {
     kayitliOturumuYukle();
   }, []);
 
+  // useEffect: oturum açıldığında (giriş, kayıt, katılma veya otomatik giriş) çalışır.
+  // Telefonun push token'ı alınıp PUT /api/hesap/push-token ile hesaba kaydedilir; böylece
+  // duyuru gibi bildirimler bu telefona gelir. Bağımlılık kullanıcı id'si: aynı kullanıcı için tekrar çalışmaz.
+  // Hata olursa sessizce geçilir (bildirim alınamaz ama uygulama çalışmaya devam eder).
+  const kullaniciId = oturum?.kullanici.id;
+  useEffect(() => {
+    if (!kullaniciId) return;
+    pushTokenAl()
+      .then((pushToken) => pushToken && api.put('/hesap/push-token', { token: pushToken }))
+      .catch(() => {});
+  }, [kullaniciId]);
+
   // Sunucudan gelen giriş/kayıt/katılma cevabıyla oturumu açar.
   // Token expo-secure-store ile telefonun şifreli deposuna yazılır (AsyncStorage değil):
   // başka uygulamalar okuyamaz. Ayrıca sonraki tüm API isteklerine eklenir.
@@ -55,9 +68,11 @@ export function OturumProvider({ children }) {
     setOturum({ token, ...bilgi });
   };
 
-  // Çıkış: token telefondan ve isteklerden silinir, oturum boşaltılır →
-  // App.js otomatik olarak açılış ekranına döner.
+  // Çıkış: önce bu hesabın push token'ı backend'den silinir (çıkış yapmış telefona bildirim gitmesin),
+  // sonra token telefondan ve isteklerden silinir, oturum boşaltılır → App.js açılış ekranına döner.
+  // Push token silme isteği başarısız olsa bile (örn. internet yok) çıkış yine yapılır.
   const cikisYap = async () => {
+    await api.delete('/hesap/push-token').catch(() => {});
     await SecureStore.deleteItemAsync(TOKEN_ANAHTARI);
     tokenAyarla(null);
     setOturum(null);

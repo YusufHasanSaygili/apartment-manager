@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 3.2
+**Mevcut görev:** 3.3
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -85,7 +85,7 @@ Kurallar:
   - Mobil: Yönetici duyuru yazar, duyuruya dokunarak düzenler veya siler; herkes duyuru listesini görür
   - Deneme: Yönetici duyuru yapar, sakin listede görür
 
-- [ ] **3.2 Push bildirim altyapısı**
+- [x] **3.2 Push bildirim altyapısı**
   - Android Studio ile yerel geliştirme sürümü (`npx expo run:android`)
   - Bildirim izni, push token'ın kaydedilmesi, duyuru yapılınca push gönderme
   - Deneme: Yönetici duyuru yapar, sakinin telefonuna bildirim düşer

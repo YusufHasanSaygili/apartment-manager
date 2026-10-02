@@ -18,11 +18,12 @@ Herkes kendi sitesini kurabilir; her sitenin verisi birbirinden tamamen ayrıdı
 
 | Katman | Teknoloji |
 |---|---|
-| Mobil | React Native (Expo), React Navigation, axios, expo-secure-store, react-native-keyboard-controller |
+| Mobil | React Native (Expo), React Navigation, axios, expo-secure-store, react-native-keyboard-controller, expo-notifications |
 | Backend | Node.js, Express, zod (veri doğrulama) |
 | Giriş | JWT, bcrypt |
 | Güvenlik | helmet, CORS, express-rate-limit, MongoDB enjeksiyon koruması |
 | Veritabanı | MongoDB Atlas, Mongoose |
+| Push bildirim | Expo Push Service + Firebase Cloud Messaging (ücretsiz) |
 
 ## Kurulum
 
@@ -30,7 +31,10 @@ Herkes kendi sitesini kurabilir; her sitenin verisi birbirinden tamamen ayrıdı
 
 - Node.js 20.6 veya üzeri
 - Ücretsiz bir MongoDB Atlas hesabı
-- Telefonda **Expo Go** uygulaması (telefon ve bilgisayar aynı Wi-Fi ağında olmalı)
+- Android Studio (Android SDK ve JDK 17+); `ANDROID_HOME` ve `JAVA_HOME` ortam değişkenleri ayarlı
+- Geliştirici seçenekleri ve USB/kablosuz hata ayıklaması açık bir Android telefon (telefon ve bilgisayar aynı Wi-Fi ağında olmalı)
+- Ücretsiz bir Expo hesabı ve Firebase projesi (push bildirim için)
+- **Proje klasörünün yolunda Türkçe karakter (ı, ş, ğ, ü, ö, ç) veya boşluk dışı özel karakter olmamalı.** Android'in C++ derleyicileri bu yolda başarısız olur (örn. `Apartmanım` değil `Apartmanim`).
 
 ### 1. Backend
 
@@ -61,11 +65,26 @@ npm install
 değerine bilgisayarınızın yerel IP adresini yazın (Windows'ta `ipconfig` ile öğrenilir), örn.
 `http://192.168.1.10:3000`. Sonra:
 
+Push bildirim Expo Go'da çalışmadığı için uygulama Android Studio araçlarıyla yerel geliştirme
+sürümü olarak derlenir:
+
+1. Firebase konsolunda bir Android uygulaması ekleyin (paket adı `mobile/app.json` içindeki
+   `android.package`), indirilen `google-services.json` dosyasını `mobile/` klasörüne koyun
+   (repoya girmez, `.gitignore`'dadır).
+2. `npx eas init` ile projeyi kendi Expo hesabınıza bağlayın. expo.dev'de projenin
+   **Credentials** sayfasına Firebase'in **FCM V1 service account** anahtarını yükleyin.
+3. Telefonu bağlayıp (`adb devices` ile görünmeli) derleyin:
+
 ```bash
-npx expo start
+npx expo prebuild --platform android --clean
 ```
 
-Çıkan QR kodu telefondaki Expo Go ile okutun. Ekranda **"Sunucuya bağlandı"** yazmalıdır.
+```bash
+npx expo run:android
+```
+
+İlk derleme 10-20 dakika sürebilir. Uygulama telefonda açılır ve Metro sunucusuna bağlanır.
+Giriş yaptıktan sonra bildirim izni istenir; izin verilirse duyurular telefona bildirim olarak düşer.
 
 ### Sorun giderme
 
@@ -73,7 +92,11 @@ npx expo start
   Windows Güvenlik Duvarı Node.js'e "Özel ağlar" için izin veriyor mu?
 - **Backend'de `querySrv ECONNREFUSED` hatası:** Bilgisayarın DNS'i Atlas adresini çözemiyor.
   `backend/.env` içine `DNS_SUNUCULARI=1.1.1.1,8.8.8.8` ekleyin.
-- `.env` değiştirdikten sonra Expo'yu `npx expo start -c` ile yeniden başlatın.
+- `.env` değiştirdikten sonra Metro'yu `npx expo start -c` ile yeniden başlatın.
+- **Android derlemesinde CMake/ninja hatası:** Proje yolunda Türkçe karakter var mı? Klasörü yeniden
+  adlandırıp `npx expo prebuild --platform android --clean` çalıştırın.
+- **Bildirim gelmiyor:** Telefonun ayarlarında uygulamanın bildirim izni açık mı? Duyuruyu yapan kişiye
+  bildirim gitmez, sadece sitedeki diğer kişilere gider.
 
 ## Klasör yapısı
 
