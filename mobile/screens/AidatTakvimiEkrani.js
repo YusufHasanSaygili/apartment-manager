@@ -15,6 +15,8 @@ const DURUMLAR = {
   odendi: { zemin: renkler.basarili, yazi: renkler.birincilUzeri, isaret: '✓ Ödendi' },
   bekliyor: { zemin: renkler.sari, yazi: renkler.sariUzeri, isaret: '… Bekliyor' },
   odenmedi: { zemin: renkler.hata, yazi: renkler.birincilUzeri, isaret: '✕ Ödenmedi' },
+  // O ay dairede sakin yoktu (sakin daha sonra katıldı veya hiç sakin yok): borç sayılmaz.
+  bos: { zemin: renkler.gri, yazi: renkler.soluk, isaret: '– Sakin yok' },
 };
 
 // route.params: yönetici açtıysa { daireId, daireAdi } (haritadan gelir); sakin açtıysa boş.
@@ -33,7 +35,7 @@ export default function AidatTakvimiEkrani({ route }) {
   // useState: yüklenemezse gösterilecek hata mesajı.
   const [hata, setHata] = useState('');
 
-  // sonIstek: yıllar arasında hızlı geçilirse eski yılın geç gelen cevabını yok saymak için sayaç.
+  // useRef: sonIstek; değişince ekranı yeniden çizdirmeyen sayaç. Yıllar arasında hızlı geçilirse eski yılın geç gelen cevabını yok saymak için sayaç.
   const sonIstek = useRef(0);
 
   // API isteği: yönetici için GET /api/yonetim/aidatlar/takvim/:daireId, sakin için
@@ -56,7 +58,7 @@ export default function AidatTakvimiEkrani({ route }) {
     yukle();
   }, [yukle]);
 
-  // Yönetici ödenmemiş bir aya dokununca: önce onay sorulur, onaylanırsa
+  // Yönetici ödeme kaydı olmayan bir aya (kırmızı "Ödenmedi" veya gri "Sakin yok") dokununca: önce onay sorulur, onaylanırsa
   // POST /api/yonetim/aidatlar/elle ile o ay "ödendi" işaretlenir ve takvim yenilenir.
   const elleIsaretle = (ay) =>
     Alert.alert(
@@ -122,10 +124,11 @@ export default function AidatTakvimiEkrani({ route }) {
         <View style={styles.izgara}>
           {aylar.map((a) => {
             const d = DURUMLAR[a.durum];
-            // Yönetici sadece ödenmemiş (geçmiş veya gelecek) aya dokunabilir.
-            const dokunulur = yonetici && a.durum === 'odenmedi';
+            // Yönetici sadece ödeme kaydı olmayan aya (kırmızı veya gri) dokunup elle işaretleyebilir.
+            const dokunulur = yonetici && (a.durum === 'odenmedi' || a.durum === 'bos');
             return (
-              // Ay kutucuğu: rengi o ayın durumunu gösterir; yönetici için ödenmemiş aylar dokunulabilir.
+              // Ay kutucuğu: rengi o ayın durumunu gösterir. Yönetici için kırmızı ve gri aylar dokunulabilir;
+              // basınca elleIsaretle çalışır. Gri de dahil: sakin geç kayıt olduysa önceki ayı elden ödemiş olabilir.
               <Pressable
                 key={a.ay}
                 style={({ pressed }) => [styles.ay, { backgroundColor: d.zemin }, pressed && styles.basili]}

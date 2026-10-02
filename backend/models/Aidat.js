@@ -33,17 +33,26 @@ aidatSemasi.index(
   { unique: true, partialFilterExpression: { durum: { $in: ['bekliyor', 'onaylandi'] } } }
 );
 
+// Bir tarihi "ay sırası" sayısına çevirir: yıl × 12 + ay. İki ayı tek bir sayıyla karşılaştırmayı sağlar
+// (büyük olan daha ileri bir ay). Örn. Aralık 2026 → 2026 × 12 + 12. Ay, sunucunun saat dilimine göre bulunur.
+aidatSemasi.statics.aySirasi = (tarih) => tarih.getFullYear() * 12 + tarih.getMonth() + 1;
+
 // Bir dairenin seçilen yıldaki 12 ayının durumunu hesaplar (takvim ekranı için).
 // Yönetici ve sakin route'ları aynı hesabı kullansın diye modelde tek yerde tanımlı (statics).
-// Her ay için: odendi (onaylı kayıt var), bekliyor (onay bekleyen var) veya odenmedi.
-aidatSemasi.statics.yillikTakvim = async function (siteId, daireId, yil) {
+// Her ay için: odendi (onaylı kayıt var), bekliyor (onay bekleyen var), odenmedi (sakin varken ödenmemiş)
+// veya bos (ödeme kaydı yok ve o ay dairede sakin yoktu: hiç sakin yok ya da sakin daha sonra katıldı).
+// katilmaTarihi: dairedeki sakinin hesabını açtığı tarih; dairede sakin yoksa null.
+aidatSemasi.statics.yillikTakvim = async function (siteId, daireId, yil, katilmaTarihi) {
   // Reddedilenler durumu etkilemez; siteId filtresi site izolasyonu için.
   const kayitlar = await this.find({ siteId, daireId, yil, durum: { $in: ['bekliyor', 'onaylandi'] } }).lean();
   const ayaGore = new Map(kayitlar.map((k) => [k.ay, k]));
 
+  // Sakinin katıldığı ayın sırası; sakin yoksa Infinity (hiçbir ay "katıldıktan sonra" sayılmaz).
+  const katilmaSirasi = katilmaTarihi ? this.aySirasi(katilmaTarihi) : Infinity;
+
   return Array.from({ length: 12 }, (_, i) => {
     const kayit = ayaGore.get(i + 1);
-    if (!kayit) return { ay: i + 1, durum: 'odenmedi' };
+    if (!kayit) return { ay: i + 1, durum: yil * 12 + i + 1 < katilmaSirasi ? 'bos' : 'odenmedi' };
     return {
       ay: i + 1,
       durum: kayit.durum === 'onaylandi' ? 'odendi' : 'bekliyor',

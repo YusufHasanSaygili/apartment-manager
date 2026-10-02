@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 3.1
+**Mevcut görev:** 3.2
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -80,9 +80,9 @@ Kurallar:
 
 ## Aşama 3 — Duyurular ve Bildirimler
 
-- [ ] **3.1 Duyurular**
+- [x] **3.1 Duyurular**
   - Duyuru modeli, oluşturma ve listeleme route'ları
-  - Mobil: Yönetici duyuru yazar; herkes duyuru listesini görür
+  - Mobil: Yönetici duyuru yazar, duyuruya dokunarak düzenler veya siler; herkes duyuru listesini görür
   - Deneme: Yönetici duyuru yapar, sakin listede görür
 
 - [ ] **3.2 Push bildirim altyapısı**

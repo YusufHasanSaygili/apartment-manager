@@ -63,8 +63,9 @@ const haritaSemasi = z.object({
 // Kim kullanabilir: yönetici. Seçilen ay için sitedeki her dairenin aidat durumunu bina bina döner:
 //   odendi   → o ay için onaylanmış bildirim var (yeşil)
 //   bekliyor → onay bekleyen bildirim var (sarı)
-//   odenmedi → bildirim yok veya sadece reddedilmiş bildirim var, dairede sakin var (kırmızı)
-//   bos      → dairede henüz sakin yok ve ödeme kaydı da yok (gri)
+//   odenmedi → bildirim yok veya sadece reddedilmiş bildirim var, o ay dairede sakin var (kırmızı)
+//   bos      → ödeme kaydı yok ve o ay dairede sakin yoktu: hiç sakin yok veya sakin bu aydan
+//              SONRA katıldı (gri; katılmadan önceki aylar için "ödemedi" demek haksızlık olur)
 // Gelecek aylar da sorgulanabilir: yönetici ileri bir ayı elle işaretlediyse (Görev 2.4) haritada yeşil görür;
 // sakini olan diğer daireler o ay henüz ödenmediği için kırmızı görünür (yönetici sakini çıkarana kadar).
 // Sıra önemli: önce (router.use ile) giriş ve yönetici kontrolü, sonra dogrula ile ay/yıl kontrolü yapılır;
@@ -73,12 +74,18 @@ router.get('/harita', dogrula(haritaSemasi, 'query'), async (req, res) => {
   const { siteId } = req.kullanici;
   const { ay, yil } = req.query;
 
-  // Reddedilen bildirimler durumu etkilemediği için hiç alınmaz.
-  const [binalar, daireler, aidatlar] = await Promise.all([
+  // Reddedilen bildirimler durumu etkilemediği için hiç alınmaz. Sakinlerin hesap açma tarihi (createdAt)
+  // katıldıkları ayı bulmak için alınır.
+  const [binalar, daireler, aidatlar, sakinler] = await Promise.all([
     Bina.find({ siteId }).sort({ ad: 1 }).lean(),
-    Daire.find({ siteId }).sort({ daireNo: 1 }).select('binaId daireNo davetKoduKullanildi').lean(),
+    Daire.find({ siteId }).sort({ daireNo: 1 }).select('binaId daireNo').lean(),
     Aidat.find({ siteId, ay, yil, durum: { $in: ['bekliyor', 'onaylandi'] } }).select('daireId durum').lean(),
+    Kullanici.find({ siteId, rol: 'sakin', daireId: { $ne: null } }).select('daireId createdAt').lean(),
   ]);
+
+  // daireId → sakinin katıldığı ayın sırası (yıl × 12 + ay). Dairesinde sakin olmayan daire bu listede yoktur.
+  const katilmaSirasi = new Map(sakinler.map((k) => [String(k.daireId), Aidat.aySirasi(k.createdAt)]));
+  const secilenSira = yil * 12 + ay;
 
   // daireId → o ayki durum ('bekliyor' veya 'onaylandi'). Bir dairede ikisinden en fazla biri olabilir.
   const aidatDurumu = new Map(aidatlar.map((a) => [String(a.daireId), a.durum]));
@@ -88,7 +95,9 @@ router.get('/harita', dogrula(haritaSemasi, 'query'), async (req, res) => {
     const kayit = aidatDurumu.get(String(d._id));
     if (kayit === 'onaylandi') return 'odendi';
     if (kayit === 'bekliyor') return 'bekliyor';
-    return d.davetKoduKullanildi ? 'odenmedi' : 'bos';
+    // Sakin yoksa veya sakin seçilen aydan sonra katıldıysa gri, değilse kırmızı.
+    const katilma = katilmaSirasi.get(String(d._id));
+    return katilma !== undefined && secilenSira >= katilma ? 'odenmedi' : 'bos';
   };
 
   // Daireler bina bina gruplanır. binaId bir ObjectId olduğu için === yerine .equals ile karşılaştırılır
@@ -123,7 +132,9 @@ router.get('/takvim/:daireId', dogrula(yilSemasi, 'query'), async (req, res) => 
   const daire = await Daire.findOne({ _id: req.params.daireId, siteId }).lean();
   if (!daire) throw new ApiHatasi(404, 'Daire bulunamadı.');
 
-  res.json({ aylar: await Aidat.yillikTakvim(siteId, daire._id, req.query.yil) });
+  // Dairedeki sakin (varsa): katıldığı aydan önceki aylar takvimde gri görünür.
+  const sakin = await Kullanici.findOne({ siteId, daireId: daire._id, rol: 'sakin' }).select('createdAt').lean();
+  res.json({ aylar: await Aidat.yillikTakvim(siteId, daire._id, req.query.yil, sakin?.createdAt ?? null) });
 });
 
 // Elle işaretleme formunun kuralları. daireId: MongoDB kimliği biçiminde (24 karakter onaltılık).

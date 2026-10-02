@@ -5,12 +5,14 @@ import { renkler } from '../tema';
 
 // etiket: alanın adı. Geri kalan tüm özellikler (value, onChangeText, secureTextEntry,
 // keyboardType...) olduğu gibi TextInput'a aktarılır (...digerleri).
-export default function FormAlani({ etiket, ...digerleri }) {
+// style: (isteğe bağlı) kutuya ek stil, örn. uzun metin için daha yüksek kutu; varsayılan stilin üstüne eklenir.
+export default function FormAlani({ etiket, style, ...digerleri }) {
   return (
     <View style={styles.kapsayici}>
       <Text style={styles.etiket}>{etiket}</Text>
+      {/* style dizisi: sonra gelen (dışarıdan verilen style) varsayılanla çakışan değerleri ezer */}
       <TextInput
-        style={styles.girdi}
+        style={[styles.girdi, style]}
         placeholderTextColor={renkler.soluk}
         accessibilityLabel={etiket}
         {...digerleri}

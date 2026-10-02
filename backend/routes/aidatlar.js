@@ -3,6 +3,7 @@ const express = require('express');
 const { z } = require('zod');
 const Aidat = require('../models/Aidat');
 const Site = require('../models/Site');
+const Kullanici = require('../models/Kullanici');
 const dogrula = require('../middleware/dogrula');
 const { tutarKurali } = require('../middleware/dogrula');
 const { girisGerekli, sadeceSakin } = require('../middleware/kimlik');
@@ -40,8 +41,10 @@ const yilSemasi = z.object({
   yil: z.coerce.number({ error: 'Yıl geçersiz' }).int().min(2000, 'Yıl geçersiz').max(2100, 'Yıl geçersiz'),
 });
 router.get('/takvim', dogrula(yilSemasi, 'query'), async (req, res) => {
-  const { siteId, daireId } = req.kullanici;
-  res.json({ aylar: await Aidat.yillikTakvim(siteId, daireId, req.query.yil) });
+  const { id, siteId, daireId } = req.kullanici;
+  // Sakinin hesap açma tarihi: katıldığı aydan önceki aylar takvimde gri ("Sakin yok") görünür.
+  const sakin = await Kullanici.findById(id).select('createdAt').lean();
+  res.json({ aylar: await Aidat.yillikTakvim(siteId, daireId, req.query.yil, sakin?.createdAt ?? null) });
 });
 
 // GET /api/aidatlar/benim

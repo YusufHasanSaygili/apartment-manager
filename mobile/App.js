@@ -21,6 +21,8 @@ import AidatTutariEkrani from './screens/AidatTutariEkrani';
 import BekleyenBildirimlerEkrani from './screens/BekleyenBildirimlerEkrani';
 import DaireHaritasiEkrani from './screens/DaireHaritasiEkrani';
 import AidatTakvimiEkrani from './screens/AidatTakvimiEkrani';
+import DuyurularEkrani from './screens/DuyurularEkrani';
+import DuyuruYazEkrani from './screens/DuyuruYazEkrani';
 import { renkler } from './tema';
 
 // Stack navigator: ekranları üst üste dizer; yeni ekran açılınca öncekinin üstüne
@@ -79,14 +81,25 @@ function Ekranlar() {
             component={AidatTakvimiEkrani}
             options={({ route }) => ({ title: `${route.params.daireAdi} aidat takvimi` })}
           />
+          {/* Duyurular (yönetici): liste. DuyuruYaz "Yeni duyuru" butonuyla boş, bir duyuru kartına dokununca
+              düzenleme modunda (dolu alanlar + silme butonu) açılır.
+              DuyuruYaz sadece yönetici grubunda tanımlı: sakin bu ekrana hiç gidemez (asıl engel yine backend'de). */}
+          <Stack.Screen name="Duyurular" component={DuyurularEkrani} options={{ title: 'Duyurular' }} />
+          <Stack.Screen
+            name="DuyuruYaz"
+            component={DuyuruYazEkrani}
+            options={({ route }) => ({ title: route.params?.duyuru ? 'Duyuruyu düzenle' : 'Yeni duyuru' })}
+          />
         </>
       ) : oturum ? (
-        // Sakin ekranları: ana ekran, aidat bildirimi ve aidat takvimi (duyuru, mesaj ileride eklenecek).
+        // Sakin ekranları: ana ekran, aidat bildirimi, aidat takvimi ve duyurular (mesaj ileride eklenecek).
         <>
           <Stack.Screen name="SakinAna" component={SakinAnaEkrani} options={{ title: 'Apartmanım' }} />
           <Stack.Screen name="AidatBildir" component={AidatBildirEkrani} options={{ title: 'Aidat bildirimi' }} />
           {/* Aidat takvimi (sakin): aynı ekran, daireId verilmeden açılır → sakinin kendi dairesi */}
           <Stack.Screen name="AidatTakvimi" component={AidatTakvimiEkrani} options={{ title: 'Aidat takvimim' }} />
+          {/* Duyurular (sakin): aynı ekran, sadece okuma */}
+          <Stack.Screen name="Duyurular" component={DuyurularEkrani} options={{ title: 'Duyurular' }} />
         </>
       ) : (
         <>

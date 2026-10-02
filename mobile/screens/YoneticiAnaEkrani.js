@@ -1,7 +1,7 @@
 // Yönetici ana ekranı: yönetici giriş yapınca açılan ekran.
 // Site adını, bina/daire kurulumunun durumunu ve aylık aidat tutarını gösterir; kurulum
 // yapılmadıysa kurulum ekranına yönlendirir. Onay bekleyen aidat bildirimlerinin sayısını gösterir ve
-// bildirimler ekranına geçirir. Duyurular ilerleyen görevlerde eklenecek.
+// bildirimler ekranına geçirir. Daire haritası ve Duyurular ekranlarına da buradan geçilir.
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -88,6 +88,8 @@ export default function YoneticiAnaEkrani({ navigation }) {
           />
           {/* "Daire haritası" butonu: basınca DaireHaritasi ekranı açılır (aylık renkli aidat durumu) */}
           <Buton baslik="Daire haritası" tur="ikincil" onPress={() => navigation.navigate('DaireHaritasi')} />
+          {/* "Duyurular" butonu: basınca Duyurular ekranı açılır (duyuru yazma ve silme oradan) */}
+          <Buton baslik="Duyurular" tur="ikincil" onPress={() => navigation.navigate('Duyurular')} />
         </View>
       )}
 
