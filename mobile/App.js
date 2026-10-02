@@ -14,16 +14,19 @@ import YoneticiAnaEkrani from './screens/YoneticiAnaEkrani';
 import KurulumEkrani from './screens/KurulumEkrani';
 import DaireListesiEkrani from './screens/DaireListesiEkrani';
 import DaireKoduEkrani from './screens/DaireKoduEkrani';
+import SakinAnaEkrani from './screens/SakinAnaEkrani';
+import DavetKatilEkrani from './screens/DavetKatilEkrani';
 import { renkler } from './tema';
 
 // Stack navigator: ekranları üst üste dizer; yeni ekran açılınca öncekinin üstüne
 // gelir, geri tuşuyla bir öncekine dönülür.
 const Stack = createNativeStackNavigator();
 
-// Ekran listesi oturuma göre değişir (React Navigation'ın önerdiği giriş akışı yöntemi):
-// oturum yoksa sadece açılış/kayıt ekranları, varsa sadece yönetici ekranları tanımlıdır.
-// Böylece giriş yapmamış biri yönetici ekranına hiçbir şekilde gidemez; oturum açılınca
-// açılış ekranları listeden çıktığı için geri tuşu kullanıcıyı kayıt formuna döndürmez.
+// Ekran listesi oturuma ve role göre değişir (React Navigation'ın önerdiği giriş akışı yöntemi):
+// oturum yoksa açılış/kayıt ekranları, yöneticiyse yönetici ekranları, sakinse sakin ekranları
+// tanımlıdır. Tanımlı olmayan bir ekrana hiçbir şekilde gidilemez; oturum açılınca açılış
+// ekranları listeden çıktığı için geri tuşu kullanıcıyı kayıt formuna döndürmez.
+// (Asıl yetki kontrolü backend'dedir; bu ayrım kullanıcıya doğru ekranları göstermek içindir.)
 function Ekranlar() {
   // oturum: giriş yapılmış mı; hazir: açılıştaki otomatik giriş kontrolü bitti mi (OturumContext'ten).
   const { oturum, hazir } = useOturum();
@@ -42,7 +45,7 @@ function Ekranlar() {
         headerShadowVisible: false,
       }}
     >
-      {oturum ? (
+      {oturum?.kullanici.rol === 'yonetici' ? (
         <>
           <Stack.Screen name="YoneticiAna" component={YoneticiAnaEkrani} options={{ title: 'Apartmanım' }} />
           {/* Kurulum ekranı: yönetici ana ekranındaki "Bina ve daire kurulumu" butonuyla açılır */}
@@ -56,12 +59,16 @@ function Ekranlar() {
             options={{ presentation: 'formSheet', headerShown: false, sheetAllowedDetents: 'fitToContents' }}
           />
         </>
+      ) : oturum ? (
+        // Sakin ekranları: şimdilik sadece ana ekran (aidat, duyuru, mesaj ileride eklenecek).
+        <Stack.Screen name="SakinAna" component={SakinAnaEkrani} options={{ title: 'Apartmanım' }} />
       ) : (
         <>
           {/* Açılış ekranında üst başlık çubuğu gizlenir, ekranın kendi başlığı var */}
           <Stack.Screen name="Acilis" component={AcilisEkrani} options={{ headerShown: false }} />
           <Stack.Screen name="Giris" component={GirisEkrani} options={{ title: 'Giriş yap' }} />
           <Stack.Screen name="SiteOlustur" component={SiteOlusturEkrani} options={{ title: 'Yeni site/apartman oluştur' }} />
+          <Stack.Screen name="DavetKatil" component={DavetKatilEkrani} options={{ title: 'Davet koduyla katıl' }} />
         </>
       )}
     </Stack.Navigator>

@@ -9,6 +9,10 @@ const daireSemasi = new mongoose.Schema({
   // 6 haneli davet kodu. Sakin katılırken sadece kodu girer (site seçmez), bu yüzden
   // kod TÜM uygulamada benzersiz olmalıdır (unique index).
   davetKodu: { type: String, required: true, unique: true },
+  // Kod tek kullanımlıktır: bir sakin katılınca true olur ve kod bir daha kabul edilmez.
+  davetKoduKullanildi: { type: Boolean, default: false },
+  // Dairede oturan sakinin hesabı (henüz kimse katılmadıysa null).
+  sakinId: { type: mongoose.Schema.Types.ObjectId, ref: 'Kullanici', default: null },
 });
 
 // Aynı binada aynı numaralı iki daire olamaz.

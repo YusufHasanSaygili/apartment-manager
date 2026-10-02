@@ -5,9 +5,9 @@ import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
 import { renkler } from '../tema';
 
-// route.params: daire listesinden gönderilen daire adı (örn. "A3") ve davet kodu.
+// route.params: daire listesinden gönderilen daire adı (örn. "A3"), davet kodu ve dolu bilgisi.
 export default function DaireKoduEkrani({ route, navigation }) {
-  const { daireAdi, davetKodu } = route.params;
+  const { daireAdi, davetKodu, dolu } = route.params;
   // useOturum: giriş yapan kullanıcının oturum bilgisi; paylaşım mesajına site adını koymak için gerekir.
   const { oturum } = useOturum();
 
@@ -31,10 +31,16 @@ export default function DaireKoduEkrani({ route, navigation }) {
       <Text style={styles.kod} selectable accessibilityLabel={`Davet kodu ${davetKodu.split('').join(' ')}`}>
         {davetKodu}
       </Text>
-      <Text style={styles.not}>Sakin bu kodla uygulamaya katılınca hesabı bu daireye bağlanır.</Text>
-
-      {/* "Kodu paylaş" butonu: basınca paylas çalışır ve telefonun paylaşım menüsü açılır */}
-      <Buton baslik="Kodu paylaş" onPress={paylas} />
+      {/* Kod tek kullanımlık: kullanıldıysa paylaşma butonu gösterilmez */}
+      {dolu ? (
+        <Text style={styles.not}>Bu kod kullanıldı. Dairede kayıtlı bir sakin var.</Text>
+      ) : (
+        <>
+          <Text style={styles.not}>Sakin bu kodla uygulamaya katılınca hesabı bu daireye bağlanır.</Text>
+          {/* "Kodu paylaş" butonu: basınca paylas çalışır ve telefonun paylaşım menüsü açılır */}
+          <Buton baslik="Kodu paylaş" onPress={paylas} />
+        </>
+      )}
       {/* "Kapat" butonu: basınca pencere kapanır, daire listesine dönülür */}
       <Buton baslik="Kapat" tur="ikincil" onPress={() => navigation.goBack()} />
     </View>

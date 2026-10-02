@@ -2,19 +2,20 @@
 // Site adını ve bina/daire kurulumunun durumunu gösterir; kurulum yapılmadıysa kurulum ekranına yönlendirir.
 // Aidat ve duyuru bölümleri ilerleyen görevlerde eklenecek.
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
 import HataMesaji from '../components/HataMesaji';
+import CikisButonu from '../components/CikisButonu';
 import { renkler } from '../tema';
 
 // navigation: kurulum ve daire listesi ekranlarına geçmek için kullanılır.
 export default function YoneticiAnaEkrani({ navigation }) {
   // Oturumdaki kullanıcı ve site bilgisi (giriş/kayıt sırasında sunucudan geldi).
   // oturum burada asla null değildir: App.js bu ekranı sadece oturum açıkken gösterir.
-  const { oturum, cikisYap } = useOturum();
+  const { oturum } = useOturum();
 
   // useState: sitenin bina ve daire sayısı ({ binaSayisi, daireSayisi }).
   // null → henüz yüklenmedi. binaSayisi 0 ise kurulum yapılmamış demektir.
@@ -41,13 +42,6 @@ export default function YoneticiAnaEkrani({ navigation }) {
       ozetiYukle();
     }, [ozetiYukle])
   );
-
-  // Yanlışlıkla basılmasın diye önce onay sorulur; "Çıkış yap" seçilirse cikisYap çalışır.
-  const cikisOnayi = () =>
-    Alert.alert('Çıkış yap', 'Hesabınızdan çıkmak istiyor musunuz?', [
-      { text: 'Vazgeç', style: 'cancel' },
-      { text: 'Çıkış yap', style: 'destructive', onPress: cikisYap },
-    ]);
 
   return (
     <View style={styles.kapsayici}>
@@ -81,9 +75,9 @@ export default function YoneticiAnaEkrani({ navigation }) {
         )}
       </View>
 
-      {/* "Çıkış yap" butonu: basınca cikisOnayi çalışır, onaylanırsa açılış ekranına dönülür */}
+      {/* Çıkış butonu ekranın en altında; basınca onay sorulur (ortak CikisButonu component'i) */}
       <View style={styles.alt}>
-        <Buton baslik="Çıkış yap" tur="ikincil" onPress={cikisOnayi} />
+        <CikisButonu />
       </View>
     </View>
   );

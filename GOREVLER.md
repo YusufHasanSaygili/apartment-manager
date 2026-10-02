@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 1.5
+**Mevcut görev:** 2.1
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -49,7 +49,7 @@ Kurallar:
   - Daireye dokununca davet kodunu gösterme ve paylaşma butonu
   - Deneme: Yönetici bir dairenin kodunu görür ve paylaşır
 
-- [ ] **1.5 Davet koduyla katıl**
+- [x] **1.5 Davet koduyla katıl**
   - Sakin kayıt route'u, davet kodunun tek kullanımlık olması
   - Mobil: "Davet koduyla katıl" ekranı, sakin ana ekranı (site ve daire bilgisi)
   - Deneme: Sakin kodla kayıt olur; aynı kod ikinci kez kullanılamaz

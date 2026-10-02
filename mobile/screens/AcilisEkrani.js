@@ -30,8 +30,8 @@ export default function AcilisEkrani({ navigation }) {
           onPress={() => navigation.navigate('SiteOlustur')}
         />
 
-        {/* "Davet koduyla katıl" butonu: sakinler için. Görev 1.5'te gelecek. */}
-        <Buton baslik="Davet koduyla katıl" tur="ikincil" onPress={yakinda} />
+        {/* "Davet koduyla katıl" butonu: sakinler için; basınca DavetKatil ekranına geçilir */}
+        <Buton baslik="Davet koduyla katıl" tur="ikincil" onPress={() => navigation.navigate('DavetKatil')} />
 
         {/* "Devir koduyla yönetici ol" butonu: yöneticiliği devralan kişi için. Görev 6.2'de gelecek. */}
         <Buton baslik="Devir koduyla yönetici ol" tur="ikincil" onPress={yakinda} />

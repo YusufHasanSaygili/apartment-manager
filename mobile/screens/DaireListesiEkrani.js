@@ -57,7 +57,9 @@ export default function DaireListesiEkrani({ navigation }) {
       contentContainerStyle={styles.icerik}
       data={binalar}
       keyExtractor={(bina) => bina.id}
+      // ListEmptyComponent: hiç bina yoksa gösterilir. ListHeaderComponent: listenin üstündeki renk açıklaması.
       ListEmptyComponent={<Text style={styles.bos}>Henüz daire oluşturulmamış.</Text>}
+      ListHeaderComponent={<Text style={styles.not}>Koyu renkli daireler: sakin katılmış.</Text>}
       renderItem={({ item: bina }) => (
         <View style={styles.bina}>
           <Text style={styles.binaBaslik}>{bina.ad} Blok</Text>
@@ -68,14 +70,15 @@ export default function DaireListesiEkrani({ navigation }) {
                 // Daire kutucuğu: basınca DaireKodu ekranı açılır, daire adı ve kodu oraya gönderilir.
                 <Pressable
                   key={daire.id}
-                  style={({ pressed }) => [styles.daire, pressed && styles.basili]}
+                  // dolu: sakin katılmış daireler koyu renkle gösterilir.
+                  style={({ pressed }) => [styles.daire, daire.dolu && styles.dolu, pressed && styles.basili]}
                   onPress={() =>
-                    navigation.navigate('DaireKodu', { daireAdi, davetKodu: daire.davetKodu })
+                    navigation.navigate('DaireKodu', { daireAdi, davetKodu: daire.davetKodu, dolu: daire.dolu })
                   }
                   accessibilityRole="button"
-                  accessibilityLabel={`Daire ${daireAdi}, davet kodunu göster`}
+                  accessibilityLabel={`Daire ${daireAdi}${daire.dolu ? ', sakin katılmış' : ''}, davet kodunu göster`}
                 >
-                  <Text style={styles.daireYazi}>{daireAdi}</Text>
+                  <Text style={[styles.daireYazi, daire.dolu && styles.doluYazi]}>{daireAdi}</Text>
                 </Pressable>
               );
             })}
@@ -135,6 +138,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: renkler.arkaPlan,
+  },
+  dolu: {
+    borderColor: renkler.birincil,
+    backgroundColor: renkler.birincil,
+  },
+  doluYazi: {
+    color: renkler.birincilUzeri,
+  },
+  not: {
+    fontSize: 14,
+    color: renkler.soluk,
   },
   basili: {
     opacity: 0.6,

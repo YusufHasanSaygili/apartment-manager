@@ -45,13 +45,14 @@ export function OturumProvider({ children }) {
     kayitliOturumuYukle();
   }, []);
 
-  // Sunucudan gelen giriş/kayıt cevabıyla oturumu açar.
+  // Sunucudan gelen giriş/kayıt/katılma cevabıyla oturumu açar.
   // Token expo-secure-store ile telefonun şifreli deposuna yazılır (AsyncStorage değil):
   // başka uygulamalar okuyamaz. Ayrıca sonraki tüm API isteklerine eklenir.
-  const oturumAc = async ({ token, kullanici, site }) => {
+  // ...bilgi: cevaptaki diğer her şey (kullanıcı, site ve sakinse daire) oturuma olduğu gibi yazılır.
+  const oturumAc = async ({ token, ...bilgi }) => {
     await SecureStore.setItemAsync(TOKEN_ANAHTARI, token);
     tokenAyarla(token);
-    setOturum({ token, kullanici, site });
+    setOturum({ token, ...bilgi });
   };
 
   // Çıkış: token telefondan ve isteklerden silinir, oturum boşaltılır →

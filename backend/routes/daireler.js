@@ -13,7 +13,7 @@ router.use(girisGerekli, sadeceYonetici);
 
 // GET /api/daireler
 // Kim kullanabilir: yönetici. Kendi sitesindeki binaları, her binanın içinde daireleriyle
-// (numara + davet kodu) sıralı olarak döner. siteId token'dan alınır; başka sitenin
+// (numara, davet kodu, dolu mu) sıralı olarak döner. siteId token'dan alınır; başka sitenin
 // dairesi bu sorguya hiçbir şekilde giremez.
 router.get('/', async (req, res) => {
   const { siteId } = req.kullanici;
@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
   // İki sorgu aynı anda çalışır (Promise.all), sonuçlar sıralı gelir: binalar A→Z, daireler 1→n.
   const [binalar, daireler] = await Promise.all([
     Bina.find({ siteId }).sort({ ad: 1 }).lean(),
-    Daire.find({ siteId }).sort({ daireNo: 1 }).select('binaId daireNo davetKodu').lean(),
+    Daire.find({ siteId }).sort({ daireNo: 1 }).select('binaId daireNo davetKodu davetKoduKullanildi').lean(),
   ]);
 
   // Daireler kendi binasının altına yerleştirilir; mobil ekran bina bina listeler.
@@ -32,7 +32,12 @@ router.get('/', async (req, res) => {
     ad: bina.ad,
     daireler: daireler
       .filter((d) => d.binaId.equals(bina._id))
-      .map((d) => ({ id: d._id, daireNo: d.daireNo, davetKodu: d.davetKodu })),
+      .map((d) => ({
+        id: d._id,
+        daireNo: d.daireNo,
+        davetKodu: d.davetKodu,
+        dolu: d.davetKoduKullanildi, // kod kullanıldıysa dairede kayıtlı bir sakin var
+      })),
   }));
 
   res.json(sonuc);

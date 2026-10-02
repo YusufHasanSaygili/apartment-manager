@@ -16,6 +16,9 @@ const kullaniciSemasi = new mongoose.Schema(
     // Yetki kontrolleri bu alana göre yapılır. Kayıtta istekten alınmaz, route'ta sabit verilir
     // (site oluşturan → 'yonetici'), böylece kimse kendini yönetici yapamaz.
     rol: { type: String, enum: ['yonetici', 'sakin'], required: true },
+    // Sakinin dairesi (davet koduyla katılırken bağlanır). Yönetici için null.
+    // Sakin sadece bu dairenin verisini görebilir; bu yüzden istekten değil buradan okunur.
+    daireId: { type: mongoose.Schema.Types.ObjectId, ref: 'Daire', default: null },
   },
   { timestamps: true }
 );
