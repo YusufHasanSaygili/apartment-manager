@@ -1,0 +1,22 @@
+# Bağımlılıklar (npm install ile yeniden kurulur)
+node_modules/
+
+# Gizli ayarlar: veritabanı adresi, JWT anahtarı vb. ASLA repoya girmez
+.env
+.env.*
+!.env.example
+
+# Expo ve yerel Android/iOS derleme klasörleri
+.expo/
+android/
+ios/
+dist/
+web-build/
+*.apk
+*.aab
+
+# Log ve sistem dosyaları
+npm-debug.log*
+*.log
+.DS_Store
+Thumbs.db
