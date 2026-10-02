@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 1.4
+**Mevcut görev:** 1.5
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -44,7 +44,7 @@ Kurallar:
   - Mobil: Yönetici kurulum ekranı (bina sayısı, her binadaki daire sayısı)
   - Deneme: 3 bina × 12 daire girilir, A1–C12 daireleri oluşur
 
-- [ ] **1.4 Daire listesi ve davet kodları**
+- [x] **1.4 Daire listesi ve davet kodları**
   - Dairelerin bina bina listelenmesi (renkler henüz yok)
   - Daireye dokununca davet kodunu gösterme ve paylaşma butonu
   - Deneme: Yönetici bir dairenin kodunu görür ve paylaşır

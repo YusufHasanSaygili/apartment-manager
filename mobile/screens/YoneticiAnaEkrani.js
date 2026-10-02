@@ -10,7 +10,7 @@ import Buton from '../components/Buton';
 import HataMesaji from '../components/HataMesaji';
 import { renkler } from '../tema';
 
-// navigation: kurulum ekranına geçmek için kullanılır.
+// navigation: kurulum ve daire listesi ekranlarına geçmek için kullanılır.
 export default function YoneticiAnaEkrani({ navigation }) {
   // Oturumdaki kullanıcı ve site bilgisi (giriş/kayıt sırasında sunucudan geldi).
   // oturum burada asla null değildir: App.js bu ekranı sadece oturum açıkken gösterir.
@@ -75,6 +75,8 @@ export default function YoneticiAnaEkrani({ navigation }) {
               {ozet.binaSayisi} bina, {ozet.daireSayisi} daire
             </Text>
             <Text style={styles.kartYazi}>Kurulum tamamlandı.</Text>
+            {/* "Daireler ve davet kodları" butonu: basınca DaireListesi ekranına geçilir */}
+            <Buton baslik="Daireler ve davet kodları" onPress={() => navigation.navigate('DaireListesi')} />
           </>
         )}
       </View>

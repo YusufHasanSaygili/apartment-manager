@@ -12,6 +12,8 @@ import SiteOlusturEkrani from './screens/SiteOlusturEkrani';
 import GirisEkrani from './screens/GirisEkrani';
 import YoneticiAnaEkrani from './screens/YoneticiAnaEkrani';
 import KurulumEkrani from './screens/KurulumEkrani';
+import DaireListesiEkrani from './screens/DaireListesiEkrani';
+import DaireKoduEkrani from './screens/DaireKoduEkrani';
 import { renkler } from './tema';
 
 // Stack navigator: ekranları üst üste dizer; yeni ekran açılınca öncekinin üstüne
@@ -45,6 +47,14 @@ function Ekranlar() {
           <Stack.Screen name="YoneticiAna" component={YoneticiAnaEkrani} options={{ title: 'Apartmanım' }} />
           {/* Kurulum ekranı: yönetici ana ekranındaki "Bina ve daire kurulumu" butonuyla açılır */}
           <Stack.Screen name="Kurulum" component={KurulumEkrani} options={{ title: 'Bina ve daire kurulumu' }} />
+          {/* Daire listesi: ana ekrandaki "Daireler ve davet kodları" butonuyla açılır */}
+          <Stack.Screen name="DaireListesi" component={DaireListesiEkrani} options={{ title: 'Daireler' }} />
+          {/* Daire kodu: alttan açılan pencere (formSheet); yüksekliği içeriğe göre ayarlanır */}
+          <Stack.Screen
+            name="DaireKodu"
+            component={DaireKoduEkrani}
+            options={{ presentation: 'formSheet', headerShown: false, sheetAllowedDetents: 'fitToContents' }}
+          />
         </>
       ) : (
         <>

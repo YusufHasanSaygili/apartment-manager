@@ -9,6 +9,7 @@ const cors = require('cors');
 const saglikRoute = require('./routes/saglik');
 const hesapRoute = require('./routes/hesap');
 const kurulumRoute = require('./routes/kurulum');
+const dairelerRoute = require('./routes/daireler');
 const { genelSinir } = require('./middleware/denemeSiniri');
 const temizle = require('./middleware/temizle');
 const { bulunamadi, hataYakalayici } = require('./middleware/hataYonetimi');
@@ -54,6 +55,7 @@ app.use(temizle);
 app.use('/api/saglik', saglikRoute);
 app.use('/api/hesap', hesapRoute);
 app.use('/api/kurulum', kurulumRoute); // bina/daire kurulumu: sadece giriş yapmış yönetici
+app.use('/api/daireler', dairelerRoute); // sadece giriş yapmış yönetici
 
 // Hiçbir route'a uymayan istekler 404'e, tüm hatalar merkezi hata yakalayıcıya gider.
 // Bu ikisi route'lardan SONRA eklenmelidir; Express middleware'leri sırayla çalıştırır.
