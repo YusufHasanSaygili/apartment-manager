@@ -7,6 +7,7 @@ const { z } = require('zod');
 const Bina = require('../models/Bina');
 const Daire = require('../models/Daire');
 const Site = require('../models/Site');
+const Aidat = require('../models/Aidat');
 const dogrula = require('../middleware/dogrula');
 const { tutarKurali } = require('../middleware/dogrula');
 const { girisGerekli, sadeceYonetici } = require('../middleware/kimlik');
@@ -51,16 +52,18 @@ function davetKodlariUret(adet) {
 }
 
 // GET /api/kurulum
-// Kim kullanabilir: yönetici. Kendi sitesindeki bina ve daire sayısını ve aylık aidat tutarını döner.
+// Kim kullanabilir: yönetici. Kendi sitesindeki bina ve daire sayısını, aylık aidat tutarını ve
+// onay bekleyen aidat bildirimi sayısını döner.
 // Ana ekran kurulumun yapılıp yapılmadığını ve özetini bununla gösterir.
 router.get('/', async (req, res) => {
   const { siteId } = req.kullanici;
-  const [binaSayisi, daireSayisi, site] = await Promise.all([
+  const [binaSayisi, daireSayisi, site, bekleyenSayisi] = await Promise.all([
     Bina.countDocuments({ siteId }),
     Daire.countDocuments({ siteId }),
     Site.findById(siteId).select('aidatTutari').lean(),
+    Aidat.countDocuments({ siteId, durum: 'bekliyor' }),
   ]);
-  res.json({ binaSayisi, daireSayisi, aidatTutari: site?.aidatTutari ?? null });
+  res.json({ binaSayisi, daireSayisi, aidatTutari: site?.aidatTutari ?? null, bekleyenSayisi });
 });
 
 // PUT /api/kurulum/aidat-tutari

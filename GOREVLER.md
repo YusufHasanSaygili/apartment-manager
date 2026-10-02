@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 2.2
+**Mevcut görev:** 2.3
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -62,7 +62,7 @@ Kurallar:
   - Mobil: Ay seçimi, tutar (yöneticinin belirlediği tutar hazır gelir, sakin değiştirebilir; en fazla 99.999,99 TL), ödeme yöntemi (Banka havalesi / Elden), açıklama formu; sakinin kendi bildirim geçmişi
   - Deneme: Sakin bildirim atar, durumu "Onay bekliyor" görünür
 
-- [ ] **2.2 Bekleyen bildirimler (yönetici)**
+- [x] **2.2 Bekleyen bildirimler (yönetici)**
   - Onay ve red route'ları; aynı daire aynı ay için ikinci kez onay engeli
   - Mobil: Bekleyen bildirimler listesi, Onayla / Reddet butonları
   - Deneme: Yönetici onaylar; sakin tarafında durum "Ödendi" olur. Reddedilen bildirimden sonra sakin tekrar bildirim atabilir

@@ -1,6 +1,7 @@
 // Yönetici ana ekranı: yönetici giriş yapınca açılan ekran.
 // Site adını, bina/daire kurulumunun durumunu ve aylık aidat tutarını gösterir; kurulum
-// yapılmadıysa kurulum ekranına yönlendirir. Aidat onayları ve duyurular ilerleyen görevlerde eklenecek.
+// yapılmadıysa kurulum ekranına yönlendirir. Onay bekleyen aidat bildirimlerinin sayısını gösterir ve
+// bildirimler ekranına geçirir. Duyurular ilerleyen görevlerde eklenecek.
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -12,20 +13,20 @@ import CikisButonu from '../components/CikisButonu';
 import { paraBicimi } from '../bicim';
 import { renkler } from '../tema';
 
-// navigation: kurulum, daire listesi ve aidat tutarı ekranlarına geçmek için kullanılır.
+// navigation: kurulum, daire listesi, bekleyen bildirimler ve aidat tutarı ekranlarına geçmek için kullanılır.
 export default function YoneticiAnaEkrani({ navigation }) {
   // Oturumdaki kullanıcı ve site bilgisi (giriş/kayıt sırasında sunucudan geldi).
   // oturum burada asla null değildir: App.js bu ekranı sadece oturum açıkken gösterir.
   const { oturum } = useOturum();
 
-  // useState: sitenin bina/daire sayısı ve aidat tutarı ({ binaSayisi, daireSayisi, aidatTutari }).
+  // useState: site özeti ({ binaSayisi, daireSayisi, aidatTutari, bekleyenSayisi }).
   // null → henüz yüklenmedi. binaSayisi 0 ise kurulum yapılmamış demektir.
   const [ozet, setOzet] = useState(null);
 
   // useState: özet yüklenemezse gösterilecek hata mesajı.
   const [hata, setHata] = useState('');
 
-  // API isteği: GET /api/kurulum ile sitenin bina/daire sayısını ve aidat tutarını çeker.
+  // API isteği: GET /api/kurulum ile bina/daire sayısını, aidat tutarını ve bekleyen bildirim sayısını çeker.
   const ozetiYukle = useCallback(async () => {
     setHata('');
     try {
@@ -37,7 +38,7 @@ export default function YoneticiAnaEkrani({ navigation }) {
   }, []);
 
   // useFocusEffect: ekran her ÖNE GELDİĞİNDE çalışır (useEffect'ten farkı bu).
-  // Kurulum veya aidat tutarı ekranından geri dönülünce özet kendiliğinden güncellenir.
+  // Kurulum, bildirimler veya aidat tutarı ekranından geri dönülünce özet kendiliğinden güncellenir.
   useFocusEffect(
     useCallback(() => {
       ozetiYukle();
@@ -76,6 +77,17 @@ export default function YoneticiAnaEkrani({ navigation }) {
           </>
         )}
       </View>
+
+      {/* "Bekleyen bildirimler" butonu: basınca BekleyenBildirimler ekranı açılır; parantezdeki sayı
+          onay bekleyen bildirim adedidir (ekran her öne geldiğinde güncellenir) */}
+      {ozet !== null && ozet.binaSayisi > 0 && (
+        <View style={styles.bekleyen}>
+          <Buton
+            baslik={`Bekleyen bildirimler (${ozet.bekleyenSayisi})`}
+            onPress={() => navigation.navigate('BekleyenBildirimler')}
+          />
+        </View>
+      )}
 
       {/* Aidat tutarı kartı: özet yüklendiyse gösterilir */}
       {ozet !== null && (
@@ -137,6 +149,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: renkler.soluk,
+  },
+  bekleyen: {
+    marginTop: 16,
   },
   // marginTop: 'auto' → buton ekranın en altına itilir.
   alt: {

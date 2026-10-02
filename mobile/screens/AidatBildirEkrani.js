@@ -38,8 +38,11 @@ export default function AidatBildirEkrani({ route, navigation }) {
   // Ekrandaki ay düğmelerinin listesi (bu ay + önceki 11 ay).
   const aylar = son12Ay();
 
-  // useState: seçilen ay (varsayılan: bu ay).
-  const [secilenAy, setSecilenAy] = useState(aylar[0]);
+  // useState: seçilen ay. Reddedilen bir bildirimden gelindiyse o ay (listede varsa), yoksa bu ay.
+  // useState'e fonksiyon verilir: bu arama sadece ekran ilk açıldığında bir kez yapılır.
+  const [secilenAy, setSecilenAy] = useState(
+    () => aylar.find((a) => a.ay === route.params?.ay && a.yil === route.params?.yil) ?? aylar[0]
+  );
   // useState: tutar kutusundaki metin. Yöneticinin tutarı hazır gelir, sakin değiştirebilir
   // (örn. 2 aylık ödediyse 1500 yazar).
   const [tutar, setTutar] = useState(tutarMetni(route.params?.aidatTutari));

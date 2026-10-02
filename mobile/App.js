@@ -18,6 +18,7 @@ import SakinAnaEkrani from './screens/SakinAnaEkrani';
 import DavetKatilEkrani from './screens/DavetKatilEkrani';
 import AidatBildirEkrani from './screens/AidatBildirEkrani';
 import AidatTutariEkrani from './screens/AidatTutariEkrani';
+import BekleyenBildirimlerEkrani from './screens/BekleyenBildirimlerEkrani';
 import { renkler } from './tema';
 
 // Stack navigator: ekranları üst üste dizer; yeni ekran açılınca öncekinin üstüne
@@ -62,6 +63,12 @@ function Ekranlar() {
           />
           {/* Aidat tutarı: ana ekrandaki "Aidat tutarını belirle/değiştir" butonuyla açılır */}
           <Stack.Screen name="AidatTutari" component={AidatTutariEkrani} options={{ title: 'Aylık aidat tutarı' }} />
+          {/* Bekleyen bildirimler: ana ekrandaki "Bekleyen bildirimler" butonuyla açılır */}
+          <Stack.Screen
+            name="BekleyenBildirimler"
+            component={BekleyenBildirimlerEkrani}
+            options={{ title: 'Bekleyen bildirimler' }}
+          />
         </>
       ) : oturum ? (
         // Sakin ekranları: ana ekran ve aidat bildirimi (duyuru, mesaj ileride eklenecek).

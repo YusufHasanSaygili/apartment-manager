@@ -2,7 +2,7 @@
 // Site ve daire bilgisini, "Aidat bildirimi gönder" butonunu ve gönderdiği bildirimlerin
 // geçmişini (durumlarıyla) gösterir. Duyurular ve mesajlar ilerleyen görevlerde eklenecek.
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
@@ -93,18 +93,30 @@ export default function SakinAnaEkrani({ navigation }) {
       }
       renderItem={({ item: b }) => {
         const durum = DURUMLAR[b.durum];
+        const reddedildi = b.durum === 'reddedildi';
         return (
-          <View style={styles.bildirim}>
+          // Sadece reddedilen bildirime dokunulabilir: basınca AidatBildir ekranı o ay seçili açılır,
+          // sakin aynı ay için yeniden bildirim gönderir. Diğer bildirimler dokunmaya kapalıdır (disabled).
+          <Pressable
+            style={({ pressed }) => [styles.bildirim, pressed && styles.basili]}
+            disabled={!reddedildi}
+            onPress={() =>
+              navigation.navigate('AidatBildir', { aidatTutari: veri?.aidatTutari, ay: b.ay, yil: b.yil })
+            }
+            accessibilityRole={reddedildi ? 'button' : undefined}
+            accessibilityHint={reddedildi ? 'Bu ay için yeniden bildirim gönderir' : undefined}
+          >
             <View style={styles.bildirimSol}>
               <Text style={styles.bildirimAy}>{ayAdi(b.ay, b.yil)}</Text>
               <Text style={styles.bildirimDetay}>
                 {paraBicimi(b.tutar)} · {b.odemeYontemi === 'banka' ? 'Banka havalesi' : 'Elden'}
               </Text>
               {b.aciklama !== '' && <Text style={styles.bildirimDetay}>{b.aciklama}</Text>}
+              {reddedildi && <Text style={styles.tekrar}>Tekrar göndermek için dokunun ›</Text>}
             </View>
             {/* Durum etiketi: rengi duruma göre (sarı = bekliyor, yeşil = ödendi, kırmızı = reddedildi) */}
             <Text style={[styles.durum, { color: durum.renk, borderColor: durum.renk }]}>{durum.yazi}</Text>
-          </View>
+          </Pressable>
         );
       }}
     />
@@ -174,6 +186,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: renkler.yazi,
+  },
+  basili: {
+    opacity: 0.7,
+  },
+  tekrar: {
+    marginTop: 4,
+    fontSize: 14,
+    fontWeight: '600',
+    color: renkler.birincil,
   },
   bildirimDetay: {
     fontSize: 14,

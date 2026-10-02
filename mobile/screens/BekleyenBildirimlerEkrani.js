@@ -1,0 +1,185 @@
+// Bekleyen bildirimler ekranı: yönetici sakinlerden gelen "aidatı verdim" bildirimlerini görür,
+// her birini onaylar veya reddeder. Sonuçlanan bildirim listeden çıkar.
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, View } from 'react-native';
+import api from '../services/api';
+import Buton from '../components/Buton';
+import HataMesaji from '../components/HataMesaji';
+import { ayAdi, paraBicimi, tarihBicimi } from '../bicim';
+import { renkler } from '../tema';
+
+export default function BekleyenBildirimlerEkrani() {
+  // useState: sunucudan gelen bekleyen bildirimler. null → henüz yüklenmedi.
+  const [bildirimler, setBildirimler] = useState(null);
+  // useState: liste yüklenemezse gösterilecek hata mesajı.
+  const [hata, setHata] = useState('');
+  // useState: şu an işlenen (onaylanan/reddedilen) bildirimin id'si; o kartın butonları
+  // dönen simge gösterir ve tekrar basılamaz.
+  const [islenenId, setIslenenId] = useState(null);
+
+  // API isteği: GET /api/yonetim/aidatlar/bekleyen ile sitedeki bekleyen bildirimleri çeker.
+  // useCallback: fonksiyon sabit kalır, useEffect gereksiz yere tekrar çalışmaz.
+  const yukle = useCallback(async () => {
+    setHata('');
+    try {
+      const { data } = await api.get('/yonetim/aidatlar/bekleyen');
+      setBildirimler(data);
+    } catch (e) {
+      setHata(e.message);
+    }
+  }, []);
+
+  // useEffect: ekran ilk açıldığında bir kez çalışır ve listeyi yükler.
+  useEffect(() => {
+    yukle();
+  }, [yukle]);
+
+  // islem: 'onayla' veya 'reddet'. API isteği: POST /api/yonetim/aidatlar/:id/onayla|reddet.
+  // Başarılı olunca bildirim listeden çıkarılır (sunucudan yeniden çekmeye gerek yok).
+  const sonuclandir = async (id, islem) => {
+    // Bir işlem sürerken başka bir karta basılırsa yok sayılır (işlemler sırayla yapılır).
+    if (islenenId !== null) return;
+    setIslenenId(id);
+    try {
+      await api.post(`/yonetim/aidatlar/${id}/${islem}`);
+      setBildirimler((onceki) => onceki.filter((b) => b.id !== id));
+    } catch (e) {
+      // Örn. bildirim bu arada başka bir cihazdan sonuçlandırıldıysa: liste yenilenir.
+      Alert.alert('İşlem yapılamadı', e.message);
+      yukle();
+    } finally {
+      setIslenenId(null);
+    }
+  };
+
+  // Reddetme geri alınamaz; yanlışlıkla basılmasın diye önce onay sorulur.
+  const reddetOnayi = (b) =>
+    Alert.alert('Bildirimi reddet', `${b.daire} dairesinin ${ayAdi(b.ay, b.yil)} bildirimi reddedilsin mi? Sakin bu ay için tekrar bildirim gönderebilir.`, [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Reddet', style: 'destructive', onPress: () => sonuclandir(b.id, 'reddet') },
+    ]);
+
+  // Hata varsa ortak hata kutusu; "Tekrar dene" yukle'yi yeniden çalıştırır.
+  if (hata !== '') {
+    return (
+      <View style={styles.orta}>
+        <HataMesaji mesaj={hata} tekrarDene={yukle} />
+      </View>
+    );
+  }
+
+  // Liste gelene kadar yükleniyor simgesi gösterilir.
+  if (bildirimler === null) {
+    return (
+      <View style={styles.orta}>
+        <ActivityIndicator size="large" color={renkler.birincil} />
+      </View>
+    );
+  }
+
+  return (
+    // FlatList: bildirimleri listeler; boşsa ListEmptyComponent gösterilir.
+    // keyExtractor: React'in her kartı ayırt etmesi için benzersiz anahtar (bildirim id'si).
+    <FlatList
+      style={styles.dis}
+      contentContainerStyle={styles.icerik}
+      data={bildirimler}
+      keyExtractor={(b) => b.id}
+      ListEmptyComponent={<Text style={styles.bos}>Onay bekleyen bildirim yok.</Text>}
+      renderItem={({ item: b }) => (
+        <View style={styles.kart}>
+          <View style={styles.ustSatir}>
+            <Text style={styles.daire}>{b.daire}</Text>
+            <Text style={styles.tutar}>{paraBicimi(b.tutar)}</Text>
+          </View>
+          <Text style={styles.satir}>
+            {ayAdi(b.ay, b.yil)} · {b.odemeYontemi === 'banka' ? 'Banka havalesi' : 'Elden'}
+          </Text>
+          <Text style={styles.soluk}>
+            {b.sakin} · {tarihBicimi(b.tarih)}
+          </Text>
+          {b.aciklama !== '' && <Text style={styles.aciklama}>"{b.aciklama}"</Text>}
+
+          <View style={styles.butonlar}>
+            {/* "Onayla" butonu: basınca sonuclandir(id, 'onayla') çalışır; o ay ödenmiş sayılır */}
+            <View style={styles.buton}>
+              <Buton baslik="Onayla" onPress={() => sonuclandir(b.id, 'onayla')} yukleniyor={islenenId === b.id} />
+            </View>
+            {/* "Reddet" butonu: basınca önce onay sorulur (reddetOnayi), onaylanırsa bildirim reddedilir */}
+            <View style={styles.buton}>
+              <Buton baslik="Reddet" tur="ikincil" onPress={() => reddetOnayi(b)} yukleniyor={islenenId === b.id} />
+            </View>
+          </View>
+        </View>
+      )}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  dis: {
+    flex: 1,
+    backgroundColor: renkler.arkaPlan,
+  },
+  icerik: {
+    padding: 16,
+    gap: 12,
+  },
+  orta: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: renkler.arkaPlan,
+  },
+  bos: {
+    marginTop: 24,
+    textAlign: 'center',
+    fontSize: 15,
+    color: renkler.soluk,
+  },
+  kart: {
+    padding: 16,
+    gap: 4,
+    borderRadius: 16,
+    backgroundColor: renkler.kart,
+  },
+  ustSatir: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  daire: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: renkler.yazi,
+  },
+  tutar: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: renkler.birincil,
+  },
+  satir: {
+    fontSize: 15,
+    color: renkler.yazi,
+  },
+  soluk: {
+    fontSize: 14,
+    color: renkler.soluk,
+  },
+  aciklama: {
+    marginTop: 4,
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: renkler.yazi,
+  },
+  // İki buton yan yana, eşit genişlikte (flex: 1).
+  butonlar: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  buton: {
+    flex: 1,
+  },
+});

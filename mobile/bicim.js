@@ -1,4 +1,4 @@
-// Ortak biçimlendirme yardımcıları: ay adları ve para tutarları her ekranda aynı görünsün diye.
+// Ortak biçimlendirme yardımcıları: ay adları, para tutarları ve tarihler her ekranda aynı görünsün diye.
 
 export const AY_ADLARI = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -12,6 +12,10 @@ export const ayAdi = (ay, yil) => `${AY_ADLARI[ay - 1]} ${yil}`;
 // tr-TR: Türkçe biçim → 1500.5 sayısı "₺1.500,50" olarak gösterilir.
 const paraBicimlendirici = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' });
 export const paraBicimi = (tutar) => paraBicimlendirici.format(tutar);
+
+// Tarih biçimlendirici (bir kez oluşturulur): sunucudan gelen tarih → "2 Eki 2026 19:57"
+const tarihBicimlendirici = new Intl.DateTimeFormat('tr-TR', { dateStyle: 'medium', timeStyle: 'short' });
+export const tarihBicimi = (tarih) => tarihBicimlendirici.format(new Date(tarih));
 
 // Kullanıcının yazdığı Türkçe tutar metnini sayıya çevirir: "1.500,50" → 1500.5
 // Binlik ayıracı noktalar silinir, ondalık virgülü noktaya çevrilir. Geçersizse NaN döner.
