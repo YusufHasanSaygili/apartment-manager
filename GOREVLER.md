@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 1.1
+**Mevcut görev:** 1.2
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -28,7 +28,7 @@ Kurallar:
 
 ## Aşama 1 — Hesap ve Site
 
-- [ ] **1.1 Yeni site oluştur**
+- [x] **1.1 Yeni site oluştur**
   - Site ve Kullanici modelleri, kayıt route'u, şifre hash'leme, JWT üretme
   - Mobil: Açılış ekranı (4 buton, "Yeni site oluştur" altında küçük puntoyla "(Yönetici hesabı ile başlar)"), site oluşturma formu
   - Token'ın `expo-secure-store` ile saklanması, boş yönetici ana ekranı

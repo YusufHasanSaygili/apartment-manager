@@ -1,25 +1,65 @@
-// Uygulamanın giriş noktası: ekranlar arası geçişi yöneten React Navigation'ı kurar.
-// Yeni ekranlar ilerleyen görevlerde aşağıdaki Stack'e eklenecek.
+// Uygulamanın giriş noktası: oturum bilgisini (OturumProvider) ve ekranlar arası geçişi
+// yöneten React Navigation'ı kurar.
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import BaglantiEkrani from './screens/BaglantiEkrani';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { OturumProvider, useOturum } from './services/OturumContext';
+import AcilisEkrani from './screens/AcilisEkrani';
+import SiteOlusturEkrani from './screens/SiteOlusturEkrani';
+import YoneticiAnaEkrani from './screens/YoneticiAnaEkrani';
+import { renkler } from './tema';
 
 // Stack navigator: ekranları üst üste dizer; yeni ekran açılınca öncekinin üstüne
 // gelir, geri tuşuyla bir öncekine dönülür.
 const Stack = createNativeStackNavigator();
 
+// Ekran listesi oturuma göre değişir (React Navigation'ın önerdiği giriş akışı yöntemi):
+// oturum yoksa sadece açılış/kayıt ekranları, varsa sadece yönetici ekranları tanımlıdır.
+// Böylece giriş yapmamış biri yönetici ekranına hiçbir şekilde gidemez; oturum açılınca
+// açılış ekranları listeden çıktığı için geri tuşu kullanıcıyı kayıt formuna döndürmez.
+function Ekranlar() {
+  const { oturum } = useOturum();
+
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: renkler.arkaPlan },
+        headerTintColor: renkler.yazi,
+        headerShadowVisible: false,
+      }}
+    >
+      {oturum ? (
+        <Stack.Screen name="YoneticiAna" component={YoneticiAnaEkrani} options={{ title: 'Apartmanım' }} />
+      ) : (
+        <>
+          {/* Açılış ekranında üst başlık çubuğu gizlenir, ekranın kendi başlığı var */}
+          <Stack.Screen name="Acilis" component={AcilisEkrani} options={{ headerShown: false }} />
+          <Stack.Screen name="SiteOlustur" component={SiteOlusturEkrani} options={{ title: 'Yeni site/apartman oluştur' }} />
+        </>
+      )}
+    </Stack.Navigator>
+  );
+}
+
 export default function App() {
   return (
-    // NavigationContainer: navigasyon durumunu tutar, tüm ekranları sarmalamak zorundadır.
-    <NavigationContainer>
-      <Stack.Navigator>
-        {/* Şimdilik tek ekran var: uygulama açılınca BaglantiEkrani gösterilir.
-            name: ekranın navigasyondaki adı, title: üst başlıkta görünen yazı */}
-        <Stack.Screen name="Baglanti" component={BaglantiEkrani} options={{ title: 'Apartmanım' }} />
-      </Stack.Navigator>
-      {/* StatusBar: telefonun üstteki saat/şarj çubuğu; açık renkli arka planda okunsun diye koyu yazı */}
-      <StatusBar style="dark" />
-    </NavigationContainer>
+    // SafeAreaProvider: ekranların telefonun çentik ve alt çubuk ölçülerini bilmesini sağlar.
+    // KeyboardProvider: klavyenin açılıp kapanmasını tüm ekranlar için takip eder
+    // (formların klavyeye göre kaymasını sağlayan kütüphanenin çalışması için gerekli).
+    // OturumProvider: içindeki tüm ekranlar useOturum() ile oturuma ulaşabilir.
+    <SafeAreaProvider>
+      <KeyboardProvider>
+        <OturumProvider>
+          {/* NavigationContainer: navigasyon durumunu tutar, tüm ekranları sarmalamak zorundadır */}
+          <NavigationContainer>
+            <Ekranlar />
+            {/* StatusBar: telefonun üstteki saat/şarj çubuğu; açık arka planda okunsun diye koyu yazı */}
+            <StatusBar style="dark" />
+          </NavigationContainer>
+        </OturumProvider>
+      </KeyboardProvider>
+    </SafeAreaProvider>
   );
 }

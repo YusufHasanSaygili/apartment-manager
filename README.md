@@ -18,8 +18,9 @@ Herkes kendi sitesini kurabilir; her sitenin verisi birbirinden tamamen ayrıdı
 
 | Katman | Teknoloji |
 |---|---|
-| Mobil | React Native (Expo), React Navigation, axios |
+| Mobil | React Native (Expo), React Navigation, axios, expo-secure-store, react-native-keyboard-controller |
 | Backend | Node.js, Express, zod (veri doğrulama) |
+| Giriş | JWT, bcrypt |
 | Güvenlik | helmet, CORS, express-rate-limit, MongoDB enjeksiyon koruması |
 | Veritabanı | MongoDB Atlas, Mongoose |
 
@@ -38,8 +39,9 @@ cd backend
 npm install
 ```
 
-`backend/.env.example` dosyasını kopyalayıp adını `.env` yapın ve `MONGODB_URI` değerine
-MongoDB Atlas bağlantı adresinizi yazın. Sonra sunucuyu başlatın:
+`backend/.env.example` dosyasını kopyalayıp adını `.env` yapın. `MONGODB_URI` değerine
+MongoDB Atlas bağlantı adresinizi, `JWT_ANAHTARI` değerine uzun rastgele bir metin yazın
+(üretme komutu `.env.example` içinde). Sonra sunucuyu başlatın:
 
 ```bash
 npm run dev

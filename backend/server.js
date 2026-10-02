@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const helmet = require('helmet');
 const cors = require('cors');
 const saglikRoute = require('./routes/saglik');
+const hesapRoute = require('./routes/hesap');
 const { genelSinir } = require('./middleware/denemeSiniri');
 const temizle = require('./middleware/temizle');
 const { bulunamadi, hataYakalayici } = require('./middleware/hataYonetimi');
@@ -50,6 +51,7 @@ app.use(temizle);
 
 // Route'lar: her özellik kendi dosyasında, burada sadece adrese bağlanır.
 app.use('/api/saglik', saglikRoute);
+app.use('/api/hesap', hesapRoute);
 
 // Hiçbir route'a uymayan istekler 404'e, tüm hatalar merkezi hata yakalayıcıya gider.
 // Bu ikisi route'lardan SONRA eklenmelidir; Express middleware'leri sırayla çalıştırır.
@@ -60,8 +62,9 @@ app.use(hataYakalayici);
 async function baslat() {
   // Veritabanı adresi yoksa sunucu hiç açılmaz; aksi halde veritabanısız çalışıp
   // her istekte anlaşılmaz hatalar verirdi. Sorun en başta açıkça söylenir.
-  if (!MONGODB_URI) {
-    console.error('MONGODB_URI tanımlı değil. backend/.env dosyasını kontrol edin.');
+  // JWT_ANAHTARI da zorunlu: token'lar bu gizli anahtarla imzalanır; yoksa kayıt/giriş çalışamaz.
+  if (!MONGODB_URI || !process.env.JWT_ANAHTARI) {
+    console.error('MONGODB_URI veya JWT_ANAHTARI tanımlı değil. backend/.env dosyasını kontrol edin.');
     process.exit(1);
   }
 

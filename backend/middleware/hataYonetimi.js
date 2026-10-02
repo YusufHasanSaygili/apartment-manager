@@ -46,6 +46,15 @@ function hataYakalayici(err, req, res, next) {
     return res.status(err.status).json({ mesaj: 'İstek işlenemedi.' });
   }
 
+  // MongoDB 11000: benzersiz (unique) olması gereken bir değer zaten kayıtlı.
+  // 409 (çakışma) döner; hata loglanmaz çünkü içinde kullanıcının e-postası bulunur.
+  if (err.code === 11000) {
+    const mesaj = err.keyPattern?.eposta
+      ? 'Bu e-posta adresiyle zaten bir hesap var.'
+      : 'Bu kayıt zaten mevcut.';
+    return res.status(409).json({ mesaj });
+  }
+
   // Mongoose: geçersiz kimlik (ObjectId) gönderildi. Kaydın varlığını belli etmemek
   // için "bulunamadı" denir (site izolasyonu kuralı).
   if (err.name === 'CastError') {

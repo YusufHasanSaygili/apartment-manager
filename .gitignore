@@ -23,3 +23,6 @@ Thumbs.db
 
 # Claude Code kişisel izin ayarları (her bilgisayarda farklı)
 .claude/settings.local.json
+
+# Vercel skill kısayolu (asıl dosyalar .agents/skills altında, "npx skills" yeniden oluşturur)
+.claude/skills/
