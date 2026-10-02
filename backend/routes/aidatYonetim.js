@@ -11,6 +11,7 @@ const dogrula = require('../middleware/dogrula');
 const { girisGerekli, sadeceYonetici } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
 const { pushGonder, ayYazisi } = require('../services/bildirim');
+const { siteyeHatirlatmaGonder } = require('../services/hatirlatma');
 
 const router = express.Router();
 
@@ -232,6 +233,17 @@ async function durumDegistir(req, res, yeniDurum) {
 
   res.json({ id: aidat._id, durum: aidat.durum });
 }
+
+// POST /api/yonetim/aidatlar/hatirlatma
+// Kim kullanabilir: yönetici. Otomatik hatırlatmayı (her ayın 10'u) beklemeden, KENDİ sitesinde bu ayın
+// aidatını ödemeyen sakinlere hemen hatırlatma gönderir (sunumda denemek için). siteId token'dan alınır.
+// Cevap: { odemeyen, bildirimGiden } → mobil, kaç daireye gönderildiğini yöneticiye gösterir.
+// Asıl iş services/hatirlatma.js'teki siteyeHatirlatmaGonder'dadır; otomatik görev de aynı fonksiyonu
+// kullanır, böylece "ödemeyen kim?" kuralı tek yerde durur. Ay ve yıl istekten değil, sunucunun saatinden alınır.
+router.post('/hatirlatma', async (req, res) => {
+  const simdi = new Date();
+  res.json(await siteyeHatirlatmaGonder(req.kullanici.siteId, simdi.getMonth() + 1, simdi.getFullYear()));
+});
 
 // POST /api/yonetim/aidatlar/:id/onayla
 // Kim kullanabilir: yönetici. Bildirimi onaylar; o ay o daire için "ödendi" sayılır.

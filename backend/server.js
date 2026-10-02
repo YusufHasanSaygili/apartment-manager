@@ -19,6 +19,7 @@ const { genelSinir } = require('./middleware/denemeSiniri');
 const temizle = require('./middleware/temizle');
 const { bulunamadi, hataYakalayici } = require('./middleware/hataYonetimi');
 const { soketiBaslat } = require('./soket');
+const { hatirlatmayiZamanla } = require('./services/hatirlatma');
 
 // Bazı bilgisayarlarda Node.js'in kullandığı yerel DNS, MongoDB Atlas'ın "mongodb+srv"
 // kaydını çözemez (hata: querySrv ECONNREFUSED). .env'de DNS_SUNUCULARI verilirse
@@ -100,6 +101,10 @@ async function baslat() {
   sunucu.listen(PORT, '0.0.0.0', () => {
     console.log(`Sunucu ${PORT} portunda çalışıyor`);
   });
+
+  // Otomatik görevler: her ayın 10'unda ödemeyen sakinlere aidat hatırlatması (services/hatirlatma.js).
+  // Veritabanı bağlantısından SONRA kurulur; görev çalışınca veritabanına erişebilmelidir.
+  hatirlatmayiZamanla();
 }
 
 baslat();

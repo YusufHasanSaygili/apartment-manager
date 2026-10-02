@@ -2,15 +2,16 @@
 // Site adını, bina/daire kurulumunun durumunu ve aylık aidat tutarını gösterir; kurulum
 // yapılmadıysa kurulum ekranına yönlendirir. Onay bekleyen aidat bildirimlerinin sayısını gösterir ve
 // bildirimler ekranına geçirir. Daire haritası, Duyurular ve Mesajlar ekranlarına da buradan geçilir.
+// "Aidat hatırlatması gönder" butonuyla bu ayı ödemeyen sakinlere hemen hatırlatma bildirimi gönderilir.
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
 import HataMesaji from '../components/HataMesaji';
 import CikisButonu from '../components/CikisButonu';
-import { paraBicimi } from '../bicim';
+import { AY_ADLARI, paraBicimi } from '../bicim';
 import { renkler } from '../tema';
 
 // navigation: kurulum, daire listesi, bekleyen bildirimler, daire haritası ve aidat tutarı ekranlarına geçmek için kullanılır.
@@ -36,6 +37,43 @@ export default function YoneticiAnaEkrani({ navigation }) {
       setHata(e.message);
     }
   }, []);
+
+  // useState: hatırlatma isteği sürerken true; buton dönen simge gösterir ve tekrar basılamaz.
+  const [hatirlatiliyor, setHatirlatiliyor] = useState(false);
+
+  // API isteği: POST /api/yonetim/aidatlar/hatirlatma ile bu ayın aidatını ödemeyen sakinlere hatırlatma gönderir.
+  // Sonuçta kaç daireye gönderildiği, bildirimi kapalı sakin varsa o da yöneticiye gösterilir.
+  const hatirlatmaGonder = async () => {
+    setHatirlatiliyor(true);
+    try {
+      const { data } = await api.post('/yonetim/aidatlar/hatirlatma');
+      const kapali = data.odemeyen - data.bildirimGiden;
+      Alert.alert(
+        'Hatırlatma gönderildi',
+        data.odemeyen === 0
+          ? 'Bu ay ödemeyen daire yok, kimseye hatırlatma gönderilmedi.'
+          : `${data.bildirimGiden} daireye hatırlatma gönderildi.` +
+              (kapali > 0 ? ` ${kapali} sakinin bildirimleri kapalı olduğu için ulaşılamadı.` : '')
+      );
+    } catch (e) {
+      Alert.alert('Hatırlatma gönderilemedi', e.message);
+    } finally {
+      setHatirlatiliyor(false);
+    }
+  };
+
+  // Hatırlatma tüm ödemeyenlerin telefonuna gider; yanlışlıkla basılmasın diye önce onay sorulur.
+  // AY_ADLARI 0'dan başlayan bir dizi (Ocak = 0), getMonth() de 0'dan başladığı için doğrudan bu ayın adını verir.
+  // "Gönder" seçilirse hatirlatmaGonder çalışır; "Vazgeç" (cancel) pencereyi kapatır, istek atılmaz.
+  const hatirlatmaOnayi = () =>
+    Alert.alert(
+      'Aidat hatırlatması',
+      `${AY_ADLARI[new Date().getMonth()]} ayının aidatını ödemeyen tüm sakinlere hatırlatma bildirimi gönderilsin mi?`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'Gönder', onPress: hatirlatmaGonder },
+      ]
+    );
 
   // useFocusEffect: ekran her ÖNE GELDİĞİNDE çalışır (useEffect'ten farkı bu).
   // Kurulum, bildirimler veya aidat tutarı ekranından geri dönülünce özet kendiliğinden güncellenir.
@@ -92,6 +130,15 @@ export default function YoneticiAnaEkrani({ navigation }) {
           <Buton baslik="Duyurular" tur="ikincil" onPress={() => navigation.navigate('Duyurular')} />
           {/* "Mesajlar" butonu: basınca Sohbetler ekranı açılır (sakinlerin listesi, son mesajlarla) */}
           <Buton baslik="Mesajlar" tur="ikincil" onPress={() => navigation.navigate('Sohbetler')} />
+          {/* "Aidat hatırlatması gönder" butonu: basınca önce onay sorulur (hatirlatmaOnayi), "Gönder" denirse
+              hatirlatmaGonder çalışır. Otomatik hatırlatma zaten her ayın 10'unda gider; bu buton beklemeden göndermek içindir. */}
+          <Buton
+            baslik="Aidat hatırlatması gönder"
+            altYazi="Otomatik olarak her ayın 10'unda da gönderilir"
+            tur="ikincil"
+            yukleniyor={hatirlatiliyor}
+            onPress={hatirlatmaOnayi}
+          />
         </View>
       )}
 
