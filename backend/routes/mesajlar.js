@@ -9,6 +9,7 @@ const Bina = require('../models/Bina');
 const dogrula = require('../middleware/dogrula');
 const { girisGerekli } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
+const { kullaniciyaGonder } = require('../soket');
 
 const router = express.Router();
 
@@ -144,6 +145,13 @@ router.post('/', dogrula(mesajSemasi), async (req, res) => {
   const kisi = await karsiTarafiBul(req.kullanici, req.body.aliciId);
 
   const mesaj = await Mesaj.create({ siteId, gonderenId: id, aliciId: kisi._id, icerik: req.body.icerik });
+
+  // Mesaj, Socket.io ile hem alıcının hem gönderenin (diğer cihazlarının) telefonuna anında iletilir.
+  // Her biri için "benden" alanı kendi açısından hesaplanır; kisiId de mesajın hangi sohbete ait
+  // olduğunu (karşı tarafın kimliğini) söyler. Telefon sadece o sohbet açıksa mesajı ekrana ekler.
+  kullaniciyaGonder(kisi._id, 'yeniMesaj', { ...mesajBicimi(mesaj, kisi._id), kisiId: String(id) });
+  kullaniciyaGonder(id, 'yeniMesaj', { ...mesajBicimi(mesaj, id), kisiId: String(kisi._id) });
+
   res.status(201).json(mesajBicimi(mesaj, id));
 });
 

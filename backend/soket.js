@@ -1,0 +1,52 @@
+// Socket.io (anlık bağlantı) kurulumu: telefonlarla sunucu arasında sürekli açık bir bağlantı tutar.
+// Normal API'de telefon sorar, sunucu cevaplar; soket bağlantısında ise sunucu yeni bir mesaj olduğunda
+// telefona KENDİSİ haber verebilir. Böylece mesajlar sayfa yenilemeden anında düşer.
+const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
+const Kullanici = require('./models/Kullanici');
+
+// Sunucu tarafındaki Socket.io nesnesi; soketiBaslat çağrılınca oluşturulur.
+let io = null;
+
+// Her kullanıcının kişisel odasının adı. Oda: aynı anda birden fazla bağlantıya (örn. kullanıcının
+// iki telefonu) tek seferde mesaj göndermeye yarayan gruptur.
+const odaAdi = (kullaniciId) => `kullanici:${kullaniciId}`;
+
+// httpSunucu: Express'in üzerinde çalıştığı HTTP sunucusu (Socket.io aynı portu paylaşır).
+// corsAdresleri: API ile aynı CORS kuralı; mobil uygulama CORS'tan etkilenmez, web sitelerine izin yoktur.
+function soketiBaslat(httpSunucu, corsAdresleri) {
+  io = new Server(httpSunucu, { cors: { origin: corsAdresleri.length > 0 ? corsAdresleri : false } });
+
+  // GİRİŞ KONTROLÜ (middleware): her bağlantı kabul edilmeden önce burada token doğrulanır.
+  // Telefon bağlanırken token'ını { auth: { token } } ile gönderir. Token yoksa, sahteyse, süresi
+  // dolmuşsa veya hesap silinmişse bağlantı reddedilir (next(new Error(...))).
+  io.use(async (socket, next) => {
+    try {
+      const { id } = jwt.verify(socket.handshake.auth?.token, process.env.JWT_ANAHTARI);
+      const kullanici = await Kullanici.findById(id).select('_id').lean();
+      if (!kullanici) return next(new Error('Oturum geçersiz'));
+      // Kullanıcının kimliği bağlantıya yazılır; oda bu bilgiyle seçilir (istekten alınmaz).
+      socket.data.kullaniciId = String(kullanici._id);
+      next();
+    } catch {
+      next(new Error('Oturum geçersiz'));
+    }
+  });
+
+  // 'connection' olayı: bir telefon bağlantıyı başarıyla açınca çalışır. socket = o tek telefonun bağlantısı.
+  // Bağlantı kabul edilince kullanıcı SADECE kendi kişisel odasına alınır. Hangi odaya gireceğini
+  // telefon seçemez; bu yüzden kimse başka birinin mesajlarını dinleyemez.
+  io.on('connection', (socket) => {
+    socket.join(odaAdi(socket.data.kullaniciId));
+  });
+}
+
+// Bir kullanıcının bağlı tüm cihazlarına anlık olay gönderir (örn. 'yeniMesaj').
+// Kullanıcı o an bağlı değilse olay kaybolur; telefon bağlanınca mesajları API'den yeniden çeker.
+// emit: olayı adı ve verisiyle gönderir; telefonda soket.on(olay, ...) ile dinlenir.
+// io?. : soket henüz başlatılmadıysa (io null) hata vermeden hiçbir şey yapmaz; mesaj yine veritabanına kaydedilmiş olur.
+function kullaniciyaGonder(kullaniciId, olay, veri) {
+  io?.to(odaAdi(String(kullaniciId))).emit(olay, veri);
+}
+
+module.exports = { soketiBaslat, kullaniciyaGonder };

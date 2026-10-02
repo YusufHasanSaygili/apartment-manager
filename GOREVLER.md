@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 4.2
+**Mevcut görev:** 4.3
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -101,7 +101,7 @@ Kurallar:
   - Mobil: Yönetici için sohbet listesi, ortak sohbet ekranı, sakin için tek sohbet (yönetici)
   - Deneme: Mesaj gönderilir, sayfa yenilenince karşı tarafta görünür
 
-- [ ] **4.2 Anlık mesajlaşma (Socket.io)**
+- [x] **4.2 Anlık mesajlaşma (Socket.io)**
   - Socket bağlantısında token doğrulama, kullanıcıyı sadece kendi sohbet odalarına alma
   - Mobil: Mesajların sayfa yenilemeden anında düşmesi
   - Deneme: İki emülatörde mesaj anında karşıya geçer
@@ -139,9 +139,10 @@ Kurallar:
 
 - [ ] **7.1 İkon ve açılış ekranı (splash)**
 - [ ] **7.2 Kullanıcı deneyimi turu:** internet yok uyarısı; tüm ekranlarda yükleniyor, boş liste ve hata durumlarının gözden geçirilmesi
-- [ ] **7.3 Demo verisi:** Sunum için örnek site, daireler, aidatlar ve mesajlar oluşturan script
-- [ ] **7.4 Teslim hazırlığı:** README'nin son hali ve ekran görüntüleri, sunum akışı
-- [ ] **7.5 İndirilebilir APK:** Android Studio araçlarıyla yerelde release APK derlenir ve GitHub Releases'a yüklenir. Karar: APK, backend'i çalışan bilgisayarla aynı Wi-Fi'da kullanılır (ders online, sunum evden ekran paylaşımıyla yapılır); backend internete taşınmaz. APK yerel IP'ye `http` ile bağlanabilsin diye cleartext izni verilir.
+- [ ] **7.3 Tasarım turu:** renk paleti (tema.js), ikon ve semboller, buton boyutları, boşluklar ve yazı boyutları; ortak component'ler (Buton, FormAlani, HataMesaji) üzerinden tüm uygulamaya uygulanır. Ekran görüntülerinden (7.5) önce yapılır. İkon kütüphanesi gerekirse önce kullanıcıya sorulur.
+- [ ] **7.4 Demo verisi:** Sunum için örnek site, daireler, aidatlar ve mesajlar oluşturan script
+- [ ] **7.5 Teslim hazırlığı:** README'nin son hali ve ekran görüntüleri, sunum akışı
+- [ ] **7.6 İndirilebilir APK:** Android Studio araçlarıyla yerelde release APK derlenir ve GitHub Releases'a yüklenir. Karar: APK, backend'i çalışan bilgisayarla aynı Wi-Fi'da kullanılır (ders online, sunum evden ekran paylaşımıyla yapılır); backend internete taşınmaz. APK yerel IP'ye `http` ile bağlanabilsin diye cleartext izni verilir.
 
 ## Opsiyonel (sadece kullanıcı isterse)
 

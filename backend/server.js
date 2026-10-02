@@ -2,6 +2,7 @@
 // MongoDB Atlas'a bağlanır ve gelen istekleri dinlemeye başlar.
 // Ayarlar (.env) "node --env-file=.env" ile yüklenir, ekstra kütüphane gerekmez.
 const dns = require('node:dns');
+const http = require('node:http');
 const express = require('express');
 const mongoose = require('mongoose');
 const helmet = require('helmet');
@@ -17,6 +18,7 @@ const mesajlarRoute = require('./routes/mesajlar');
 const { genelSinir } = require('./middleware/denemeSiniri');
 const temizle = require('./middleware/temizle');
 const { bulunamadi, hataYakalayici } = require('./middleware/hataYonetimi');
+const { soketiBaslat } = require('./soket');
 
 // Bazı bilgisayarlarda Node.js'in kullandığı yerel DNS, MongoDB Atlas'ın "mongodb+srv"
 // kaydını çözemez (hata: querySrv ECONNREFUSED). .env'de DNS_SUNUCULARI verilirse
@@ -89,9 +91,13 @@ async function baslat() {
     process.exit(1);
   }
 
+  // HTTP sunucusu elle oluşturulur: hem Express (API) hem Socket.io (anlık mesaj) aynı portu kullanır.
+  const sunucu = http.createServer(app);
+  soketiBaslat(sunucu, CORS_IZINLI_ADRESLER);
+
   // '0.0.0.0': sadece bu bilgisayardan değil, aynı Wi-Fi'deki telefondan da
   // gelen istekleri kabul etmek için tüm ağ arayüzlerini dinler.
-  app.listen(PORT, '0.0.0.0', () => {
+  sunucu.listen(PORT, '0.0.0.0', () => {
     console.log(`Sunucu ${PORT} portunda çalışıyor`);
   });
 }

@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import api, { tokenAyarla } from './api';
 import { pushTokenAl } from './bildirim';
+import { soketBaglan, soketKes } from './soket';
 
 // Token telefonda bu anahtar adıyla saklanır.
 const TOKEN_ANAHTARI = 'oturumToken';
@@ -30,6 +31,8 @@ export function OturumProvider({ children }) {
         if (token) {
           tokenAyarla(token);
           const { data } = await api.get('/hesap/ben');
+          // Token geçerli: anlık mesajlar için soket bağlantısı da bu token ile açılır.
+          soketBaglan(token);
           setOturum({ token, ...data });
         }
       } catch (hata) {
@@ -60,19 +63,21 @@ export function OturumProvider({ children }) {
 
   // Sunucudan gelen giriş/kayıt/katılma cevabıyla oturumu açar.
   // Token expo-secure-store ile telefonun şifreli deposuna yazılır (AsyncStorage değil):
-  // başka uygulamalar okuyamaz. Ayrıca sonraki tüm API isteklerine eklenir.
+  // başka uygulamalar okuyamaz. Ayrıca sonraki tüm API isteklerine eklenir ve soket bağlantısı açılır.
   // ...bilgi: cevaptaki diğer her şey (kullanıcı, site ve sakinse daire) oturuma olduğu gibi yazılır.
   const oturumAc = async ({ token, ...bilgi }) => {
     await SecureStore.setItemAsync(TOKEN_ANAHTARI, token);
     tokenAyarla(token);
+    soketBaglan(token);
     setOturum({ token, ...bilgi });
   };
 
   // Çıkış: önce bu hesabın push token'ı backend'den silinir (çıkış yapmış telefona bildirim gitmesin),
-  // sonra token telefondan ve isteklerden silinir, oturum boşaltılır → App.js açılış ekranına döner.
+  // sonra soket bağlantısı kapatılır, token telefondan ve isteklerden silinir, oturum boşaltılır → App.js açılış ekranına döner.
   // Push token silme isteği başarısız olsa bile (örn. internet yok) çıkış yine yapılır.
   const cikisYap = async () => {
     await api.delete('/hesap/push-token').catch(() => {});
+    soketKes();
     await SecureStore.deleteItemAsync(TOKEN_ANAHTARI);
     tokenAyarla(null);
     setOturum(null);

@@ -1,13 +1,14 @@
 // Sohbet ekranı: iki kişi arasındaki mesajları WhatsApp benzeri baloncuklarla gösterir ve yeni mesaj gönderir.
 // Yönetici ve sakin aynı ekranı kullanır. Yönetici bir sakine dokununca açılır (kisiId parametresiyle);
 // sakin "Yöneticiye mesaj" butonuyla açar (kisiId verilmez, yöneticinin kimliği sunucudan öğrenilir).
-// Mesajlar ekran açılınca ve "Yenile"ye basınca güncellenir (anında düşmesi Görev 4.2'de eklenecek).
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+// Yeni mesajlar Socket.io ile sayfa yenilemeden anında düşer.
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../services/api';
+import { useSoketOlayi } from '../services/soket';
 import HataMesaji from '../components/HataMesaji';
 import { tarihBicimi } from '../bicim';
 import { renkler } from '../tema';
@@ -15,9 +16,14 @@ import { renkler } from '../tema';
 // Mesaj kutusuna yazılabilecek en fazla karakter (backend'deki sınırla aynı).
 const EN_FAZLA_KARAKTER = 1000;
 
+// Yeni mesajı listenin başına (en yeni) ekler. Aynı mesaj hem gönderim cevabıyla hem soketle
+// gelebildiği için listede zaten varsa (id aynıysa) tekrar eklenmez.
+// Liste henüz yüklenmediyse (null) mesaj tek başına tutulur; yükleme bitince yukle içindeki birleştirme onu korur.
+const mesajEkle = (onceki, mesaj) =>
+  onceki?.some((m) => m.id === mesaj.id) ? onceki : [mesaj, ...(onceki ?? [])];
+
 // route.params.kisiId: konuşulan kişi (yönetici açarken verir; sakin açarken boştur).
-// navigation: başlık çubuğuna "Yenile" butonu eklemek için kullanılır.
-export default function SohbetEkrani({ route, navigation }) {
+export default function SohbetEkrani({ route }) {
   // Alttaki güvenli boşluk (telefonun alt çubuğu/hareket çizgisi): yazma kutusu bu çubuğun altında kalmasın diye.
   const altBosluk = useSafeAreaInsets().bottom;
 
@@ -46,7 +52,7 @@ export default function SohbetEkrani({ route, navigation }) {
   // API isteği: önce (sakinse) GET /api/mesajlar/sohbetler ile yöneticinin kimliğini bulur,
   // sonra GET /api/mesajlar/:kisiId ile bu kişiyle olan son 100 mesajı çeker.
   // useCallback: fonksiyonu tek bir kez oluşturur (bağımlılık listesi boş); böylece useFocusEffect ve
-  // "Yenile" butonu her çizimde gereksiz yere yeniden kurulmaz.
+  // soket dinleyicisi her çizimde gereksiz yere yeniden kurulmaz.
   const yukle = useCallback(async () => {
     setHata('');
     try {
@@ -57,7 +63,14 @@ export default function SohbetEkrani({ route, navigation }) {
         kisiRef.current = data[0].id;
       }
       const { data } = await api.get(`/mesajlar/${kisiRef.current}`);
-      setMesajlar(data);
+      // Liste sunucudan gelenle değiştirilir; ama istek sürerken soketle gelen (sunucunun listesinden
+      // daha yeni) mesajlar kaybolmasın diye onlar listenin başında korunur.
+      // Tarihler ISO metni ("2026-10-03T12:00:00.000Z") olarak geldiği için > ile doğrudan karşılaştırılabilir.
+      setMesajlar((onceki) => {
+        const enYeni = data[0]?.tarih ?? '';
+        const yeniGelenler = (onceki ?? []).filter((m) => m.tarih > enYeni && !data.some((d) => d.id === m.id));
+        return [...yeniGelenler, ...data];
+      });
     } catch (e) {
       setHata(e.message);
     }
@@ -70,18 +83,18 @@ export default function SohbetEkrani({ route, navigation }) {
     }, [yukle])
   );
 
-  // useLayoutEffect: ekran çizilmeden önce başlık çubuğunun sağına "Yenile" butonu ekler.
-  // Mesajlar henüz anında düşmediği için karşı tarafın yeni mesajını görmek için kullanılır.
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        // "Yenile" butonu: basınca yukle çalışır ve mesajlar sunucudan yeniden çekilir.
-        <Pressable onPress={yukle} hitSlop={12} accessibilityRole="button">
-          <Text style={styles.yenile}>Yenile</Text>
-        </Pressable>
-      ),
-    });
-  }, [navigation, yukle]);
+  // Soketten yeni mesaj gelince çalışır. Mesaj sadece AÇIK OLAN sohbete aitse (kisiId bu ekrandaki
+  // kişiyse) listeye eklenir; başka bir sakinden gelen mesaj bu ekranda görünmez.
+  // useCallback: dinleyici her çizimde yeniden kurulmasın diye fonksiyon sabit tutulur.
+  const yeniMesajGeldi = useCallback((mesaj) => {
+    if (mesaj.kisiId !== kisiRef.current) return;
+    setMesajlar((onceki) => mesajEkle(onceki, mesaj));
+  }, []);
+
+  // Soket olayları: 'yeniMesaj' gelince mesaj ekrana eklenir. 'connect': bağlantı koptuysa (internet gitti,
+  // uygulama arka plana alındı) yeniden bağlanınca o arada kaçırılan mesajlar için liste yeniden çekilir.
+  useSoketOlayi('yeniMesaj', yeniMesajGeldi);
+  useSoketOlayi('connect', yukle);
 
   // API isteği: POST /api/mesajlar ile { aliciId, icerik } gönderir. Başarılıysa sunucunun döndürdüğü
   // mesaj listenin başına (en yeni) eklenir ve yazma kutusu temizlenir; hata olursa metin silinmez.
@@ -92,7 +105,7 @@ export default function SohbetEkrani({ route, navigation }) {
     setGonderimHatasi('');
     try {
       const { data } = await api.post('/mesajlar', { aliciId: kisiRef.current, icerik });
-      setMesajlar((onceki) => [data, ...(onceki ?? [])]);
+      setMesajlar((onceki) => mesajEkle(onceki, data));
       setMetin('');
     } catch (e) {
       setGonderimHatasi(e.message);
@@ -183,11 +196,6 @@ const styles = StyleSheet.create({
   dis: {
     flex: 1,
     backgroundColor: renkler.arkaPlan,
-  },
-  yenile: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: renkler.birincil,
   },
   hata: {
     padding: 16,

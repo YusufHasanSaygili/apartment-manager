@@ -18,8 +18,8 @@ Herkes kendi sitesini kurabilir; her sitenin verisi birbirinden tamamen ayrıdı
 
 | Katman | Teknoloji |
 |---|---|
-| Mobil | React Native (Expo), React Navigation, axios, expo-secure-store, react-native-keyboard-controller, expo-notifications |
-| Backend | Node.js, Express, zod (veri doğrulama) |
+| Mobil | React Native (Expo), React Navigation, axios, expo-secure-store, react-native-keyboard-controller, expo-notifications, socket.io-client |
+| Backend | Node.js, Express, zod (veri doğrulama), Socket.io (anlık mesajlaşma) |
 | Giriş | JWT, bcrypt |
 | Güvenlik | helmet, CORS, express-rate-limit, MongoDB enjeksiyon koruması |
 | Veritabanı | MongoDB Atlas, Mongoose |

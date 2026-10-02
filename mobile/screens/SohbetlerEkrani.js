@@ -1,10 +1,11 @@
 // Sohbetler ekranı (yönetici): sitedeki sakinleri, her biriyle son mesajla birlikte listeler.
 // Son yazışılan sakin en üstte; hiç yazışılmamış sakinler altta, daire adına göre sıralı.
-// Bir sakine dokununca o sakinle sohbet ekranı açılır.
+// Bir sakine dokununca o sakinle sohbet ekranı açılır. Yeni mesaj gelince liste kendiliğinden güncellenir.
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
+import { useSoketOlayi } from '../services/soket';
 import HataMesaji from '../components/HataMesaji';
 import { tarihBicimi } from '../bicim';
 import { renkler } from '../tema';
@@ -37,6 +38,18 @@ export default function SohbetlerEkrani({ navigation }) {
       yukle();
     }, [yukle])
   );
+
+  // Soket olayları: herhangi bir sakinden yeni mesaj gelince (veya ben gönderince) ya da bağlantı
+  // yeniden kurulunca liste yeniden çekilir; böylece son mesaj ve sıralama sayfa yenilemeden güncellenir.
+  // navigation.isFocused(): ekran şu an görünüyor mu. Sohbet ekranı açıkken bu liste arkada bekler;
+  // o sırada gelen mesajlar için boşuna istek atılmaz, geri dönünce useFocusEffect zaten yeniler.
+  // useCallback: dinleyici her çizimde silinip yeniden eklenmesin diye fonksiyon sabit tutulur;
+  // sadece navigation veya yukle değişirse yeniden oluşturulur.
+  const gorunurkenYukle = useCallback(() => {
+    if (navigation.isFocused()) yukle();
+  }, [navigation, yukle]);
+  useSoketOlayi('yeniMesaj', gorunurkenYukle);
+  useSoketOlayi('connect', gorunurkenYukle);
 
   // Listeyi aşağı çekince çalışır: yenileme simgesini gösterir, listeyi yeniden çeker, simgeyi kapatır.
   const yenile = async () => {
