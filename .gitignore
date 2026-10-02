@@ -20,3 +20,6 @@ npm-debug.log*
 *.log
 .DS_Store
 Thumbs.db
+
+# Claude Code kişisel izin ayarları (her bilgisayarda farklı)
+.claude/settings.local.json

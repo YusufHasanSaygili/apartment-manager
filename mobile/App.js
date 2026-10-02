@@ -14,8 +14,11 @@ export default function App() {
     // NavigationContainer: navigasyon durumunu tutar, tüm ekranları sarmalamak zorundadır.
     <NavigationContainer>
       <Stack.Navigator>
+        {/* Şimdilik tek ekran var: uygulama açılınca BaglantiEkrani gösterilir.
+            name: ekranın navigasyondaki adı, title: üst başlıkta görünen yazı */}
         <Stack.Screen name="Baglanti" component={BaglantiEkrani} options={{ title: 'Apartmanım' }} />
       </Stack.Navigator>
+      {/* StatusBar: telefonun üstteki saat/şarj çubuğu; açık renkli arka planda okunsun diye koyu yazı */}
       <StatusBar style="dark" />
     </NavigationContainer>
   );

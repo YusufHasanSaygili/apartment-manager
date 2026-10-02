@@ -17,6 +17,8 @@ router.get('/', (req, res) => {
   res.status(veritabaniBagli ? 200 : 503).json({
     durum: veritabaniBagli ? 'ok' : 'veritabani-yok',
     veritabani: veritabaniBagli,
+    // Hata durumunda mobilin ortak hata gösterimi bu mesajı kullanır.
+    ...(veritabaniBagli ? {} : { mesaj: 'Sunucu açık ama veritabanına bağlanamadı.' }),
     zaman: new Date().toISOString(),
   });
 });

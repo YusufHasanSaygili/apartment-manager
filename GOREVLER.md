@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 0.2
+**Mevcut görev:** 1.1
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -20,7 +20,7 @@ Kurallar:
   - Expo uygulaması + React Navigation + backend adresini okuyan ayar dosyası
   - Deneme: Telefonda açılan uygulama "Sunucuya bağlandı" yazar
 
-- [ ] **0.2 Güvenlik ve hata altyapısı**
+- [x] **0.2 Güvenlik ve hata altyapısı**
   - helmet, CORS, rate limit, MongoDB enjeksiyon koruması
   - Gelen veriyi doğrulama yapısı, merkezi hata yönetimi middleware'i
   - Mobilde ortak API servisi (axios) ve ortak hata mesajı gösterimi

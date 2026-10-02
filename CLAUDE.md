@@ -224,7 +224,7 @@ Her görev şu sırayla yapılır:
 1. **Başlamadan önce:** Görevi en fazla 5 satırda özetle ve değişecek dosyaları listele.
 2. **Backend:** Görevin gerektirdiği model ve route'lar.
 3. **Mobil:** Görevin ekranları ve backend bağlantısı.
-4. **Kod denetçisi:** Önemli her kod bloğundan sonra çağrılır (bkz. Kod Denetçisi).
+4. **Açıklama yazarı → Kod denetçisi:** Önemli her kod bloğundan sonra önce açıklama yazarı, ardından kod denetçisi çağrılır (bkz. Subagent'lar).
 5. **Deneme:** Kullanıcıya görevin "Deneme" maddesini telefonda/emülatörde nasıl deneyeceğini anlat.
 6. **Bitiş:** GOREVLER.md'de kutuyu `[x]` yap, "Mevcut görev" satırını güncelle, README'yi gerekiyorsa güncelle, commit mesajı öner.
 
@@ -260,6 +260,14 @@ Proje GitHub'a yüklenir. Bu yüzden:
 - Görevleri GOREVLER.md'deki sırayla, "Görevler" bölümündeki akışla yap.
 - Kullanıcı bir şey kurmanı veya komut çalıştırmanı istemedikçe kurulum yapma, önce sor.
 - Kullanıcıyla Türkçe konuş, sade anlat.
+
+## Açıklama Yazarı (Subagent)
+
+`.claude/agents/aciklama-yazari.md` dosyasındaki **aciklama-yazari** subagent'ı, önemli bir kod bloğu yazıldıktan sonra **kod denetçisinden önce** çağrılır.
+
+- Ana asistan kodu yazarken temel açıklamaları yine kendisi yazar; açıklama yazarı bunları "Kod Açıklamaları" kuralına göre tamamlar ve iyileştirir.
+- Sadece açıklama satırı ekler/düzeltir, **koda asla dokunmaz.** Fark ettiği kod hatalarını raporlar.
+- Çağırırken hangi dosyaların yazıldığını söyle. Ne zaman çağrılacağı kod denetçisiyle aynıdır (önemli / önemsiz değişiklik tanımı aşağıda).
 
 ## Kod Denetçisi (Subagent)
 

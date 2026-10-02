@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell(npx --yes create-expo-app@latest mobile --template blank --no-install 2>&1)"
-    ]
-  }
-}
