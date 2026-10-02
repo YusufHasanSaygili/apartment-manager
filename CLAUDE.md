@@ -122,7 +122,7 @@ Yönetici değiştiğinde site **sıfırdan kurulmaz**; aidat geçmişi, dairele
 
 `Site` dışındaki **her modelde `siteId` bulunur** ve her sorgu bu alana göre filtrelenir.
 
-- **Site:** ad, yoneticiId, devirKodu (hash), devirKoduSonTarih, olusturmaTarihi
+- **Site:** ad, yoneticiId, aidatTutari (yöneticinin belirlediği aylık tutar), devirKodu (hash), devirKoduSonTarih, olusturmaTarihi
 - **Kullanici:** siteId, ad, e-posta (giriş için, benzersiz), şifre (hash), rol (`yonetici` / `sakin`), daireId (sakinse), pushToken
 - **Bina:** siteId, ad (A, B, C...)
 - **Daire:** siteId, binaId, daireNo, davetKodu, davetKoduKullanildi, sakinId

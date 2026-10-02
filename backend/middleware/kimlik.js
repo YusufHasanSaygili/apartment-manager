@@ -53,4 +53,13 @@ function sadeceYonetici(req, res, next) {
   next();
 }
 
-module.exports = { girisGerekli, sadeceYonetici };
+// sadeceSakin: sakin işlemlerine (aidat bildirimi...) konur. girisGerekli'den SONRA kullanılır.
+// Dairesine bağlı olmayan bir hesap (yönetici veya daireden çıkarılmış sakin) 403 alır.
+function sadeceSakin(req, res, next) {
+  if (req.kullanici.rol !== 'sakin' || !req.kullanici.daireId) {
+    throw new ApiHatasi(403, 'Bu işlemi sadece daire sakini yapabilir.');
+  }
+  next();
+}
+
+module.exports = { girisGerekli, sadeceYonetici, sadeceSakin };

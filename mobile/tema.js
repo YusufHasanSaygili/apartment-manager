@@ -10,4 +10,7 @@ export const renkler = {
   soluk: '#475569', // açıklama ve yardımcı metin
   kenarlik: '#CBD5E1',
   hata: '#DC2626',
+  // Aidat durum renkleri: yeşil = ödendi, sarı (koyu ton, okunaklı) = onay bekliyor.
+  basarili: '#15803D',
+  uyari: '#B45309',
 };

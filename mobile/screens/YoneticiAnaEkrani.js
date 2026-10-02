@@ -1,30 +1,31 @@
 // Yönetici ana ekranı: yönetici giriş yapınca açılan ekran.
-// Site adını ve bina/daire kurulumunun durumunu gösterir; kurulum yapılmadıysa kurulum ekranına yönlendirir.
-// Aidat ve duyuru bölümleri ilerleyen görevlerde eklenecek.
+// Site adını, bina/daire kurulumunun durumunu ve aylık aidat tutarını gösterir; kurulum
+// yapılmadıysa kurulum ekranına yönlendirir. Aidat onayları ve duyurular ilerleyen görevlerde eklenecek.
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
 import HataMesaji from '../components/HataMesaji';
 import CikisButonu from '../components/CikisButonu';
+import { paraBicimi } from '../bicim';
 import { renkler } from '../tema';
 
-// navigation: kurulum ve daire listesi ekranlarına geçmek için kullanılır.
+// navigation: kurulum, daire listesi ve aidat tutarı ekranlarına geçmek için kullanılır.
 export default function YoneticiAnaEkrani({ navigation }) {
   // Oturumdaki kullanıcı ve site bilgisi (giriş/kayıt sırasında sunucudan geldi).
   // oturum burada asla null değildir: App.js bu ekranı sadece oturum açıkken gösterir.
   const { oturum } = useOturum();
 
-  // useState: sitenin bina ve daire sayısı ({ binaSayisi, daireSayisi }).
+  // useState: sitenin bina/daire sayısı ve aidat tutarı ({ binaSayisi, daireSayisi, aidatTutari }).
   // null → henüz yüklenmedi. binaSayisi 0 ise kurulum yapılmamış demektir.
   const [ozet, setOzet] = useState(null);
 
   // useState: özet yüklenemezse gösterilecek hata mesajı.
   const [hata, setHata] = useState('');
 
-  // API isteği: GET /api/kurulum ile sitenin bina/daire sayısını çeker.
+  // API isteği: GET /api/kurulum ile sitenin bina/daire sayısını ve aidat tutarını çeker.
   const ozetiYukle = useCallback(async () => {
     setHata('');
     try {
@@ -36,7 +37,7 @@ export default function YoneticiAnaEkrani({ navigation }) {
   }, []);
 
   // useFocusEffect: ekran her ÖNE GELDİĞİNDE çalışır (useEffect'ten farkı bu).
-  // Kurulum ekranından geri dönülünce özet kendiliğinden güncellenir.
+  // Kurulum veya aidat tutarı ekranından geri dönülünce özet kendiliğinden güncellenir.
   useFocusEffect(
     useCallback(() => {
       ozetiYukle();
@@ -44,7 +45,8 @@ export default function YoneticiAnaEkrani({ navigation }) {
   );
 
   return (
-    <View style={styles.kapsayici}>
+    // ScrollView: kartlar küçük ekranlara sığmazsa sayfa kaydırılabilir.
+    <ScrollView style={styles.dis} contentContainerStyle={styles.kapsayici}>
       <Text style={styles.selam}>Hoş geldin, {oturum.kullanici.ad}</Text>
       <Text style={styles.site}>{oturum.site.ad}</Text>
 
@@ -75,19 +77,39 @@ export default function YoneticiAnaEkrani({ navigation }) {
         )}
       </View>
 
+      {/* Aidat tutarı kartı: özet yüklendiyse gösterilir */}
+      {ozet !== null && (
+        <View style={styles.kart}>
+          <Text style={styles.kartYazi}>Aylık aidat tutarı</Text>
+          <Text style={styles.kartBaslik}>
+            {ozet.aidatTutari == null ? 'Belirlenmedi' : paraBicimi(ozet.aidatTutari)}
+          </Text>
+          {/* "Aidat tutarını belirle/değiştir" butonu: basınca AidatTutari ekranı açılır, mevcut tutar da gönderilir */}
+          <Buton
+            baslik={ozet.aidatTutari == null ? 'Aidat tutarını belirle' : 'Aidat tutarını değiştir'}
+            tur="ikincil"
+            onPress={() => navigation.navigate('AidatTutari', { aidatTutari: ozet.aidatTutari })}
+          />
+        </View>
+      )}
+
       {/* Çıkış butonu ekranın en altında; basınca onay sorulur (ortak CikisButonu component'i) */}
       <View style={styles.alt}>
         <CikisButonu />
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  kapsayici: {
+  dis: {
     flex: 1,
-    padding: 24,
     backgroundColor: renkler.arkaPlan,
+  },
+  // flexGrow: 1 → içerik kısaysa da ekranı doldurur, çıkış butonu en alta itilebilir.
+  kapsayici: {
+    flexGrow: 1,
+    padding: 24,
   },
   selam: {
     fontSize: 16,
@@ -119,5 +141,6 @@ const styles = StyleSheet.create({
   // marginTop: 'auto' → buton ekranın en altına itilir.
   alt: {
     marginTop: 'auto',
+    paddingTop: 24,
   },
 });

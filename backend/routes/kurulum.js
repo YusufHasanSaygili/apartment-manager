@@ -1,11 +1,14 @@
-// Kurulum route'ları: yöneticinin sitedeki binaları ve daireleri bir kerede oluşturması.
+// Kurulum route'ları: yöneticinin sitedeki binaları ve daireleri bir kerede oluşturması
+// ve sitenin aylık aidat tutarını belirlemesi.
 const crypto = require('node:crypto');
 const express = require('express');
 const mongoose = require('mongoose');
 const { z } = require('zod');
 const Bina = require('../models/Bina');
 const Daire = require('../models/Daire');
+const Site = require('../models/Site');
 const dogrula = require('../middleware/dogrula');
+const { tutarKurali } = require('../middleware/dogrula');
 const { girisGerekli, sadeceYonetici } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
 
@@ -48,15 +51,26 @@ function davetKodlariUret(adet) {
 }
 
 // GET /api/kurulum
-// Kim kullanabilir: yönetici. Kendi sitesindeki bina ve daire sayısını döner.
+// Kim kullanabilir: yönetici. Kendi sitesindeki bina ve daire sayısını ve aylık aidat tutarını döner.
 // Ana ekran kurulumun yapılıp yapılmadığını ve özetini bununla gösterir.
 router.get('/', async (req, res) => {
   const { siteId } = req.kullanici;
-  const [binaSayisi, daireSayisi] = await Promise.all([
+  const [binaSayisi, daireSayisi, site] = await Promise.all([
     Bina.countDocuments({ siteId }),
     Daire.countDocuments({ siteId }),
+    Site.findById(siteId).select('aidatTutari').lean(),
   ]);
-  res.json({ binaSayisi, daireSayisi });
+  res.json({ binaSayisi, daireSayisi, aidatTutari: site?.aidatTutari ?? null });
+});
+
+// PUT /api/kurulum/aidat-tutari
+// Kim kullanabilir: yönetici. Sitenin aylık aidat tutarını belirler veya değiştirir.
+// Yeni tutar sadece bundan sonraki bildirimlerde formda hazır gelir; eski bildirimler değişmez.
+router.put('/aidat-tutari', dogrula(z.object({ aidatTutari: tutarKurali })), async (req, res) => {
+  const aidatTutari = Math.round(req.body.aidatTutari * 100) / 100; // tam 2 kuruş basamağı
+  // Sadece yöneticinin KENDİ sitesi güncellenir (siteId token'dan).
+  await Site.updateOne({ _id: req.kullanici.siteId }, { aidatTutari });
+  res.json({ aidatTutari });
 });
 
 // POST /api/kurulum

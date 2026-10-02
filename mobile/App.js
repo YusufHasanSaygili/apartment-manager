@@ -16,6 +16,8 @@ import DaireListesiEkrani from './screens/DaireListesiEkrani';
 import DaireKoduEkrani from './screens/DaireKoduEkrani';
 import SakinAnaEkrani from './screens/SakinAnaEkrani';
 import DavetKatilEkrani from './screens/DavetKatilEkrani';
+import AidatBildirEkrani from './screens/AidatBildirEkrani';
+import AidatTutariEkrani from './screens/AidatTutariEkrani';
 import { renkler } from './tema';
 
 // Stack navigator: ekranları üst üste dizer; yeni ekran açılınca öncekinin üstüne
@@ -58,10 +60,15 @@ function Ekranlar() {
             component={DaireKoduEkrani}
             options={{ presentation: 'formSheet', headerShown: false, sheetAllowedDetents: 'fitToContents' }}
           />
+          {/* Aidat tutarı: ana ekrandaki "Aidat tutarını belirle/değiştir" butonuyla açılır */}
+          <Stack.Screen name="AidatTutari" component={AidatTutariEkrani} options={{ title: 'Aylık aidat tutarı' }} />
         </>
       ) : oturum ? (
-        // Sakin ekranları: şimdilik sadece ana ekran (aidat, duyuru, mesaj ileride eklenecek).
-        <Stack.Screen name="SakinAna" component={SakinAnaEkrani} options={{ title: 'Apartmanım' }} />
+        // Sakin ekranları: ana ekran ve aidat bildirimi (duyuru, mesaj ileride eklenecek).
+        <>
+          <Stack.Screen name="SakinAna" component={SakinAnaEkrani} options={{ title: 'Apartmanım' }} />
+          <Stack.Screen name="AidatBildir" component={AidatBildirEkrani} options={{ title: 'Aidat bildirimi' }} />
+        </>
       ) : (
         <>
           {/* Açılış ekranında üst başlık çubuğu gizlenir, ekranın kendi başlığı var */}

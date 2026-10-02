@@ -49,9 +49,12 @@ function hataYakalayici(err, req, res, next) {
   // MongoDB 11000: benzersiz (unique) olması gereken bir değer zaten kayıtlı.
   // 409 (çakışma) döner; hata loglanmaz çünkü içinde kullanıcının e-postası bulunur.
   if (err.code === 11000) {
+    // Hangi alan çakıştıysa ona uygun mesaj (aidat: aynı daire + ay için ikinci bildirim).
     const mesaj = err.keyPattern?.eposta
       ? 'Bu e-posta adresiyle zaten bir hesap var.'
-      : 'Bu kayıt zaten mevcut.';
+      : err.keyPattern?.daireId && err.keyPattern?.ay
+        ? 'Bu ay için zaten bekleyen veya onaylanmış bir bildiriminiz var.'
+        : 'Bu kayıt zaten mevcut.';
     return res.status(409).json({ mesaj });
   }
 

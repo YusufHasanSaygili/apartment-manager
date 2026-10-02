@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 2.1
+**Mevcut görev:** 2.2
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -56,9 +56,10 @@ Kurallar:
 
 ## Aşama 2 — Aidat
 
-- [ ] **2.1 Aidat bildirimi gönder (sakin)**
+- [x] **2.1 Aidat bildirimi gönder (sakin)**
   - Aidat modeli, bildirim route'u
-  - Mobil: Ay seçimi, ödeme yöntemi (Banka havalesi / Elden), açıklama formu; sakinin kendi bildirim geçmişi
+  - Yönetici sitenin aylık aidat tutarını belirler (Site modeline `aidatTutari`)
+  - Mobil: Ay seçimi, tutar (yöneticinin belirlediği tutar hazır gelir, sakin değiştirebilir; en fazla 99.999,99 TL), ödeme yöntemi (Banka havalesi / Elden), açıklama formu; sakinin kendi bildirim geçmişi
   - Deneme: Sakin bildirim atar, durumu "Onay bekliyor" görünür
 
 - [ ] **2.2 Bekleyen bildirimler (yönetici)**
@@ -74,6 +75,7 @@ Kurallar:
 - [ ] **2.4 Aidat takvimi**
   - Daire bazında aylık ödeme geçmişi
   - Mobil: Yönetici bir daireye dokununca takvimi görür; sakin kendi takvimini görür
+  - Yönetici bir daire için bir ayı elle "ödendi" işaretleyebilir (örn. sakin 2 aylık ödediyse sonraki ay); işaretlenen aya hatırlatma gitmez
   - Deneme: Onaylanan aylar takvimde işaretli görünür
 
 ## Aşama 3 — Duyurular ve Bildirimler
