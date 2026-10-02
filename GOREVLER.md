@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 1.2
+**Mevcut görev:** 1.3
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -34,7 +34,7 @@ Kurallar:
   - Token'ın `expo-secure-store` ile saklanması, boş yönetici ana ekranı
   - Deneme: Yeni site oluşturulur, yönetici ana ekranına geçilir
 
-- [ ] **1.2 Giriş yap / Çıkış yap**
+- [x] **1.2 Giriş yap / Çıkış yap**
   - Giriş route'u + deneme sınırı, JWT doğrulama middleware'i, rol ve site izolasyonu yardımcıları
   - Mobil: Giriş ekranı, çıkış butonu, uygulama açılınca kayıtlı token ile otomatik giriş
   - Deneme: Çıkış yapılır, tekrar giriş yapılır; uygulama kapatılıp açılınca oturum devam eder
@@ -139,6 +139,7 @@ Kurallar:
 - [ ] **7.2 Kullanıcı deneyimi turu:** internet yok uyarısı; tüm ekranlarda yükleniyor, boş liste ve hata durumlarının gözden geçirilmesi
 - [ ] **7.3 Demo verisi:** Sunum için örnek site, daireler, aidatlar ve mesajlar oluşturan script
 - [ ] **7.4 Teslim hazırlığı:** README'nin son hali ve ekran görüntüleri, sunum akışı
+- [ ] **7.5 İndirilebilir APK:** Android Studio araçlarıyla yerelde release APK derlenir ve GitHub Releases'a yüklenir. Karar: APK, backend'i çalışan bilgisayarla aynı Wi-Fi'da kullanılır (ders online, sunum evden ekran paylaşımıyla yapılır); backend internete taşınmaz. APK yerel IP'ye `http` ile bağlanabilsin diye cleartext izni verilir.
 
 ## Opsiyonel (sadece kullanıcı isterse)
 

@@ -39,4 +39,14 @@ api.interceptors.response.use(
   }
 );
 
+// Giriş yapılınca token'ı tüm isteklerin "Authorization" başlığına ekler; böylece backend
+// isteği kimin attığını bilir. Çıkışta null verilir ve başlık silinir.
+export function tokenAyarla(token) {
+  if (token) {
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common.Authorization;
+  }
+}
+
 export default api;

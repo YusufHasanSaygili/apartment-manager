@@ -1,6 +1,7 @@
 // Uygulamanın giriş noktası: oturum bilgisini (OturumProvider) ve ekranlar arası geçişi
 // yöneten React Navigation'ı kurar.
 import { StatusBar } from 'expo-status-bar';
+import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -8,6 +9,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { OturumProvider, useOturum } from './services/OturumContext';
 import AcilisEkrani from './screens/AcilisEkrani';
 import SiteOlusturEkrani from './screens/SiteOlusturEkrani';
+import GirisEkrani from './screens/GirisEkrani';
 import YoneticiAnaEkrani from './screens/YoneticiAnaEkrani';
 import { renkler } from './tema';
 
@@ -20,7 +22,14 @@ const Stack = createNativeStackNavigator();
 // Böylece giriş yapmamış biri yönetici ekranına hiçbir şekilde gidemez; oturum açılınca
 // açılış ekranları listeden çıktığı için geri tuşu kullanıcıyı kayıt formuna döndürmez.
 function Ekranlar() {
-  const { oturum } = useOturum();
+  // oturum: giriş yapılmış mı; hazir: açılıştaki otomatik giriş kontrolü bitti mi (OturumContext'ten).
+  const { oturum, hazir } = useOturum();
+
+  // Açılışta kayıtlı oturum kontrol edilirken boş ekran gösterilir (çok kısa sürer).
+  // Bu sırada ekran seçilmez; yoksa giriş yapmış kullanıcı bir an açılış ekranını görürdü.
+  if (!hazir) {
+    return <View style={{ flex: 1, backgroundColor: renkler.arkaPlan }} />;
+  }
 
   return (
     <Stack.Navigator
@@ -36,6 +45,7 @@ function Ekranlar() {
         <>
           {/* Açılış ekranında üst başlık çubuğu gizlenir, ekranın kendi başlığı var */}
           <Stack.Screen name="Acilis" component={AcilisEkrani} options={{ headerShown: false }} />
+          <Stack.Screen name="Giris" component={GirisEkrani} options={{ title: 'Giriş yap' }} />
           <Stack.Screen name="SiteOlustur" component={SiteOlusturEkrani} options={{ title: 'Yeni site/apartman oluştur' }} />
         </>
       )}

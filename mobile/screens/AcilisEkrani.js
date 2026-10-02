@@ -19,8 +19,8 @@ export default function AcilisEkrani({ navigation }) {
       </View>
 
       <View style={styles.butonlar}>
-        {/* "Giriş yap" butonu: hesabı olanlar için. Giriş ekranı Görev 1.2'de gelecek. */}
-        <Buton baslik="Giriş yap" onPress={yakinda} />
+        {/* "Giriş yap" butonu: hesabı olanlar için; basınca Giris ekranına geçilir */}
+        <Buton baslik="Giriş yap" onPress={() => navigation.navigate('Giris')} />
 
         {/* "Yeni site/apartman oluştur" butonu: basınca SiteOlustur ekranına geçilir */}
         <Buton

@@ -1,19 +1,32 @@
 // Yönetici ana ekranı: yönetici giriş yapınca açılan ekran.
 // Şimdilik sadece karşılama ve site adı var; daire, aidat ve duyuru bölümleri ilerleyen görevlerde eklenecek.
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useOturum } from '../services/OturumContext';
+import Buton from '../components/Buton';
 import { renkler } from '../tema';
 
 export default function YoneticiAnaEkrani() {
   // Oturumdaki kullanıcı ve site bilgisi (site oluşturulurken sunucudan geldi).
   // oturum burada asla null değildir: App.js bu ekranı sadece oturum açıkken gösterir.
-  const { oturum } = useOturum();
+  const { oturum, cikisYap } = useOturum();
+
+  // Yanlışlıkla basılmasın diye önce onay sorulur; "Çıkış yap" seçilirse cikisYap çalışır.
+  const cikisOnayi = () =>
+    Alert.alert('Çıkış yap', 'Hesabınızdan çıkmak istiyor musunuz?', [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Çıkış yap', style: 'destructive', onPress: cikisYap },
+    ]);
 
   return (
     <View style={styles.kapsayici}>
       <Text style={styles.selam}>Hoş geldin, {oturum.kullanici.ad}</Text>
       <Text style={styles.site}>{oturum.site.ad}</Text>
       <Text style={styles.bilgi}>Site yöneticisi olarak giriş yaptın.</Text>
+
+      {/* "Çıkış yap" butonu: basınca cikisOnayi çalışır, onaylanırsa açılış ekranına dönülür */}
+      <View style={styles.alt}>
+        <Buton baslik="Çıkış yap" tur="ikincil" onPress={cikisOnayi} />
+      </View>
     </View>
   );
 }
@@ -38,5 +51,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 15,
     color: renkler.soluk,
+  },
+  // marginTop: 'auto' → buton ekranın en altına itilir.
+  alt: {
+    marginTop: 'auto',
   },
 });

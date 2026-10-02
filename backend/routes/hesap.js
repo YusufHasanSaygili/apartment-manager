@@ -1,12 +1,15 @@
-// Hesap route'ları: site oluşturma (ve ileriki görevlerde giriş, davetle katılma).
+// Hesap route'ları: site oluşturma, giriş ve oturum sahibini sorgulama.
 const express = require('express');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 const { z } = require('zod');
 const Site = require('../models/Site');
 const Kullanici = require('../models/Kullanici');
 const dogrula = require('../middleware/dogrula');
-const { kayitSiniri } = require('../middleware/denemeSiniri');
+const { kayitSiniri, girisSiniri } = require('../middleware/denemeSiniri');
+const { girisGerekli } = require('../middleware/kimlik');
+const { ApiHatasi } = require('../middleware/hataYonetimi');
 
 const router = express.Router();
 
@@ -54,6 +57,63 @@ router.post('/site-olustur', kayitSiniri, dogrula(siteOlusturSemasi), async (req
     token: tokenUret(kullaniciId),
     kullanici: { id: kullaniciId, ad, eposta, rol: 'yonetici' },
     site: { id: siteId, ad: siteAdi },
+  });
+});
+
+// Giriş formunun kuralları. Şifrede uzunluk kuralı yok: yanlış şifre zaten aşağıda reddedilir.
+const girisSemasi = z.object({
+  eposta: z.string({ error: 'E-posta girilmeli' }).trim().toLowerCase().max(254, 'E-posta çok uzun'),
+  sifre: z.string({ error: 'Şifre girilmeli' }).min(1, 'Şifre girilmeli').max(72, 'Şifre çok uzun'),
+});
+
+// Kullanıcı bulunamazsa da bcrypt karşılaştırması yapılsın diye kullanılan sahte hash.
+// Böylece cevap süresi "böyle bir e-posta var mı" bilgisini sızdırmaz.
+// Sunucu açılırken bir kez üretilir (gerçek bir hash olmalı ki karşılaştırma gerçekten yapılsın).
+const SAHTE_HASH = bcrypt.hashSync('kullanici-yok', 12);
+
+// POST /api/hesap/giris
+// Kim kullanabilir: herkes. E-posta ve şifre doğruysa token ve kullanıcı/site bilgisini döner.
+// girisSiniri: hatalı denemeleri sınırlar (şifre tahmin saldırısına karşı).
+// Sıra yine önemli: önce deneme sınırı, sonra dogrula ile gövde kontrolü.
+router.post('/giris', girisSiniri, dogrula(girisSemasi), async (req, res) => {
+  const { eposta, sifre } = req.body;
+
+  // select('+sifre'): şifre hash'i normalde sorgulara gelmez, sadece burada karşılaştırma için alınır.
+  const kullanici = await Kullanici.findOne({ eposta }).select('+sifre');
+  // bcrypt.compare: girilen şifreyi hash'leyip kayıtlı hash ile karşılaştırır (şifre çözülmez).
+  const sifreDogru = await bcrypt.compare(sifre, kullanici?.sifre ?? SAHTE_HASH);
+
+  // E-posta mı şifre mi yanlış, bilinçli olarak söylenmez: saldırgan hangi e-postaların
+  // kayıtlı olduğunu öğrenemez.
+  if (!kullanici || !sifreDogru) {
+    throw new ApiHatasi(401, 'E-posta veya şifre hatalı.');
+  }
+
+  // Site kullanıcının kendi siteId'si ile bulunur (site izolasyonu).
+  const site = await Site.findById(kullanici.siteId).lean();
+  // Sitesi silinmiş bir hesapla giriş yapılamaz (sunucu hata vermesin diye kontrol).
+  if (!site) throw new ApiHatasi(401, 'E-posta veya şifre hatalı.');
+
+  res.json({
+    token: tokenUret(kullanici._id),
+    kullanici: { id: kullanici._id, ad: kullanici.ad, eposta: kullanici.eposta, rol: kullanici.rol },
+    site: { id: site._id, ad: site.ad },
+  });
+});
+
+// GET /api/hesap/ben
+// Kim kullanabilir: giriş yapmış herkes. Token'ın sahibini ve sitesini döner.
+// Mobil uygulama açılışta kayıtlı token'ın hâlâ geçerli olup olmadığını bununla kontrol eder.
+router.get('/ben', girisGerekli, async (req, res) => {
+  // Bilgiler girisGerekli'nin veritabanından doldurduğu req.kullanici'dan alınır, istekten değil.
+  const { id, ad, eposta, rol, siteId } = req.kullanici;
+  const site = await Site.findById(siteId).lean();
+  // Site silinmişse oturum geçersiz sayılır; mobil uygulama kayıtlı token'ı siler.
+  if (!site) throw new ApiHatasi(401, 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
+
+  res.json({
+    kullanici: { id, ad, eposta, rol },
+    site: { id: site._id, ad: site.ad },
   });
 });
 

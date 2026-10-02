@@ -1,6 +1,6 @@
 // Deneme sınırı (rate limit): aynı IP adresinden belli bir sürede gelebilecek istek
 // sayısını sınırlar. Sunucuyu aşırı istekle yormayı ve otomatik denemeleri engeller.
-// Giriş ve kod girme için daha sıkı sınırlar ilgili görevlerde eklenecek.
+// Davet/devir kodu girme için daha sıkı sınırlar ilgili görevlerde eklenecek.
 const { rateLimit } = require('express-rate-limit');
 
 // Genel sınır: bir IP 15 dakikada en fazla 300 istek atabilir; aşarsa 429 hatası alır.
@@ -24,4 +24,16 @@ const kayitSiniri = rateLimit({
   message: { mesaj: 'Çok fazla kayıt denemesi yapıldı. Lütfen 15 dakika sonra tekrar deneyin.' },
 });
 
-module.exports = { genelSinir, kayitSiniri };
+// Giriş sınırı: bir IP 15 dakikada en fazla 10 HATALI giriş denemesi yapabilir.
+// Şifreyi deneme-yanılma ile bulmaya çalışan saldırıları yavaşlatır.
+// skipSuccessfulRequests: başarılı girişler sayılmaz, normal kullanıcı sınıra takılmaz.
+const girisSiniri = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { mesaj: 'Çok fazla hatalı giriş denemesi. Lütfen 15 dakika sonra tekrar deneyin.' },
+});
+
+module.exports = { genelSinir, kayitSiniri, girisSiniri };
