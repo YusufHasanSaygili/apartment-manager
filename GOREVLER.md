@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 5.2
+**Mevcut görev:** 6.1
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -117,7 +117,7 @@ Kurallar:
   - Sunum için yöneticinin elle tetikleyebileceği "Hatırlatma gönder" butonu
   - Deneme: Buton ile hatırlatma tetiklenir, ödemeyen sakinlere bildirim düşer
 
-- [ ] **5.2 Tekrarlayan duyurular**
+- [x] **5.2 Tekrarlayan duyurular**
   - TekrarlananDuyuru modeli (site, başlık, içerik, gün, saat); ekleme, listeleme, silme route'ları
   - Her saat başı çalışan zamanlanmış görev: vakti gelen tekrarlayan duyuru normal duyuru olarak eklenir ve push gönderilir
   - Mobil: yönetici gün ve saat seçerek tekrarlayan duyuru ekler ve siler (örn. "Her pazartesi 08:00 — Çöp günü")

@@ -1,5 +1,6 @@
 // Duyurular ekranı: sitenin duyurularını yeniden eskiye listeler. Yönetici ve sakin aynı ekranı görür.
 // Yönetici ayrıca üstteki butonla yeni duyuru yazabilir; bir duyuruya dokunarak düzenleyebilir veya silebilir.
+// "Tekrarlayan duyurular" butonuyla belirli gün ve saatte kendiliğinden yayınlanan duyuruları yönetir.
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -48,6 +49,12 @@ export default function DuyurularEkrani({ navigation }) {
         <>
           {/* "Yeni duyuru" butonu: basınca DuyuruYaz ekranı açılır */}
           <Buton baslik="Yeni duyuru" onPress={() => navigation.navigate('DuyuruYaz')} />
+          {/* "Tekrarlayan duyurular" butonu: basınca TekrarlananDuyurular ekranı açılır ("Her pazartesi çöp günü" gibi) */}
+          <Buton
+            baslik="Tekrarlayan duyurular"
+            tur="ikincil"
+            onPress={() => navigation.navigate('TekrarlananDuyurular')}
+          />
           <Text style={styles.ipucu}>Düzenlemek veya silmek için bir duyuruya dokunun.</Text>
         </>
       )}

@@ -15,11 +15,13 @@ const aidatlarRoute = require('./routes/aidatlar');
 const aidatYonetimRoute = require('./routes/aidatYonetim');
 const duyurularRoute = require('./routes/duyurular');
 const mesajlarRoute = require('./routes/mesajlar');
+const tekrarlananDuyurularRoute = require('./routes/tekrarlananDuyurular');
 const { genelSinir } = require('./middleware/denemeSiniri');
 const temizle = require('./middleware/temizle');
 const { bulunamadi, hataYakalayici } = require('./middleware/hataYonetimi');
 const { soketiBaslat } = require('./soket');
 const { hatirlatmayiZamanla } = require('./services/hatirlatma');
+const { tekrarlananDuyurulariZamanla } = require('./services/tekrarlananDuyuru');
 
 // Bazı bilgisayarlarda Node.js'in kullandığı yerel DNS, MongoDB Atlas'ın "mongodb+srv"
 // kaydını çözemez (hata: querySrv ECONNREFUSED). .env'de DNS_SUNUCULARI verilirse
@@ -66,6 +68,7 @@ app.use('/api/daireler', dairelerRoute); // sadece giriş yapmış yönetici
 app.use('/api/aidatlar', aidatlarRoute); // sadece giriş yapmış sakin: aidat bildirimi ve kendi geçmişi
 app.use('/api/yonetim/aidatlar', aidatYonetimRoute); // sadece yönetici: bildirim onay/red, harita, takvim, elle işaretleme
 app.use('/api/duyurular', duyurularRoute); // listeleme herkes, yazma/silme sadece yönetici
+app.use('/api/tekrarlanan-duyurular', tekrarlananDuyurularRoute); // sadece yönetici: tekrarlayan duyuru ekleme, listeleme, silme
 app.use('/api/mesajlar', mesajlarRoute); // giriş yapmış herkes: yönetici ↔ kendi sitesinin sakinleri arasında yazışma
 
 // Hiçbir route'a uymayan istekler 404'e, tüm hatalar merkezi hata yakalayıcıya gider.
@@ -102,9 +105,11 @@ async function baslat() {
     console.log(`Sunucu ${PORT} portunda çalışıyor`);
   });
 
-  // Otomatik görevler: her ayın 10'unda ödemeyen sakinlere aidat hatırlatması (services/hatirlatma.js).
-  // Veritabanı bağlantısından SONRA kurulur; görev çalışınca veritabanına erişebilmelidir.
+  // Otomatik görevler: her ayın 10'unda ödemeyen sakinlere aidat hatırlatması (services/hatirlatma.js)
+  // ve her dakika zamanı gelen tekrarlayan duyuruların yayınlanması (services/tekrarlananDuyuru.js).
+  // Veritabanı bağlantısından SONRA kurulur; görevler çalışınca veritabanına erişebilmelidir.
   hatirlatmayiZamanla();
+  tekrarlananDuyurulariZamanla();
 }
 
 baslat();

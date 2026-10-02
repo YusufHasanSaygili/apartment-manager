@@ -23,6 +23,7 @@ import DaireHaritasiEkrani from './screens/DaireHaritasiEkrani';
 import AidatTakvimiEkrani from './screens/AidatTakvimiEkrani';
 import DuyurularEkrani from './screens/DuyurularEkrani';
 import DuyuruYazEkrani from './screens/DuyuruYazEkrani';
+import TekrarlananDuyurularEkrani from './screens/TekrarlananDuyurularEkrani';
 import SohbetlerEkrani from './screens/SohbetlerEkrani';
 import SohbetEkrani from './screens/SohbetEkrani';
 import { renkler } from './tema';
@@ -91,6 +92,12 @@ function Ekranlar() {
             name="DuyuruYaz"
             component={DuyuruYazEkrani}
             options={({ route }) => ({ title: route.params?.duyuru ? 'Duyuruyu düzenle' : 'Yeni duyuru' })}
+          />
+          {/* Tekrarlayan duyurular: Duyurular ekranındaki "Tekrarlayan duyurular" butonuyla açılır (sadece yönetici) */}
+          <Stack.Screen
+            name="TekrarlananDuyurular"
+            component={TekrarlananDuyurularEkrani}
+            options={{ title: 'Tekrarlayan duyurular' }}
           />
           {/* Mesajlar (yönetici): ana ekrandaki "Mesajlar" butonuyla sakin listesi açılır; bir sakine dokununca
               Sohbet ekranı o sakinle açılır, başlıkta sakinin adı ve dairesi görünür */}

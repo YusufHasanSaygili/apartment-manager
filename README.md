@@ -10,7 +10,7 @@ Herkes kendi sitesini kurabilir; her sitenin verisi birbirinden tamamen ayrıdı
 - Yeni site oluşturma, davet koduyla katılma, yönetici devri
 - Bina/daire kurulumu ve renkli daire haritası (ödedi / onay bekliyor / ödemedi)
 - "Aidatı verdim" bildirimi ve yönetici onayı, aidat takvimi
-- Duyurular ve push bildirimler
+- Duyurular ve push bildirimler; belirli gün ve saatte kendiliğinden yayınlanan tekrarlayan duyurular (örn. "Her pazartesi çöp günü")
 - Yönetici ile sakin arasında anlık mesajlaşma
 - Her ayın 10'unda otomatik aidat hatırlatması
 
