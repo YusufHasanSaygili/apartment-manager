@@ -126,7 +126,7 @@ Yönetici değiştiğinde site **sıfırdan kurulmaz**; aidat geçmişi, dairele
 - **Kullanici:** siteId, ad, e-posta (giriş için, benzersiz), şifre (hash), rol (`yonetici` / `sakin`), daireId (sakinse), pushToken
 - **Bina:** siteId, ad (A, B, C...)
 - **Daire:** siteId, binaId, daireNo, davetKodu, davetKoduKullanildi, sakinId
-- **Aidat:** siteId, daireId, ay, yil, tutar, odemeYontemi (`banka` / `elden`), aciklama, durum (`bekliyor` / `onaylandi` / `reddedildi`), tarih
+- **Aidat:** siteId, daireId, ay, yil, tutar, odemeYontemi (`banka` / `elden` / `yonetici` = yönetici elle işaretledi), aciklama, durum (`bekliyor` / `onaylandi` / `reddedildi`), tarih
 - **Duyuru:** siteId, baslik, icerik, tarih
 - **Mesaj:** siteId, gonderenId, aliciId, icerik, okundu, tarih
 

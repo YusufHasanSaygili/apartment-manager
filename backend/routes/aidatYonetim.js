@@ -1,11 +1,12 @@
 // Aidat yönetim route'ları (yönetici tarafı): bekleyen "aidatı verdim" bildirimlerini görme,
-// onaylama, reddetme ve seçilen aya göre renkli daire haritası.
+// onaylama, reddetme, seçilen aya göre renkli daire haritası, daire takvimi ve elle "ödendi" işaretleme.
 const express = require('express');
 const { z } = require('zod');
 const Aidat = require('../models/Aidat');
 const Bina = require('../models/Bina');
 const Daire = require('../models/Daire');
 const Kullanici = require('../models/Kullanici');
+const Site = require('../models/Site');
 const dogrula = require('../middleware/dogrula');
 const { girisGerekli, sadeceYonetici } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
@@ -64,6 +65,8 @@ const haritaSemasi = z.object({
 //   bekliyor → onay bekleyen bildirim var (sarı)
 //   odenmedi → bildirim yok veya sadece reddedilmiş bildirim var, dairede sakin var (kırmızı)
 //   bos      → dairede henüz sakin yok ve ödeme kaydı da yok (gri)
+// Gelecek aylar da sorgulanabilir: yönetici ileri bir ayı elle işaretlediyse (Görev 2.4) haritada yeşil görür;
+// sakini olan diğer daireler o ay henüz ödenmediği için kırmızı görünür (yönetici sakini çıkarana kadar).
 // Sıra önemli: önce (router.use ile) giriş ve yönetici kontrolü, sonra dogrula ile ay/yıl kontrolü yapılır;
 // geçersiz ay/yıl gelirse istek veritabanına hiç gitmeden 400 hatası döner.
 router.get('/harita', dogrula(haritaSemasi, 'query'), async (req, res) => {
@@ -104,6 +107,71 @@ router.get('/harita', dogrula(haritaSemasi, 'query'), async (req, res) => {
   }));
 
   res.json({ binalar: sonuc, ozet });
+});
+
+// Takvim isteğinin kuralı: adresteki ?yil=2026 (metin gelir, z.coerce sayıya çevirir).
+const yilSemasi = z.object({
+  yil: z.coerce.number({ error: 'Yıl geçersiz' }).int().min(2000, 'Yıl geçersiz').max(2100, 'Yıl geçersiz'),
+});
+
+// GET /api/yonetim/aidatlar/takvim/:daireId?yil=2026
+// Kim kullanabilir: yönetici. Kendi sitesindeki bir dairenin seçilen yıldaki 12 ayının aidat durumunu döner.
+// Daire başka bir siteye aitse veya yoksa 404 (varlığı belli edilmez).
+router.get('/takvim/:daireId', dogrula(yilSemasi, 'query'), async (req, res) => {
+  const { siteId } = req.kullanici;
+  // Daire sadece yöneticinin kendi sitesinde aranır (site izolasyonu). Geçersiz id → CastError → 404.
+  const daire = await Daire.findOne({ _id: req.params.daireId, siteId }).lean();
+  if (!daire) throw new ApiHatasi(404, 'Daire bulunamadı.');
+
+  res.json({ aylar: await Aidat.yillikTakvim(siteId, daire._id, req.query.yil) });
+});
+
+// Elle işaretleme formunun kuralları. daireId: MongoDB kimliği biçiminde (24 karakter onaltılık).
+const elleSemasi = z.object({
+  daireId: z.string({ error: 'Daire seçilmeli' }).regex(/^[a-f\d]{24}$/i, 'Daire geçersiz'),
+  ay: z.number({ error: 'Ay seçilmeli' }).int().min(1, 'Ay geçersiz').max(12, 'Ay geçersiz'),
+  yil: z.number({ error: 'Yıl seçilmeli' }).int().min(2000, 'Yıl geçersiz').max(2100, 'Yıl geçersiz'),
+});
+
+// POST /api/yonetim/aidatlar/elle
+// Kim kullanabilir: yönetici. Bir daire için bir ayı "ödendi" olarak işaretler (örn. sakin Ekim'de
+// 2 aylık ödediyse Kasım'ı işaretler). Gelecek aylar da işaretlenebilir (en fazla gelecek yıl).
+// İşaretlenen ay ödenmiş sayıldığı için o aya hatırlatma gitmez (Görev 5.1).
+router.post('/elle', dogrula(elleSemasi), async (req, res) => {
+  const { siteId } = req.kullanici;
+  const { daireId, ay, yil } = req.body;
+
+  if (yil > new Date().getFullYear() + 1) {
+    throw new ApiHatasi(400, 'En fazla gelecek yılın ayları işaretlenebilir.');
+  }
+
+  // Daire yöneticinin kendi sitesinde mi? Değilse 404 (başka sitenin dairesi işaretlenemez).
+  const daire = await Daire.exists({ _id: daireId, siteId });
+  if (!daire) throw new ApiHatasi(404, 'Daire bulunamadı.');
+
+  // O ay için zaten kayıt varsa: onaylıysa işaretlemeye gerek yok, bekliyorsa bildirim onaylanmalı.
+  const mevcut = await Aidat.findOne({ siteId, daireId, ay, yil, durum: { $in: ['bekliyor', 'onaylandi'] } }).lean();
+  if (mevcut?.durum === 'onaylandi') throw new ApiHatasi(409, 'Bu ay zaten ödendi olarak görünüyor.');
+  if (mevcut?.durum === 'bekliyor') {
+    throw new ApiHatasi(409, 'Bu ay için onay bekleyen bir bildirim var. Bekleyen bildirimlerden onaylayın.');
+  }
+
+  // Tutar olarak sitenin aylık aidat tutarı yazılır (belirlenmemişse 0). Kayıt doğrudan onaylıdır.
+  // Aynı anda bir sakin bildirimi veya ikinci bir işaretleme gelip yukarıdaki kontrolü birlikte geçerse,
+  // modeldeki unique index ikinci kaydı reddeder (11000 → merkezi hata yakalayıcı 409 döner).
+  const site = await Site.findById(siteId).select('aidatTutari').lean();
+  await Aidat.create({
+    siteId,
+    daireId,
+    ay,
+    yil,
+    tutar: site?.aidatTutari ?? 0,
+    odemeYontemi: 'yonetici',
+    aciklama: 'Yönetici tarafından ödendi olarak işaretlendi',
+    durum: 'onaylandi',
+  });
+
+  res.status(201).json({ ay, yil, durum: 'odendi' });
 });
 
 // Bekleyen bir bildirimin durumunu değiştirir. Sadece yöneticinin KENDİ sitesindeki ve hâlâ

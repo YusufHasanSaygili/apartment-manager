@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 2.4
+**Mevcut görev:** 3.1
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -72,7 +72,7 @@ Kurallar:
   - Mobil: Bina bina ızgara; yeşil = ödedi, sarı = onay bekliyor, kırmızı = ödemedi; ay seçici
   - Deneme: Onaylanan daire yeşile, bekleyen sarıya döner
 
-- [ ] **2.4 Aidat takvimi**
+- [x] **2.4 Aidat takvimi**
   - Daire bazında aylık ödeme geçmişi
   - Mobil: Yönetici bir daireye dokununca takvimi görür; sakin kendi takvimini görür
   - Yönetici bir daire için bir ayı elle "ödendi" işaretleyebilir (örn. sakin 2 aylık ödediyse sonraki ay); işaretlenen aya hatırlatma gitmez

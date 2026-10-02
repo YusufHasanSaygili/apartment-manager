@@ -1,6 +1,7 @@
 // Daire haritası ekranı: yönetici seçilen ay için tüm dairelerin aidat durumunu renkli ızgarada görür.
-// Yeşil = ödedi, sarı = onay bekliyor, kırmızı = ödemedi, gri = dairede henüz sakin yok.
-import { useCallback, useEffect, useRef, useState } from 'react';
+// Yeşil = ödedi, sarı = onay bekliyor, kırmızı = ödemedi (gelecek aylar dahil), gri = dairede henüz sakin yok.
+import { useCallback, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import api from '../services/api';
 import HataMesaji from '../components/HataMesaji';
@@ -16,9 +17,11 @@ const DURUMLAR = {
   bos: { zemin: renkler.gri, yazi: renkler.soluk, isaret: '–', ad: 'Sakin yok' },
 };
 
-// Bugünün ayı: ay seçici bundan ileriye gidemez.
+// Bugünün ayı (varsayılan seçili ay) ve ay seçicinin gidebileceği en ileri ay: gelecek yılın Aralık'ı.
+// İleri aylarda sadece yöneticinin elle "ödendi" işaretlediği daireler yeşil görünür (Görev 2.4).
 const bugun = new Date();
 const BU_AY = { ay: bugun.getMonth() + 1, yil: bugun.getFullYear() };
+const EN_SON_AY = { ay: 12, yil: bugun.getFullYear() + 1 };
 
 // Bir ay ileri veya geri gider: { ay: 1, yil: 2026 } ve -1 → { ay: 12, yil: 2025 }
 // Hesabı Date yapar: ay 0'ın altına veya 11'in üstüne çıkınca yılı kendisi değiştirir.
@@ -27,7 +30,8 @@ function ayKaydir({ ay, yil }, fark) {
   return { ay: tarih.getMonth() + 1, yil: tarih.getFullYear() };
 }
 
-export default function DaireHaritasiEkrani() {
+// navigation: bir daireye dokununca o dairenin aidat takvimini açmak için kullanılır.
+export default function DaireHaritasiEkrani({ navigation }) {
   // useState: haritası gösterilen ay (varsayılan: bu ay). Değişince harita yeniden çekilir.
   const [secilenAy, setSecilenAy] = useState(BU_AY);
   // useState: sunucudan gelen { binalar, ozet }. null → yükleniyor.
@@ -44,7 +48,6 @@ export default function DaireHaritasiEkrani() {
   const yukle = useCallback(async () => {
     const no = ++sonIstek.current;
     setHata('');
-    setVeri(null);
     try {
       const { data } = await api.get('/yonetim/aidatlar/harita', { params: secilenAy });
       if (no === sonIstek.current) setVeri(data);
@@ -53,13 +56,23 @@ export default function DaireHaritasiEkrani() {
     }
   }, [secilenAy]);
 
-  // useEffect: ekran açılınca ve seçilen ay her değiştiğinde çalışır (bağımlılık: yukle → secilenAy).
-  useEffect(() => {
-    yukle();
-  }, [yukle]);
+  // Ay değiştirme: yeni ay seçilir ve eski ayın verisi silinir (yeni veri gelene kadar yükleniyor
+  // simgesi çıkar). Ekrana geri dönüldüğünde veri silinmez; eski harita görünürken sessizce güncellenir.
+  const ayDegistir = (fark) => {
+    setVeri(null);
+    setSecilenAy((a) => ayKaydir(a, fark));
+  };
 
-  // Seçilen ay bu ay mı? Doğruysa "›" (sonraki ay) butonu pasif yapılır.
-  const buAyda = secilenAy.ay === BU_AY.ay && secilenAy.yil === BU_AY.yil;
+  // useFocusEffect: ekran her öne geldiğinde VE seçilen ay değiştiğinde çalışır (bağımlılık: yukle → secilenAy).
+  // Takvimde bir ay elle işaretlenip geri dönülünce harita kendiliğinden güncellenir.
+  useFocusEffect(
+    useCallback(() => {
+      yukle();
+    }, [yukle])
+  );
+
+  // Seçilen ay en ileri ay mı? Doğruysa "›" (sonraki ay) butonu pasif yapılır.
+  const sondaMi = secilenAy.ay === EN_SON_AY.ay && secilenAy.yil === EN_SON_AY.yil;
 
   // Ay seçici, renk açıklaması ve özet: listenin üst kısmında gösterilir.
   const ust = (
@@ -68,18 +81,18 @@ export default function DaireHaritasiEkrani() {
         {/* "‹" butonu: basınca bir önceki aya geçilir ve harita yeniden yüklenir */}
         <Pressable
           style={({ pressed }) => [styles.ok, pressed && styles.basili]}
-          onPress={() => setSecilenAy((a) => ayKaydir(a, -1))}
+          onPress={() => ayDegistir(-1)}
           accessibilityRole="button"
           accessibilityLabel="Önceki ay"
         >
           <Text style={styles.okYazi}>‹</Text>
         </Pressable>
         <Text style={styles.ayAdi}>{ayAdi(secilenAy.ay, secilenAy.yil)}</Text>
-        {/* "›" butonu: bir sonraki aya geçer; bu aydayken pasiftir (gelecek ay seçilemez) */}
+        {/* "›" butonu: bir sonraki aya geçer; gelecek yılın Aralık'ına gelince pasiftir */}
         <Pressable
-          style={({ pressed }) => [styles.ok, buAyda && styles.pasif, pressed && styles.basili]}
-          onPress={() => setSecilenAy((a) => ayKaydir(a, 1))}
-          disabled={buAyda}
+          style={({ pressed }) => [styles.ok, sondaMi && styles.pasif, pressed && styles.basili]}
+          onPress={() => ayDegistir(1)}
+          disabled={sondaMi}
           accessibilityRole="button"
           accessibilityLabel="Sonraki ay"
         >
@@ -87,9 +100,13 @@ export default function DaireHaritasiEkrani() {
         </Pressable>
       </View>
 
-      {/* Renk açıklaması ve her durumdaki daire sayısı (özet sunucudan gelir) */}
+      {/* Renk açıklaması ve her durumdaki daire sayısı (özet sunucudan gelir).
+          filter: veri gelince sadece o ay en az bir dairesi olan durumlar gösterilir (örn. bir ayda
+          hiç bekleyen yoksa "Bekliyor 0" gibi gereksiz satırlar çıkmaz); yüklenirken hepsi görünür. */}
       <View style={styles.aciklamalar}>
-        {Object.entries(DURUMLAR).map(([anahtar, d]) => (
+        {Object.entries(DURUMLAR)
+          .filter(([anahtar]) => !veri || veri.ozet[anahtar] > 0)
+          .map(([anahtar, d]) => (
           <View key={anahtar} style={styles.aciklama}>
             <View style={[styles.nokta, { backgroundColor: d.zemin }]} />
             <Text style={styles.aciklamaYazi}>
@@ -123,16 +140,17 @@ export default function DaireHaritasiEkrani() {
               const d = DURUMLAR[daire.durum];
               return (
                 // Daire kutucuğu: rengi ve işareti o ayki aidat durumunu gösterir.
-                // (Dokununca açılacak aidat takvimi Görev 2.4'te eklenecek.)
-                <View
+                // Basınca AidatTakvimi ekranı o dairenin id'si ve adıyla açılır.
+                <Pressable
                   key={daire.id}
-                  style={[styles.daire, { backgroundColor: d.zemin }]}
-                  accessible
-                  accessibilityLabel={`Daire ${daire.ad}: ${d.ad}`}
+                  style={({ pressed }) => [styles.daire, { backgroundColor: d.zemin }, pressed && styles.basili]}
+                  onPress={() => navigation.navigate('AidatTakvimi', { daireId: daire.id, daireAdi: daire.ad })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Daire ${daire.ad}: ${d.ad}. Aidat takvimini aç`}
                 >
                   <Text style={[styles.daireAd, { color: d.yazi }]}>{daire.ad}</Text>
                   <Text style={[styles.isaret, { color: d.yazi }]}>{d.isaret}</Text>
-                </View>
+                </Pressable>
               );
             })}
           </View>

@@ -20,6 +20,7 @@ import AidatBildirEkrani from './screens/AidatBildirEkrani';
 import AidatTutariEkrani from './screens/AidatTutariEkrani';
 import BekleyenBildirimlerEkrani from './screens/BekleyenBildirimlerEkrani';
 import DaireHaritasiEkrani from './screens/DaireHaritasiEkrani';
+import AidatTakvimiEkrani from './screens/AidatTakvimiEkrani';
 import { renkler } from './tema';
 
 // Stack navigator: ekranları üst üste dizer; yeni ekran açılınca öncekinin üstüne
@@ -72,12 +73,20 @@ function Ekranlar() {
           />
           {/* Daire haritası: ana ekrandaki "Daire haritası" butonuyla açılır */}
           <Stack.Screen name="DaireHaritasi" component={DaireHaritasiEkrani} options={{ title: 'Daire haritası' }} />
+          {/* Aidat takvimi (yönetici): haritada bir daireye dokununca açılır; başlıkta daire adı görünür */}
+          <Stack.Screen
+            name="AidatTakvimi"
+            component={AidatTakvimiEkrani}
+            options={({ route }) => ({ title: `${route.params.daireAdi} aidat takvimi` })}
+          />
         </>
       ) : oturum ? (
-        // Sakin ekranları: ana ekran ve aidat bildirimi (duyuru, mesaj ileride eklenecek).
+        // Sakin ekranları: ana ekran, aidat bildirimi ve aidat takvimi (duyuru, mesaj ileride eklenecek).
         <>
           <Stack.Screen name="SakinAna" component={SakinAnaEkrani} options={{ title: 'Apartmanım' }} />
           <Stack.Screen name="AidatBildir" component={AidatBildirEkrani} options={{ title: 'Aidat bildirimi' }} />
+          {/* Aidat takvimi (sakin): aynı ekran, daireId verilmeden açılır → sakinin kendi dairesi */}
+          <Stack.Screen name="AidatTakvimi" component={AidatTakvimiEkrani} options={{ title: 'Aidat takvimim' }} />
         </>
       ) : (
         <>

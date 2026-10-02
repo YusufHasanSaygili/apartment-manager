@@ -33,16 +33,29 @@ const bildirimSemasi = z.object({
   aciklama: z.string().trim().max(200, 'Açıklama en fazla 200 karakter olabilir').default(''),
 });
 
+// GET /api/aidatlar/takvim?yil=2026
+// Kim kullanabilir: sakin. KENDİ dairesinin seçilen yıldaki 12 ayının aidat durumunu döner.
+// daireId istekten değil token'dan gelir: sakin başka dairenin takvimini göremez.
+const yilSemasi = z.object({
+  yil: z.coerce.number({ error: 'Yıl geçersiz' }).int().min(2000, 'Yıl geçersiz').max(2100, 'Yıl geçersiz'),
+});
+router.get('/takvim', dogrula(yilSemasi, 'query'), async (req, res) => {
+  const { siteId, daireId } = req.kullanici;
+  res.json({ aylar: await Aidat.yillikTakvim(siteId, daireId, req.query.yil) });
+});
+
 // GET /api/aidatlar/benim
 // Kim kullanabilir: sakin. Sitenin aylık aidat tutarını (formda hazır gelmesi için) ve
-// sakinin KENDİ dairesinin bildirim geçmişini (yeniden eskiye, son 24 kayıt) döner.
+// sakinin KENDİ dairesinin bildirim geçmişini (yeniden eskiye, son 2 kayıt) döner.
+// Ana ekran kısa kalsın diye sadece son 2 bildirim gönderilir; tüm aylar "Aidat takvimim" ekranında görülür.
 router.get('/benim', async (req, res) => {
   const { siteId, daireId } = req.kullanici;
   // Promise.all: iki sorguyu sırayla değil AYNI ANDA çalıştırır, cevap daha hızlı döner.
   // Aidat sorgusu hem siteId hem daireId ile filtrelenir: sakin başka dairenin kaydını göremez.
   const [site, bildirimler] = await Promise.all([
     Site.findById(siteId).select('aidatTutari').lean(),
-    Aidat.find({ siteId, daireId }).sort({ tarih: -1 }).limit(24).lean(),
+    // Sadece sakinin KENDİ gönderdiği bildirimler (yöneticinin elle işaretledikleri takvimde görünür).
+    Aidat.find({ siteId, daireId, odemeYontemi: { $ne: 'yonetici' } }).sort({ tarih: -1 }).limit(2).lean(),
   ]);
 
   res.json({
