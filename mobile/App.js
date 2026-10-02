@@ -19,6 +19,7 @@ import DavetKatilEkrani from './screens/DavetKatilEkrani';
 import AidatBildirEkrani from './screens/AidatBildirEkrani';
 import AidatTutariEkrani from './screens/AidatTutariEkrani';
 import BekleyenBildirimlerEkrani from './screens/BekleyenBildirimlerEkrani';
+import DaireHaritasiEkrani from './screens/DaireHaritasiEkrani';
 import { renkler } from './tema';
 
 // Stack navigator: ekranları üst üste dizer; yeni ekran açılınca öncekinin üstüne
@@ -69,6 +70,8 @@ function Ekranlar() {
             component={BekleyenBildirimlerEkrani}
             options={{ title: 'Bekleyen bildirimler' }}
           />
+          {/* Daire haritası: ana ekrandaki "Daire haritası" butonuyla açılır */}
+          <Stack.Screen name="DaireHaritasi" component={DaireHaritasiEkrani} options={{ title: 'Daire haritası' }} />
         </>
       ) : oturum ? (
         // Sakin ekranları: ana ekran ve aidat bildirimi (duyuru, mesaj ileride eklenecek).

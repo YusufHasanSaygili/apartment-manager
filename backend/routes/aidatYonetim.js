@@ -1,10 +1,12 @@
 // Aidat yönetim route'ları (yönetici tarafı): bekleyen "aidatı verdim" bildirimlerini görme,
-// onaylama ve reddetme.
+// onaylama, reddetme ve seçilen aya göre renkli daire haritası.
 const express = require('express');
+const { z } = require('zod');
 const Aidat = require('../models/Aidat');
 const Bina = require('../models/Bina');
 const Daire = require('../models/Daire');
 const Kullanici = require('../models/Kullanici');
+const dogrula = require('../middleware/dogrula');
 const { girisGerekli, sadeceYonetici } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
 
@@ -47,6 +49,61 @@ router.get('/bekleyen', async (req, res) => {
       tarih: a.tarih,
     }))
   );
+});
+
+// Harita isteğinin kuralları: adresteki ?ay=10&yil=2026. Adres parametreleri metin olarak gelir;
+// z.coerce metni sayıya çevirip sonra kontrol eder.
+const haritaSemasi = z.object({
+  ay: z.coerce.number({ error: 'Ay geçersiz' }).int().min(1, 'Ay geçersiz').max(12, 'Ay geçersiz'),
+  yil: z.coerce.number({ error: 'Yıl geçersiz' }).int().min(2000, 'Yıl geçersiz').max(2100, 'Yıl geçersiz'),
+});
+
+// GET /api/yonetim/aidatlar/harita?ay=10&yil=2026
+// Kim kullanabilir: yönetici. Seçilen ay için sitedeki her dairenin aidat durumunu bina bina döner:
+//   odendi   → o ay için onaylanmış bildirim var (yeşil)
+//   bekliyor → onay bekleyen bildirim var (sarı)
+//   odenmedi → bildirim yok veya sadece reddedilmiş bildirim var, dairede sakin var (kırmızı)
+//   bos      → dairede henüz sakin yok ve ödeme kaydı da yok (gri)
+// Sıra önemli: önce (router.use ile) giriş ve yönetici kontrolü, sonra dogrula ile ay/yıl kontrolü yapılır;
+// geçersiz ay/yıl gelirse istek veritabanına hiç gitmeden 400 hatası döner.
+router.get('/harita', dogrula(haritaSemasi, 'query'), async (req, res) => {
+  const { siteId } = req.kullanici;
+  const { ay, yil } = req.query;
+
+  // Reddedilen bildirimler durumu etkilemediği için hiç alınmaz.
+  const [binalar, daireler, aidatlar] = await Promise.all([
+    Bina.find({ siteId }).sort({ ad: 1 }).lean(),
+    Daire.find({ siteId }).sort({ daireNo: 1 }).select('binaId daireNo davetKoduKullanildi').lean(),
+    Aidat.find({ siteId, ay, yil, durum: { $in: ['bekliyor', 'onaylandi'] } }).select('daireId durum').lean(),
+  ]);
+
+  // daireId → o ayki durum ('bekliyor' veya 'onaylandi'). Bir dairede ikisinden en fazla biri olabilir.
+  const aidatDurumu = new Map(aidatlar.map((a) => [String(a.daireId), a.durum]));
+
+  // Her dairenin rengini belirleyen durum hesabı.
+  const durumBul = (d) => {
+    const kayit = aidatDurumu.get(String(d._id));
+    if (kayit === 'onaylandi') return 'odendi';
+    if (kayit === 'bekliyor') return 'bekliyor';
+    return d.davetKoduKullanildi ? 'odenmedi' : 'bos';
+  };
+
+  // Daireler bina bina gruplanır. binaId bir ObjectId olduğu için === yerine .equals ile karşılaştırılır
+  // (=== iki ayrı nesneyi karşılaştırır ve hep false döner).
+  const ozet = { odendi: 0, bekliyor: 0, odenmedi: 0, bos: 0 };
+  const sonuc = binalar.map((bina) => ({
+    id: bina._id,
+    ad: bina.ad,
+    daireler: daireler
+      .filter((d) => d.binaId.equals(bina._id))
+      .map((d) => {
+        const durum = durumBul(d);
+        ozet[durum] += 1; // alttaki "Ödedi 12 · Bekliyor 3..." özeti için sayılır
+        return { id: d._id, ad: `${bina.ad}${d.daireNo}`, durum };
+      }),
+  }));
+
+  res.json({ binalar: sonuc, ozet });
 });
 
 // Bekleyen bir bildirimin durumunu değiştirir. Sadece yöneticinin KENDİ sitesindeki ve hâlâ

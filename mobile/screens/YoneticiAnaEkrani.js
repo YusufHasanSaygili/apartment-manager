@@ -13,7 +13,7 @@ import CikisButonu from '../components/CikisButonu';
 import { paraBicimi } from '../bicim';
 import { renkler } from '../tema';
 
-// navigation: kurulum, daire listesi, bekleyen bildirimler ve aidat tutarı ekranlarına geçmek için kullanılır.
+// navigation: kurulum, daire listesi, bekleyen bildirimler, daire haritası ve aidat tutarı ekranlarına geçmek için kullanılır.
 export default function YoneticiAnaEkrani({ navigation }) {
   // Oturumdaki kullanıcı ve site bilgisi (giriş/kayıt sırasında sunucudan geldi).
   // oturum burada asla null değildir: App.js bu ekranı sadece oturum açıkken gösterir.
@@ -86,6 +86,8 @@ export default function YoneticiAnaEkrani({ navigation }) {
             baslik={`Bekleyen bildirimler (${ozet.bekleyenSayisi})`}
             onPress={() => navigation.navigate('BekleyenBildirimler')}
           />
+          {/* "Daire haritası" butonu: basınca DaireHaritasi ekranı açılır (aylık renkli aidat durumu) */}
+          <Buton baslik="Daire haritası" tur="ikincil" onPress={() => navigation.navigate('DaireHaritasi')} />
         </View>
       )}
 
@@ -152,6 +154,7 @@ const styles = StyleSheet.create({
   },
   bekleyen: {
     marginTop: 16,
+    gap: 12,
   },
   // marginTop: 'auto' → buton ekranın en altına itilir.
   alt: {

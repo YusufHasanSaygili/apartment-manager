@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 2.3
+**Mevcut görev:** 2.4
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -67,7 +67,7 @@ Kurallar:
   - Mobil: Bekleyen bildirimler listesi, Onayla / Reddet butonları
   - Deneme: Yönetici onaylar; sakin tarafında durum "Ödendi" olur. Reddedilen bildirimden sonra sakin tekrar bildirim atabilir
 
-- [ ] **2.3 Renkli daire haritası**
+- [x] **2.3 Renkli daire haritası**
   - Seçilen aya göre daire durumlarını hesaplayan route
   - Mobil: Bina bina ızgara; yeşil = ödedi, sarı = onay bekliyor, kırmızı = ödemedi; ay seçici
   - Deneme: Onaylanan daire yeşile, bekleyen sarıya döner

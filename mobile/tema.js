@@ -13,4 +13,8 @@ export const renkler = {
   // Aidat durum renkleri: yeşil = ödendi, sarı (koyu ton, okunaklı) = onay bekliyor.
   basarili: '#15803D',
   uyari: '#B45309',
+  // Harita kutucuğu dolguları: sarı = onay bekliyor (üstünde koyu yazı), gri = sakini olmayan daire.
+  sari: '#FACC15',
+  sariUzeri: '#422006',
+  gri: '#E2E8F0',
 };

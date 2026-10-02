@@ -59,7 +59,7 @@ export default function DaireListesiEkrani({ navigation }) {
       keyExtractor={(bina) => bina.id}
       // ListEmptyComponent: hiç bina yoksa gösterilir. ListHeaderComponent: listenin üstündeki renk açıklaması.
       ListEmptyComponent={<Text style={styles.bos}>Henüz daire oluşturulmamış.</Text>}
-      ListHeaderComponent={<Text style={styles.not}>Koyu renkli daireler: sakin katılmış.</Text>}
+      ListHeaderComponent={<Text style={styles.not}>Yeşil: sakin katılmış · Gri: henüz katılmamış</Text>}
       renderItem={({ item: bina }) => (
         <View style={styles.bina}>
           <Text style={styles.binaBaslik}>{bina.ad} Blok</Text>
@@ -70,7 +70,7 @@ export default function DaireListesiEkrani({ navigation }) {
                 // Daire kutucuğu: basınca DaireKodu ekranı açılır, daire adı ve kodu oraya gönderilir.
                 <Pressable
                   key={daire.id}
-                  // dolu: sakin katılmış daireler koyu renkle gösterilir.
+                  // dolu: sakin katılmış daireler koyu yeşil, katılmamışlar gri gösterilir.
                   style={({ pressed }) => [styles.daire, daire.dolu && styles.dolu, pressed && styles.basili]}
                   onPress={() =>
                     navigation.navigate('DaireKodu', { daireAdi, davetKodu: daire.davetKodu, dolu: daire.dolu })
@@ -134,14 +134,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: renkler.kenarlik,
+    borderColor: renkler.gri,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: renkler.arkaPlan,
+    backgroundColor: renkler.gri,
   },
   dolu: {
-    borderColor: renkler.birincil,
-    backgroundColor: renkler.birincil,
+    borderColor: renkler.basarili,
+    backgroundColor: renkler.basarili,
   },
   doluYazi: {
     color: renkler.birincilUzeri,
