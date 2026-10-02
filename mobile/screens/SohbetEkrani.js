@@ -1,14 +1,16 @@
 // Sohbet ekranı: iki kişi arasındaki mesajları WhatsApp benzeri baloncuklarla gösterir ve yeni mesaj gönderir.
 // Yönetici ve sakin aynı ekranı kullanır. Yönetici bir sakine dokununca açılır (kisiId parametresiyle);
 // sakin "Yöneticiye mesaj" butonuyla açar (kisiId verilmez, yöneticinin kimliği sunucudan öğrenilir).
-// Yeni mesajlar Socket.io ile sayfa yenilemeden anında düşer.
-import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+// Yeni mesajlar Socket.io ile sayfa yenilemeden anında düşer. Kendi mesajlarımda ✓ = iletildi
+// (sunucuya ulaştı), ✓✓ = görüldü (karşı taraf sohbeti açıp okudu) işareti görünür.
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, AppState, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../services/api';
 import { useSoketOlayi } from '../services/soket';
+import { acikSohbetAyarla } from '../services/bildirim';
 import HataMesaji from '../components/HataMesaji';
 import { tarihBicimi } from '../bicim';
 import { renkler } from '../tema';
@@ -48,11 +50,25 @@ export default function SohbetEkrani({ route }) {
   const [gonderimHatasi, setGonderimHatasi] = useState('');
   // useState: mesaj gönderilirken true; gönder butonu bu sırada kapalıdır (aynı mesaj iki kez gitmez).
   const [gonderiliyor, setGonderiliyor] = useState(false);
+  // useRef: bu ekran şu an önde mi (kullanıcı sohbete bakıyor mu). Mesajlar sadece kullanıcı gerçekten
+  // bakarken "görüldü" sayılır. Değişince ekranın yeniden çizilmesine gerek olmadığı için useRef.
+  const gorunurRef = useRef(false);
+
+  // API isteği: PUT /api/mesajlar/:kisiId/okundu ile karşı taraftan gelen okunmamış mesajları "okundu" yapar;
+  // sunucu da karşı tarafa haber verir ve onun ekranında ✓ → ✓✓ olur.
+  // Sadece ekran öndeyse VE uygulama açıksa (AppState 'active') çağrılır; telefon cepteyken veya kullanıcı
+  // başka ekrandayken gelen mesaj okunmuş sayılmaz. Hata olursa sessizce geçilir (sadece işaret gecikir).
+  // useCallback (boş bağımlılık): değerleri ref'lerden okuduğu için hiç yeniden oluşturulmasına gerek yok;
+  // böylece onu kullanan yukle, yeniMesajGeldi ve AppState dinleyicisi de sabit kalır.
+  const okunduIsaretle = useCallback(() => {
+    if (!gorunurRef.current || AppState.currentState !== 'active' || !kisiRef.current) return;
+    api.put(`/mesajlar/${kisiRef.current}/okundu`).catch(() => {});
+  }, []);
 
   // API isteği: önce (sakinse) GET /api/mesajlar/sohbetler ile yöneticinin kimliğini bulur,
   // sonra GET /api/mesajlar/:kisiId ile bu kişiyle olan son 100 mesajı çeker.
-  // useCallback: fonksiyonu tek bir kez oluşturur (bağımlılık listesi boş); böylece useFocusEffect ve
-  // soket dinleyicisi her çizimde gereksiz yere yeniden kurulmaz.
+  // useCallback: fonksiyonu tek bir kez oluşturur (tek bağımlılığı okunduIsaretle de hiç değişmez); böylece
+  // useFocusEffect ve soket dinleyicisi her çizimde gereksiz yere yeniden kurulmaz.
   const yukle = useCallback(async () => {
     setHata('');
     try {
@@ -71,29 +87,68 @@ export default function SohbetEkrani({ route }) {
         const yeniGelenler = (onceki ?? []).filter((m) => m.tarih > enYeni && !data.some((d) => d.id === m.id));
         return [...yeniGelenler, ...data];
       });
+      // Ekran öndeyse: bu sohbet "açık" olarak kaydedilir (bu kişiden gelen bildirimler gösterilmez)
+      // ve gelen mesajlar okundu işaretlenir.
+      if (gorunurRef.current) {
+        acikSohbetAyarla(kisiRef.current);
+        okunduIsaretle();
+      }
     } catch (e) {
       setHata(e.message);
     }
-  }, []);
+  }, [okunduIsaretle]);
 
-  // useFocusEffect: ekran her öne geldiğinde mesajlar yeniden çekilir.
+  // useFocusEffect: ekran her öne geldiğinde mesajlar yeniden çekilir ve ekran "görünür" işaretlenir.
+  // Döndürülen temizlik fonksiyonu ekran arkaya gidince (geri basılınca) çalışır: ekran artık görünmez
+  // ve açık sohbet kaydı silinir; bu kişiden gelen mesajlar yine bildirim olarak gösterilir.
   useFocusEffect(
     useCallback(() => {
+      gorunurRef.current = true;
       yukle();
+      return () => {
+        gorunurRef.current = false;
+        acikSohbetAyarla(null);
+      };
     }, [yukle])
   );
+
+  // useEffect: uygulama arka plandan öne gelince (AppState 'active') sohbet açıksa, arka plandayken
+  // gelen mesajlar okundu işaretlenir. Ekran kapanınca dinleyici kaldırılır (remove).
+  useEffect(() => {
+    const abonelik = AppState.addEventListener('change', (durum) => {
+      if (durum === 'active') okunduIsaretle();
+    });
+    return () => abonelik.remove();
+  }, [okunduIsaretle]);
 
   // Soketten yeni mesaj gelince çalışır. Mesaj sadece AÇIK OLAN sohbete aitse (kisiId bu ekrandaki
   // kişiyse) listeye eklenir; başka bir sakinden gelen mesaj bu ekranda görünmez.
   // useCallback: dinleyici her çizimde yeniden kurulmasın diye fonksiyon sabit tutulur.
-  const yeniMesajGeldi = useCallback((mesaj) => {
-    if (mesaj.kisiId !== kisiRef.current) return;
-    setMesajlar((onceki) => mesajEkle(onceki, mesaj));
+  // Karşı taraftan gelen mesajsa ve kullanıcı ekrana bakıyorsa hemen okundu işaretlenir.
+  const yeniMesajGeldi = useCallback(
+    (mesaj) => {
+      if (mesaj.kisiId !== kisiRef.current) return;
+      setMesajlar((onceki) => mesajEkle(onceki, mesaj));
+      if (!mesaj.benden) okunduIsaretle();
+    },
+    [okunduIsaretle]
+  );
+
+  // Soketten "mesajlarınız okundu" haberi gelince çalışır: bu sohbetse, benim gönderdiğim mesajlar
+  // okundu sayılır ve ekranda ✓ işaretleri ✓✓ olur. map: listeyi değiştirmeden yeni bir liste üretir
+  // (React state'i doğrudan değiştirilmez, yeni değer verilir ki ekran yenilensin).
+  // zaman: karşı tarafın okuduğu an; sadece o andan önce gönderilmiş mesajlar ✓✓ yapılır (ISO metin karşılaştırması).
+  const mesajlarOkundu = useCallback(({ kisiId, zaman }) => {
+    if (kisiId !== kisiRef.current) return;
+    setMesajlar((onceki) =>
+      onceki?.map((m) => (m.benden && !m.okundu && m.tarih <= zaman ? { ...m, okundu: true } : m))
+    );
   }, []);
 
-  // Soket olayları: 'yeniMesaj' gelince mesaj ekrana eklenir. 'connect': bağlantı koptuysa (internet gitti,
+  // Soket olayları: 'yeniMesaj' gelince mesaj ekrana eklenir; 'mesajlarOkundu' gelince ✓✓ yapılır. 'connect': bağlantı koptuysa (internet gitti,
   // uygulama arka plana alındı) yeniden bağlanınca o arada kaçırılan mesajlar için liste yeniden çekilir.
   useSoketOlayi('yeniMesaj', yeniMesajGeldi);
+  useSoketOlayi('mesajlarOkundu', mesajlarOkundu);
   useSoketOlayi('connect', yukle);
 
   // API isteği: POST /api/mesajlar ile { aliciId, icerik } gönderir. Başarılıysa sunucunun döndürdüğü
@@ -153,7 +208,18 @@ export default function SohbetEkrani({ route }) {
           // Baloncuk: benim mesajım sağda ve renkli, karşı tarafınki solda ve beyaz.
           <View style={[styles.balon, m.benden ? styles.benim : styles.onun]}>
             <Text style={[styles.mesaj, m.benden && styles.benimYazi]}>{m.icerik}</Text>
-            <Text style={[styles.saat, m.benden && styles.benimSaat]}>{tarihBicimi(m.tarih)}</Text>
+            {/* Saat; benim mesajımsa yanında ✓ (iletildi) veya renkli ✓✓ (görüldü) */}
+            <Text style={[styles.saat, m.benden && styles.benimSaat]}>
+              {tarihBicimi(m.tarih)}
+              {m.benden && (
+                <Text
+                  style={m.okundu && styles.goruldu}
+                  accessibilityLabel={m.okundu ? 'Görüldü' : 'İletildi'}
+                >
+                  {m.okundu ? '  ✓✓' : '  ✓'}
+                </Text>
+              )}
+            </Text>
           </View>
         )}
       />
@@ -244,6 +310,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     fontSize: 11,
     color: renkler.soluk,
+  },
+  goruldu: {
+    fontWeight: '700',
+    color: '#7DD3FC', // görüldü: açık mavi (WhatsApp'taki mavi tik gibi), iletildi'den ayırt edilsin diye
   },
   benimSaat: {
     color: '#CCFBF1', // birincil renk üstünde okunaklı açık ton

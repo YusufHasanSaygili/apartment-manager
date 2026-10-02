@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 4.3
+**Mevcut görev:** 5.1
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -106,7 +106,7 @@ Kurallar:
   - Mobil: Mesajların sayfa yenilemeden anında düşmesi
   - Deneme: İki emülatörde mesaj anında karşıya geçer
 
-- [ ] **4.3 İletildi / Görüldü ve mesaj bildirimi**
+- [x] **4.3 İletildi / Görüldü ve mesaj bildirimi**
   - ✓ iletildi, ✓✓ görüldü işaretleri; uygulama kapalıyken yeni mesaj push bildirimi
   - Deneme: Mesaj okununca ✓✓ olur
 

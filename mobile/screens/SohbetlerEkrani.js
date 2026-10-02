@@ -1,4 +1,4 @@
-// Sohbetler ekranı (yönetici): sitedeki sakinleri, her biriyle son mesajla birlikte listeler.
+// Sohbetler ekranı (yönetici): sitedeki sakinleri, her biriyle son mesajla ve okunmamış mesaj sayısıyla listeler.
 // Son yazışılan sakin en üstte; hiç yazışılmamış sakinler altta, daire adına göre sıralı.
 // Bir sakine dokununca o sakinle sohbet ekranı açılır. Yeni mesaj gelince liste kendiliğinden güncellenir.
 import { useCallback, useState } from 'react';
@@ -100,9 +100,17 @@ export default function SohbetlerEkrani({ navigation }) {
               {s.sonMesaj && <Text style={styles.tarih}>{tarihBicimi(s.sonMesaj.tarih)}</Text>}
             </View>
             {/* Son mesajın tek satırlık önizlemesi; benim yazdığım mesajın başında "Siz:" yazar */}
-            <Text style={styles.onizleme} numberOfLines={1}>
-              {s.sonMesaj ? `${s.sonMesaj.benden ? 'Siz: ' : ''}${s.sonMesaj.icerik}` : 'Henüz mesaj yok'}
-            </Text>
+            <View style={styles.ustSatir}>
+              <Text style={[styles.onizleme, s.okunmamis > 0 && styles.okunmamisYazi]} numberOfLines={1}>
+                {s.sonMesaj ? `${s.sonMesaj.benden ? 'Siz: ' : ''}${s.sonMesaj.icerik}` : 'Henüz mesaj yok'}
+              </Text>
+              {/* Okunmamış rozeti: bu sakinden gelen ve henüz okunmamış mesaj sayısı (0 ise gösterilmez) */}
+              {s.okunmamis > 0 && (
+                <View style={styles.sayac} accessibilityLabel={`${s.okunmamis} okunmamış mesaj`}>
+                  <Text style={styles.sayacYazi}>{s.okunmamis}</Text>
+                </View>
+              )}
+            </View>
           </View>
         </Pressable>
       )}
@@ -169,7 +177,26 @@ const styles = StyleSheet.create({
     color: renkler.soluk,
   },
   onizleme: {
+    flex: 1,
     fontSize: 14,
     color: renkler.soluk,
+  },
+  okunmamisYazi: {
+    fontWeight: '600',
+    color: renkler.yazi,
+  },
+  sayac: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: renkler.birincil,
+  },
+  sayacYazi: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: renkler.birincilUzeri,
   },
 });

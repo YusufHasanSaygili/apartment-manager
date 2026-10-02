@@ -11,7 +11,7 @@ const mesajSemasi = new mongoose.Schema(
     aliciId: { type: mongoose.Schema.Types.ObjectId, ref: 'Kullanici', required: true },
     // icerik: düz metin; trim baştaki/sondaki boşlukları siler, maxlength aşırı uzun mesajı veritabanı seviyesinde de engeller.
     icerik: { type: String, required: true, trim: true, maxlength: 1000 },
-    // okundu: alıcı mesajı gördü mü ("görüldü ✓✓" işareti Görev 4.3'te kullanılacak).
+    // okundu: alıcı mesajı gördü mü. false → gönderende ✓ (iletildi), true → ✓✓ (görüldü) görünür.
     okundu: { type: Boolean, default: false },
   },
   // tarih: mesajın gönderildiği an (otomatik eklenir).

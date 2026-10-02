@@ -5,14 +5,30 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 
+// Şu an ekranda açık olan sohbetteki kişinin kimliği (sohbet açık değilse null).
+// SohbetEkrani açılınca/kapanınca acikSohbetAyarla ile güncellenir.
+// useState değil düz değişken: bildirim yakalayıcısı bir component değil, React dışında çalışır;
+// ayrıca bu değer değişince hiçbir ekranın yeniden çizilmesi gerekmez.
+let acikSohbetKisiId = null;
+export function acikSohbetAyarla(kisiId) {
+  acikSohbetKisiId = kisiId;
+}
+
 // Uygulama AÇIKKEN gelen bildirim de ekranın üstünde gösterilsin (varsayılan: gösterilmez).
+// İstisna: bildirim, şu an ekranda açık olan sohbetin yeni mesajıysa gösterilmez; mesaj zaten
+// soket ile ekrana düşüyor, bir de bildirim çıkması rahatsız edici olurdu (WhatsApp da böyle yapar).
+// Uygulama kapalı veya arka plandayken bu fonksiyon çalışmaz; bildirimi telefon her zaman gösterir.
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (bildirim) => {
+    const veri = bildirim.request.content.data;
+    const goster = !(veri?.ekran === 'Sohbet' && veri.kisiId === acikSohbetKisiId);
+    return {
+      shouldShowBanner: goster,
+      shouldShowList: goster,
+      shouldPlaySound: goster,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 // İzin ister ve telefonun push token'ını döner. Alınamazsa (izin verilmedi, emülatör, ağ hatası) null.

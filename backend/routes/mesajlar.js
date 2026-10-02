@@ -10,6 +10,7 @@ const dogrula = require('../middleware/dogrula');
 const { girisGerekli } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
 const { kullaniciyaGonder } = require('../soket');
+const { pushGonder } = require('../services/bildirim');
 
 const router = express.Router();
 
@@ -32,7 +33,8 @@ function mesajlasabilirMi(ben) {
 async function karsiTarafiBul(ben, kisiId) {
   mesajlasabilirMi(ben);
   const izinliRol = ben.rol === 'yonetici' ? { rol: 'sakin', daireId: { $ne: null } } : { rol: 'yonetici' };
-  const kisi = await Kullanici.findOne({ _id: kisiId, siteId: ben.siteId, ...izinliRol }).select('ad').lean();
+  // pushToken da alınır: mesaj gönderilince karşı tarafa bildirim göndermek için gerekir.
+  const kisi = await Kullanici.findOne({ _id: kisiId, siteId: ben.siteId, ...izinliRol }).select('ad pushToken').lean();
   if (!kisi) throw new ApiHatasi(404, 'Kişi bulunamadı.');
   return kisi;
 }
@@ -40,17 +42,20 @@ async function karsiTarafiBul(ben, kisiId) {
 // Mesajı ekrana gönderilecek biçime çevirir. benden: mesajı isteği atan kişi mi yazdı
 // (ekranda kendi mesajları sağda, karşı tarafınkiler solda gösterilir).
 // gonderenId bir ObjectId (nesne) olduğu için === yerine .equals() ile karşılaştırılır.
+// okundu: alıcı mesajı gördü mü; kendi mesajlarımda ✓ (iletildi) yerine ✓✓ (görüldü) göstermek için.
 const mesajBicimi = (m, benimId) => ({
   id: m._id,
   icerik: m.icerik,
   tarih: m.tarih,
   benden: m.gonderenId.equals(benimId),
+  okundu: m.okundu,
 });
 
 // GET /api/mesajlar/sohbetler
 // Kim kullanabilir: giriş yapmış herkes. Yazışılabilecek kişileri, her biriyle son mesajı ile döner.
 // Yönetici: sitedeki tüm sakinler (daire adıyla). Sakin: sadece sitenin yöneticisi.
 // Sıralama: son mesajı en yeni olan üstte; hiç yazışılmamış kişiler altta, daire adına göre.
+// okunmamis: o kişiden gelen ve henüz okumadığım mesaj sayısı (listede rozet olarak gösterilir).
 router.get('/sohbetler', async (req, res) => {
   const { id, siteId, rol } = req.kullanici;
   // Daireden çıkarılmış sakin listeyi de göremez (403).
@@ -78,6 +83,7 @@ router.get('/sohbetler', async (req, res) => {
   // 2) $sort: yeniden eskiye sıralanır
   // 3) $group: mesajlar karşı tarafa göre gruplanır ($cond: gönderen bensem karşı taraf alıcıdır,
   //    değilse gönderendir); $first sıralama yeniden eskiye olduğu için her grubun EN YENİ mesajını alır.
+  //    okunmamis: grubun içinde alıcısı ben olan ve okundu=false olan her mesaj için 1 eklenir ($sum).
   // Not: aggregate, find gibi metin → ObjectId dönüşümünü kendisi yapmaz; id ve siteId token'dan
   // (veritabanı kaydından) ObjectId olarak geldiği için eşleşme doğru çalışır.
   const sonMesajlar = await Mesaj.aggregate([
@@ -89,6 +95,9 @@ router.get('/sohbetler', async (req, res) => {
         icerik: { $first: '$icerik' },
         tarih: { $first: '$tarih' },
         gonderenId: { $first: '$gonderenId' },
+        okunmamis: {
+          $sum: { $cond: [{ $and: [{ $eq: ['$aliciId', id] }, { $eq: ['$okundu', false] }] }, 1, 0] },
+        },
       },
     },
   ]);
@@ -96,7 +105,11 @@ router.get('/sohbetler', async (req, res) => {
 
   const sohbetler = kisiler.map((k) => {
     const m = sonMesaj.get(String(k.id));
-    return { ...k, sonMesaj: m ? { icerik: m.icerik, tarih: m.tarih, benden: m.gonderenId.equals(id) } : null };
+    return {
+      ...k,
+      sonMesaj: m ? { icerik: m.icerik, tarih: m.tarih, benden: m.gonderenId.equals(id) } : null,
+      okunmamis: m?.okunmamis ?? 0,
+    };
   });
   // Son mesajı olanlar yeniden eskiye; olmayanlar daire adına göre ("A2" "A10"dan önce gelsin diye numeric).
   sohbetler.sort((a, b) => {
@@ -130,6 +143,31 @@ router.get('/:kisiId', async (req, res) => {
   res.json(mesajlar.map((m) => mesajBicimi(m, id)));
 });
 
+// PUT /api/mesajlar/:kisiId/okundu
+// Kim kullanabilir: giriş yapmış herkes, sadece yazışma izni olduğu kişi için. Sohbet ekranı açıkken
+// telefon bunu çağırır: o kişiden BANA gelmiş ve okunmamış mesajlar "okundu" işaretlenir (görüldü ✓✓).
+// Sadece alıcısı ben olan mesajlar değişir; kimse karşı tarafın okuma durumunu değiştiremez.
+router.put('/:kisiId/okundu', async (req, res) => {
+  const { id, siteId } = req.kullanici;
+  const kisi = await karsiTarafiBul(req.kullanici, req.params.kisiId);
+
+  // zaman: işaretlemenin yapıldığı an. Bu andan SONRA gönderilen mesajlar okunmuş sayılmaz.
+  const zaman = new Date();
+  const sonuc = await Mesaj.updateMany(
+    { siteId, gonderenId: kisi._id, aliciId: id, okundu: false, tarih: { $lte: zaman } },
+    { okundu: true }
+  );
+
+  // Gerçekten yeni okunan mesaj varsa, mesajı GÖNDEREN kişiye soketle haber verilir; onun ekranında
+  // bu sohbetteki mesajların ✓ işareti anında ✓✓ olur. kisiId: hangi sohbet olduğu (onun açısından ben).
+  // zaman da gönderilir: telefon sadece bu andan önce gönderilmiş mesajları ✓✓ yapar; tam o sırada
+  // gönderilmiş yeni bir mesaj yanlışlıkla "görüldü" görünmez.
+  if (sonuc.modifiedCount > 0) {
+    kullaniciyaGonder(kisi._id, 'mesajlarOkundu', { kisiId: String(id), zaman });
+  }
+  res.status(204).end();
+});
+
 // Mesaj gönderme formunun kuralları: alıcı geçerli bir kimlik olmalı, mesaj boş veya 1000 karakterden uzun olamaz.
 const mesajSemasi = z.object({
   aliciId: z.string({ error: 'Alıcı seçilmeli' }).regex(/^[a-f\d]{24}$/i, 'Alıcı geçersiz'),
@@ -153,6 +191,19 @@ router.post('/', dogrula(mesajSemasi), async (req, res) => {
   kullaniciyaGonder(id, 'yeniMesaj', { ...mesajBicimi(mesaj, id), kisiId: String(kisi._id) });
 
   res.status(201).json(mesajBicimi(mesaj, id));
+
+  // Push bildirim cevaptan SONRA gönderilir: gönderen bildirimin gitmesini beklemez.
+  // Alıcının uygulaması kapalı veya arka plandaysa telefonuna "Gönderen adı: mesaj" bildirimi düşer.
+  // veri.kisiId: telefon, bu kişiyle sohbet zaten ekranda açıksa bildirimi göstermez (mesaj zaten ekrana düşüyor).
+  // Uzun mesajın sadece ilk 100 karakteri gösterilir. pushGonder hata fırlatmaz, sadece loglar.
+  if (kisi.pushToken) {
+    const kisa = mesaj.icerik.length > 100 ? `${mesaj.icerik.slice(0, 100)}…` : mesaj.icerik;
+    pushGonder([kisi.pushToken], {
+      baslik: req.kullanici.ad,
+      icerik: kisa,
+      veri: { ekran: 'Sohbet', kisiId: String(id) },
+    });
+  }
 });
 
 module.exports = router;
