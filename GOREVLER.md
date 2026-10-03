@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 6.3
+**Mevcut görev:** 6.4
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -134,7 +134,7 @@ Kurallar:
   - Kullanici modeline daireyeGiris (aidat bu aydan itibaren beklenir); açık uygulamalar soketle yeni role geçer
   - Deneme: Yeni yönetici siteyi tüm geçmişiyle devralır, eski yönetici yetkisini kaybeder ve sakin olur
 
-- [ ] **6.3 Hesap silme**
+- [x] **6.3 Hesap silme**
   - Kişisel verilerin silinmesi, aidat kayıtlarının kişiden ayrılarak korunması; yönetici devretmeden silemez
   - Deneme: Sakin hesabını siler, tekrar giriş yapamaz; aidat geçmişi yönetici tarafında durur
 

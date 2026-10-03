@@ -26,6 +26,7 @@ import DuyuruYazEkrani from './screens/DuyuruYazEkrani';
 import TekrarlananDuyurularEkrani from './screens/TekrarlananDuyurularEkrani';
 import SohbetlerEkrani from './screens/SohbetlerEkrani';
 import DevirEkrani from './screens/DevirEkrani';
+import HesapSilEkrani from './screens/HesapSilEkrani';
 import SohbetEkrani from './screens/SohbetEkrani';
 import { renkler } from './tema';
 
@@ -110,6 +111,8 @@ function Ekranlar() {
           {/* Yöneticiliği devret: ana ekrandaki "Yöneticiliği devret" butonuyla açılır. Devir tamamlanınca rol
               "sakin" olur ve bu grup listeden çıkar; uygulama kendiliğinden sakin ekranlarına geçer. */}
           <Stack.Screen name="Devir" component={DevirEkrani} options={{ title: 'Yöneticiliği devret' }} />
+          {/* Hesabımı sil (yönetici): sadece "önce yöneticiliği devredin" açıklaması ve Devir ekranına geçiş */}
+          <Stack.Screen name="HesapSil" component={HesapSilEkrani} options={{ title: 'Hesabımı sil' }} />
           {/* Mesajlar (yönetici): ana ekrandaki "Mesajlar" butonuyla sakin listesi açılır; bir sakine dokununca
               Sohbet ekranı o sakinle açılır, başlıkta sakinin adı ve dairesi görünür */}
           <Stack.Screen name="Sohbetler" component={SohbetlerEkrani} options={{ title: 'Mesajlar' }} />
@@ -134,6 +137,8 @@ function Ekranlar() {
             component={SohbetEkrani}
             options={{ title: 'Yönetici ile mesajlar', contentStyle: sohbetIcerikStili }}
           />
+          {/* Hesabımı sil (sakin): şifre onayıyla hesap kalıcı olarak silinir */}
+          <Stack.Screen name="HesapSil" component={HesapSilEkrani} options={{ title: 'Hesabımı sil' }} />
         </>
       ) : (
         <>

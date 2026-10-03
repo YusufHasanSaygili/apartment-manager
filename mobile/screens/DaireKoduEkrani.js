@@ -34,7 +34,7 @@ export default function DaireKoduEkrani({ route, navigation }) {
     }
   };
 
-  // API isteği: POST /api/daireler/:id/sakini-cikar. Sakinin daireyle bağı kesilir, hesabı giriş yapamaz olur
+  // API isteği: POST /api/daireler/:id/sakini-cikar. Sakinin hesabı ve mesajları silinir
   // ve sunucu daireye yeni davet kodu verir; yeni kod ekranda gösterilir ve paylaşılabilir.
   const sakiniCikar = async () => {
     setCikariliyor(true);
@@ -50,10 +50,11 @@ export default function DaireKoduEkrani({ route, navigation }) {
   };
 
   // Çıkarma geri alınamaz; önce onay sorulur. "Çıkar" seçilirse sakiniCikar çalışır.
+  // Metin, sakinin hesabının ve mesajlarının kalıcı silineceğini açıkça söyler; yönetici neyi onayladığını bilsin.
   const cikarOnayi = () =>
     Alert.alert(
       'Sakini daireden çıkar',
-      `${sakinAdi ?? 'Sakin'} ${daireAdi} dairesinden çıkarılsın mı? Hesabı bir daha giriş yapamaz ve daireye yeni davet kodu verilir.`,
+      `${sakinAdi ?? 'Sakin'} ${daireAdi} dairesinden çıkarılsın mı? Hesabı ve mesajları kalıcı olarak silinir, daireye yeni davet kodu verilir. Aidat geçmişi korunur.`,
       [
         { text: 'Vazgeç', style: 'cancel' },
         { text: 'Çıkar', style: 'destructive', onPress: sakiniCikar },

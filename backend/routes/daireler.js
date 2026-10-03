@@ -1,8 +1,11 @@
 // Daire route'ları: yöneticinin sitesindeki daireleri ve davet kodlarını görmesi, sakini daireden çıkarması.
 const express = require('express');
+const mongoose = require('mongoose');
 const Bina = require('../models/Bina');
 const Daire = require('../models/Daire');
 const Kullanici = require('../models/Kullanici');
+const Mesaj = require('../models/Mesaj');
+const SilinenHesap = require('../models/SilinenHesap');
 const { girisGerekli, sadeceYonetici, DAIREDEN_CIKARILDI } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
 const { davetKodlariUret } = require('../services/davetKodu');
@@ -57,8 +60,9 @@ router.get('/', async (req, res) => {
 
 // POST /api/daireler/:id/sakini-cikar
 // Kim kullanabilir: yönetici. Daire el değiştirdiğinde eski sakini daireden çıkarır ve daireye YENİ davet kodu verir:
-// - Sakinin hesabının daireyle bağı (daireId) ve bildirim adresi (pushToken) silinir. Hesap bundan sonra
-//   giriş yapamaz ve hiçbir işlem yapamaz ("Bu hesap daireden çıkarılmıştır" mesajını görür).
+// - Sakinin hesabı ve mesajları tamamen silinir (kişisel veri kalmaz). Geriye sadece e-postanın geri çevrilemez
+//   özetinden oluşan, 30 gün sonra kendiliğinden silinen bir iz kalır (SilinenHesap): kişi giriş yapmaya
+//   çalışınca "Daireden çıkarıldığınız için hesabınız silinmiştir" mesajını görür. Aynı e-postayla yeni hesap açabilir.
 // - Telefonu açıksa soket ile haber verilir ve bağlantısı kapatılır; uygulama oturumu hemen kapatır.
 // - Eski davet kodu geçersiz olur; yeni sakin yeni kodla katılır.
 // - Dairenin aidat geçmişi SİLİNMEZ (site için gerekli kayıt); yönetici takvimde görmeye devam eder.
@@ -73,22 +77,36 @@ router.post('/:id/sakini-cikar', async (req, res) => {
     throw new ApiHatasi(400, 'Bu daire site yöneticisine ait; yönetici daireden çıkarılamaz.');
   }
 
-  // Dairedeki sakin (siteId ve daireId ile). Hesabını silmiş olabilir; o zaman sadece daire sıfırlanır.
-  const sakin = await Kullanici.findOneAndUpdate(
-    { siteId, rol: 'sakin', daireId: daire._id },
-    { daireId: null, pushToken: null }
-  );
+  // Dairedeki sakin (siteId ve daireId ile). Hesabını kendisi silmiş olabilir; o zaman sadece daire sıfırlanır.
+  const sakin = await Kullanici.findOne({ siteId, rol: 'sakin', daireId: daire._id }).select('eposta').lean();
 
-  // Daireye yeni kod verilir ve daire boş işaretlenir. Kod başka bir dairenin koduyla çakışırsa
-  // (çok düşük ihtimal) unique index 11000 hatası verir; o durumda yeni kodla en fazla 3 kez denenir.
+  // Hepsi tek transaction'da (ya hepsi ya hiçbiri): sakinin mesajları ve hesabı silinir, iz bırakılır,
+  // daireye yeni kod verilip boş işaretlenir. Kod başka bir dairenin koduyla çakışırsa (çok düşük ihtimal)
+  // unique index 11000 hatası verir, transaction geri alınır ve yeni kodla en fazla 3 kez denenir.
   let yeniKod;
   for (let deneme = 1; ; deneme++) {
     try {
       [yeniKod] = davetKodlariUret(1);
-      await Daire.updateOne(
-        { _id: daire._id, siteId },
-        { davetKodu: yeniKod, davetKoduKullanildi: false, sakinId: null }
-      );
+      await mongoose.connection.transaction(async (session) => {
+        if (sakin) {
+          // Sakinin gönderdiği ve aldığı tüm mesajlar, sonra hesabın kendisi silinir (ikisinde de siteId filtresi var).
+          await Mesaj.deleteMany({ siteId, $or: [{ gonderenId: sakin._id }, { aliciId: sakin._id }] }, { session });
+          await Kullanici.deleteOne({ _id: sakin._id, siteId }, { session });
+          // İz bırakılır: e-postanın kendisi değil özeti saklanır (kişisel bilgi kalmaz).
+          // upsert: bu e-postanın izi zaten varsa (daha önce de çıkarılmış) güncellenir, yoksa oluşturulur.
+          // tarih yenilendiği için 30 günlük süre de baştan başlar.
+          await SilinenHesap.updateOne(
+            { epostaOzeti: SilinenHesap.ozet(sakin.eposta) },
+            { kullaniciId: sakin._id, tarih: new Date() },
+            { upsert: true, session }
+          );
+        }
+        await Daire.updateOne(
+          { _id: daire._id, siteId },
+          { davetKodu: yeniKod, davetKoduKullanildi: false, sakinId: null },
+          { session }
+        );
+      });
       break;
     } catch (hata) {
       if (hata.code === 11000 && deneme < 3) continue;

@@ -28,6 +28,7 @@ Kod profesyonel standartta yazılır; anlaşılırlık açıklama satırlarıyla
 | Push bildirim | expo-notifications |
 | Otomatik görevler | node-cron |
 | HTTP istekleri | axios |
+| İkonlar | @expo/vector-icons |
 | Emülatör | Android Studio |
 
 Yukarıdaki listede olmayan bir kütüphane eklemeden önce kullanıcıya sor ve nedenini açıkla.
@@ -99,7 +100,7 @@ Yönetici değiştiğinde site **sıfırdan kurulmaz**; aidat geçmişi, dairele
 - Gelen "aidatı verdim" bildirimlerini **onaylar veya reddeder**. Onaylanan ödeme o ayın takvimine işlenir.
 - Tüm siteye **duyuru** yapar ("Bugün çöp günü", "Tadilat olacak"). Duyuru tüm telefonlara push bildirim olarak gider.
 - Sakinlerle **mesajlaşır**.
-- Daire el değiştirdiğinde eski sakini daireden çıkarır ve o daire için **yeni davet kodu** üretir.
+- Daire el değiştirdiğinde eski sakini daireden çıkarır ve o daire için **yeni davet kodu** üretir. Çıkarılan sakinin hesabı ve mesajları silinir (aidat geçmişi daireye bağlı olduğu için kalır); kişi giriş yapmaya çalışınca "Daireden çıkarıldığınız için hesabınız silinmiştir" mesajını görür.
 - Yöneticiliği sitedeki bir sakine devreder (bkz. Yönetici Devri).
 
 ### Daire Sakini
@@ -131,6 +132,7 @@ Yönetici değiştiğinde site **sıfırdan kurulmaz**; aidat geçmişi, dairele
 - **Aidat:** siteId, daireId, ay, yil, tutar, odemeYontemi (`banka` / `elden` / `yonetici` = yönetici elle işaretledi), aciklama, durum (`bekliyor` / `onaylandi` / `reddedildi`), tarih
 - **Duyuru:** siteId, baslik, icerik, tarih
 - **Mesaj:** siteId, gonderenId, aliciId, icerik, okundu, tarih
+- **SilinenHesap:** epostaOzeti (e-postanın geri çevrilemez özeti), kullaniciId, tarih (30 gün sonra kendiliğinden silinir). Daireden çıkarılan sakine nedenini söyleyebilmek için bırakılan, kişisel bilgi içermeyen iz.
 
 Bir modeli değiştirmeden önce kullanıcıya sor.
 

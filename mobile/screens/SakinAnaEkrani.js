@@ -134,6 +134,11 @@ export default function SakinAnaEkrani({ navigation }) {
       {/* Sabit alt kısım: çıkış butonu (basınca onay sorulur) */}
       <View style={styles.alt}>
         <CikisButonu />
+        {/* "Hesabımı sil" bağlantısı: basınca HesapSil ekranı açılır (geri alınamaz işlem; orada şifre ve onay istenir).
+            Kırmızı ve küçük yazı: ana işlem olmadığı, yanlışlıkla basılmaması için göze batmayan bir bağlantı. */}
+        <Pressable style={styles.hesapSil} onPress={() => navigation.navigate('HesapSil')} hitSlop={8} accessibilityRole="button">
+          <Text style={styles.hesapSilYazi}>Hesabımı sil</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -231,5 +236,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 8,
     paddingBottom: 24,
+  },
+  // "Hesabımı sil" bağlantısı: çıkış butonunun altında, ortada; kırmızı yazı tehlikeli bir işlem olduğunu belli eder.
+  hesapSil: {
+    alignSelf: 'center',
+    marginTop: 16,
+  },
+  hesapSilYazi: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: renkler.hata,
   },
 });

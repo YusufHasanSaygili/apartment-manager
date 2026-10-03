@@ -5,7 +5,7 @@
 // "Aidat hatırlatması gönder" butonuyla bu ayı ödemeyen sakinlere hemen hatırlatma bildirimi gönderilir.
 // "Yöneticiliği devret" butonuyla yöneticilik bir sakine devredilir.
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
@@ -164,6 +164,11 @@ export default function YoneticiAnaEkrani({ navigation }) {
       {/* Çıkış butonu ekranın en altında; basınca onay sorulur (ortak CikisButonu component'i) */}
       <View style={styles.alt}>
         <CikisButonu />
+        {/* "Hesabımı sil" bağlantısı: basınca HesapSil ekranı açılır (geri alınamaz işlem; orada şifre ve onay istenir).
+            Kırmızı ve küçük yazı: ana işlem olmadığı, yanlışlıkla basılmaması için göze batmayan bir bağlantı. */}
+        <Pressable style={styles.hesapSil} onPress={() => navigation.navigate('HesapSil')} hitSlop={8} accessibilityRole="button">
+          <Text style={styles.hesapSilYazi}>Hesabımı sil</Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -214,5 +219,15 @@ const styles = StyleSheet.create({
   alt: {
     marginTop: 'auto',
     paddingTop: 24,
+  },
+  // "Hesabımı sil" bağlantısı: çıkış butonunun altında, ortada; kırmızı yazı tehlikeli bir işlem olduğunu belli eder.
+  hesapSil: {
+    alignSelf: 'center',
+    marginTop: 16,
+  },
+  hesapSilYazi: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: renkler.hata,
   },
 });

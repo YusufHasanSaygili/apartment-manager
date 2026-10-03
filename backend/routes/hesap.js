@@ -1,5 +1,5 @@
-// Hesap route'ları: site oluşturma, davet koduyla katılma, giriş, oturum sahibini sorgulama
-// ve telefonun push bildirim adresini (push token) kaydetme/silme.
+// Hesap route'ları: site oluşturma, davet koduyla katılma, giriş, oturum sahibini sorgulama,
+// telefonun push bildirim adresini (push token) kaydetme/silme ve hesabı kalıcı olarak silme.
 const express = require('express');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
@@ -9,10 +9,15 @@ const Site = require('../models/Site');
 const Kullanici = require('../models/Kullanici');
 const Bina = require('../models/Bina');
 const Daire = require('../models/Daire');
+const Mesaj = require('../models/Mesaj');
+const SilinenHesap = require('../models/SilinenHesap');
 const dogrula = require('../middleware/dogrula');
 const { kayitSiniri, girisSiniri, kodSiniri } = require('../middleware/denemeSiniri');
 const { girisGerekli, DAIREDEN_CIKARILDI } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
+const { davetKodlariUret } = require('../services/davetKodu');
+// kullaniciyiKopar: hesap silinince aynı hesabın başka telefonlardaki soket bağlantısını kapatmak için.
+const { kullaniciyiKopar } = require('../soket');
 
 const router = express.Router();
 
@@ -75,6 +80,8 @@ router.post('/site-olustur', kayitSiniri, dogrula(siteOlusturSemasi), async (req
   // Transaction: site ve kullanıcı ya birlikte kaydedilir ya hiç kaydedilmez.
   // Örneğin e-posta zaten kayıtlıysa yarım kalmış, yöneticisiz bir site oluşmaz.
   await mongoose.connection.transaction(async (session) => {
+    // Bu e-postanın eski bir "silinen hesap" izi varsa kaldırılır (kişi yeni hesap açtı, eski mesaj artık geçersiz).
+    await SilinenHesap.deleteOne({ epostaOzeti: SilinenHesap.ozet(eposta) }, { session });
     await Site.create([{ _id: siteId, ad: siteAdi, yoneticiId: kullaniciId }], { session });
     await Kullanici.create(
       [{ _id: kullaniciId, siteId, ad, eposta, sifre, rol: 'yonetici' }],
@@ -126,6 +133,8 @@ router.post('/katil', kodSiniri, dogrula(katilSemasi), async (req, res) => {
       throw new ApiHatasi(400, 'Davet kodu geçersiz veya kullanılmış.');
     }
 
+    // Bu e-postanın eski bir "silinen hesap" izi varsa kaldırılır (kişi yeni dairesine yeni hesapla katıldı).
+    await SilinenHesap.deleteOne({ epostaOzeti: SilinenHesap.ozet(eposta) }, { session });
     // siteId ve daireId istekten değil, kodun ait olduğu daireden alınır.
     await Kullanici.create(
       // daireyeGiris: sakinin bu daireye geldiği an; aidat hesapları bu aydan itibaren ödeme bekler.
@@ -166,13 +175,22 @@ router.post('/giris', girisSiniri, dogrula(girisSemasi), async (req, res) => {
   // bcrypt.compare: girilen şifreyi hash'leyip kayıtlı hash ile karşılaştırır (şifre çözülmez).
   const sifreDogru = await bcrypt.compare(sifre, kullanici?.sifre ?? SAHTE_HASH);
 
+  // Hesap yoksa ama bu e-posta daireden çıkarıldığı için silinen bir hesaba aitse nedeni söylenir.
+  // Yazılan e-postanın özeti (SHA-256) alınıp SilinenHesap izleriyle karşılaştırılır; e-postanın kendisi
+  // hiçbir yerde saklanmadığı için iz kişisel bilgi taşımaz. 403 (yasak): giriş bu hesap için artık mümkün değil.
+  // Bilinçli tercih (kullanıcı kararı): hesap silindiği için şifre kontrol edilemez; e-postayı bilen biri o kişinin
+  // son 30 gün içinde daireden çıkarıldığını öğrenebilir. İz 30 gün sonra silindiği için bu süreyle sınırlıdır.
+  if (!kullanici && (await SilinenHesap.exists({ epostaOzeti: SilinenHesap.ozet(eposta) }))) {
+    throw new ApiHatasi(403, DAIREDEN_CIKARILDI);
+  }
   // E-posta mı şifre mi yanlış, bilinçli olarak söylenmez: saldırgan hangi e-postaların
   // kayıtlı olduğunu öğrenemez.
   if (!kullanici || !sifreDogru) {
     throw new ApiHatasi(401, 'E-posta veya şifre hatalı.');
   }
 
-  // Daireden çıkarılmış sakin giriş yapamaz; şifre doğru olduğu için nedeni açıkça söylenir.
+  // Ek güvenlik: daireye bağlı olmayan sakin giriş yapamaz. Normalde olmaz (daireden çıkarılan sakinin
+  // hesabı artık silinir, yukarıdaki SilinenHesap kontrolüne takılır); şifre doğru olduğu için nedeni açıkça söylenir.
   if (kullanici.rol === 'sakin' && !kullanici.daireId) {
     throw new ApiHatasi(403, DAIREDEN_CIKARILDI);
   }
@@ -223,6 +241,72 @@ router.get('/ben', girisGerekli, async (req, res) => {
   if (!bilgi) throw new ApiHatasi(401, 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
 
   res.json(bilgi);
+});
+
+// Hesap silme formunun kuralı: şifre tekrar girilmeli.
+const hesapSilSemasi = z.object({
+  sifre: z.string({ error: 'Şifre girilmeli' }).min(1, 'Şifre girilmeli').max(72, 'Şifre çok uzun'),
+});
+
+// DELETE /api/hesap
+// Kim kullanabilir: giriş yapmış SAKİN (yönetici önce yöneticiliği devretmelidir → 403).
+// Hesabı kalıcı olarak siler. Şifre tekrar istenir: telefonu eline alan başka biri hesabı silemesin.
+// - Silinenler: kişisel veriler (ad, e-posta, şifre, bildirim adresi; yani hesabın kendisi) ve kişinin mesajları.
+// - Korunanlar: aidat kayıtları. Kişiye değil daireye bağlı oldukları için (daireId) yönetici takviminde durmaya devam eder.
+// - Daire boşaltılır ve yeni davet kodu alır; dairenin yeni sakini yeni kodla katılır.
+// Hepsi tek transaction'da yapılır (ya hepsi ya hiçbiri).
+// girisSiniri: şifre karşılaştırıldığı için girişteki deneme sınırı burada da uygulanır (şifre tahminine karşı).
+router.delete('/', girisSiniri, girisGerekli, dogrula(hesapSilSemasi), async (req, res) => {
+  // id, siteId ve rol istekten değil, girisGerekli'nin token'dan bulduğu veritabanı kaydından gelir.
+  const { id, siteId, rol } = req.kullanici;
+  // YETKİ KONTROLÜ: mobil ekran yöneticiye silme formunu hiç göstermez ama asıl engel burasıdır.
+  // Yönetici silinirse site yöneticisiz kalırdı; bu yüzden önce devir şarttır.
+  if (rol === 'yonetici') {
+    throw new ApiHatasi(403, 'Yönetici hesabı silinemez. Önce yöneticiliği bir sakine devredin.');
+  }
+
+  // select('+sifre'): şifre hash'i normalde sorgulara gelmez, sadece karşılaştırma için alınır.
+  // Yanlış şifrede 400 döner (401 değil): 401 telefonda oturumu kapatırdı, kullanıcı sadece tekrar denemeli.
+  const kullanici = await Kullanici.findById(id).select('+sifre daireId');
+  // Aynı hesap az önce başka bir telefondan silindiyse kayıt yoktur (sunucu hata vermesin diye kontrol).
+  if (!kullanici) throw new ApiHatasi(401, 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
+  if (!(await bcrypt.compare(req.body.sifre, kullanici.sifre))) {
+    throw new ApiHatasi(400, 'Şifre hatalı.');
+  }
+
+  // Yeni davet kodu başka bir dairenin koduyla çakışırsa (çok düşük ihtimal) unique index 11000 hatası
+  // verir ve transaction geri alınır; o durumda yeni kodla en fazla 3 kez denenir.
+  for (let deneme = 1; ; deneme++) {
+    try {
+      await mongoose.connection.transaction(async (session) => {
+        // Kişinin gönderdiği ve aldığı tüm mesajlar (siteId filtresiyle).
+        await Mesaj.deleteMany({ siteId, $or: [{ gonderenId: id }, { aliciId: id }] }, { session });
+        // Hesap kaydı silinir: ad, e-posta, şifre hash'i ve push token birlikte gider. Kayıt olmadığı için
+        // bu hesabın token'ı artık hiçbir istekte geçmez (girisGerekli kullanıcıyı bulamaz → 401).
+        await Kullanici.deleteOne({ _id: id }, { session });
+        // Daire boşaltılır: sakin bağı kaldırılır ve eski kod yerine kullanılmamış yeni bir davet kodu konur.
+        // Filtrede siteId de var (site izolasyonu). daireId kontrolü sadece güvenlik önlemi; sakinde hep doludur.
+        if (kullanici.daireId) {
+          const [yeniKod] = davetKodlariUret(1);
+          await Daire.updateOne(
+            // sakinId: id → daire gerçekten bu kişiye kayıtlıysa sıfırlanır (bu arada daireye başkası geldiyse dokunulmaz).
+            { _id: kullanici.daireId, siteId, sakinId: id },
+            { davetKodu: yeniKod, davetKoduKullanildi: false, sakinId: null },
+            { session }
+          );
+        }
+      });
+      break;
+    } catch (hata) {
+      if (hata.code === 11000 && deneme < 3) continue;
+      throw hata;
+    }
+  }
+
+  // Aynı hesap başka bir telefonda da açıksa o uygulamaya haber verilir ve bağlantısı kapatılır.
+  kullaniciyiKopar(id, 'hesapSilindi', { mesaj: 'Hesabınız ve kişisel bilgileriniz silindi.' });
+  // 204: işlem başarılı, cevapta gönderilecek veri yok.
+  res.status(204).end();
 });
 
 module.exports = router;

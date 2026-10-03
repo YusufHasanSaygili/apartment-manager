@@ -2,10 +2,11 @@
 // ve o kişinin bu işlemi yapmaya yetkisi olup olmadığını kontrol eder.
 const jwt = require('jsonwebtoken');
 const Kullanici = require('../models/Kullanici');
+const SilinenHesap = require('../models/SilinenHesap');
 const { ApiHatasi } = require('./hataYonetimi');
 
-// Daireden çıkarılan sakinin her yerde (giriş, istekler, soket) gördüğü ortak mesaj.
-const DAIREDEN_CIKARILDI = 'Bu hesap daireden çıkarılmıştır. Yeni dairenize katılmak için yöneticinizden davet kodu isteyin.';
+// Daireden çıkarılan (ve bu yüzden hesabı silinen) sakinin her yerde (giriş, istekler, soket) gördüğü ortak mesaj.
+const DAIREDEN_CIKARILDI = 'Daireden çıkarıldığınız için hesabınız silinmiştir. Yeni dairenize katılmak için yöneticinizden davet kodu isteyin.';
 
 // girisGerekli: sadece giriş yapmış kullanıcıların geçebileceği route'lara konur.
 // Mobil uygulama her istekte "Authorization: Bearer <token>" başlığı gönderir.
@@ -29,9 +30,11 @@ async function girisGerekli(req, res, next) {
   // eski token ile işlem yapılamaz.
   const kullanici = await Kullanici.findById(icerik.id).lean();
   if (!kullanici) {
-    throw new ApiHatasi(401, 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
+    // Hesap, sakin daireden çıkarıldığı için silindiyse telefondaki eski oturuma bunun nedeni söylenir.
+    const cikarildi = await SilinenHesap.exists({ kullaniciId: icerik.id });
+    throw new ApiHatasi(401, cikarildi ? DAIREDEN_CIKARILDI : 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
   }
-  // Yönetici bu sakini daireden çıkardıysa (daireId boşaldıysa) hesap artık hiçbir işlem yapamaz.
+  // Ek güvenlik: daireye bağlı olmayan bir sakin hesabı (normalde olmaz; daireden çıkarılan hesap silinir) işlem yapamaz.
   // 401 döner: telefon bunu görünce oturumu kapatır ve mesajı gösterir.
   if (kullanici.rol === 'sakin' && !kullanici.daireId) {
     throw new ApiHatasi(401, DAIREDEN_CIKARILDI);
@@ -62,7 +65,7 @@ function sadeceYonetici(req, res, next) {
 }
 
 // sadeceSakin: sakin işlemlerine (aidat bildirimi...) konur. girisGerekli'den SONRA kullanılır.
-// Dairesine bağlı olmayan bir hesap (yönetici veya daireden çıkarılmış sakin) 403 alır.
+// Dairesine bağlı olmayan bir hesap (yönetici veya ek güvenlik olarak dairesiz kalmış bir sakin) 403 alır.
 function sadeceSakin(req, res, next) {
   if (req.kullanici.rol !== 'sakin' || !req.kullanici.daireId) {
     throw new ApiHatasi(403, 'Bu işlemi sadece daire sakini yapabilir.');

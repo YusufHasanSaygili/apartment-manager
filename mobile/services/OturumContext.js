@@ -90,17 +90,18 @@ export function OturumProvider({ children }) {
     setOturum(null);
   };
 
-  // Oturum düştü (sunucu artık bu oturumu kabul etmiyor): sunucuya istek atmadan sadece bu telefonda çıkış
+  // Oturum düştü (sunucu artık bu oturumu kabul etmiyor) veya hesap silindi: sunucuya istek atmadan sadece bu telefonda çıkış
   // yapılır ve nedeni gösterilir (örn. "Bu hesap daireden çıkarılmıştır"). App.js açılış ekranına döner.
   // useCallback: fonksiyon sabit kalsın; aşağıdaki useEffect ve soket dinleyicisi her çizimde yeniden kurulmasın.
-  const oturumDustu = useCallback(async (mesaj) => {
+  // baslik: uyarı penceresinin başlığı (varsayılan "Oturum kapandı"; hesap silinince "Hesap silindi").
+  const oturumDustu = useCallback(async (mesaj, baslik = 'Oturum kapandı') => {
     if (dustuRef.current) return;
     dustuRef.current = true;
     soketKes();
     tokenAyarla(null);
     await SecureStore.deleteItemAsync(TOKEN_ANAHTARI);
     setOturum(null);
-    Alert.alert('Oturum kapandı', mesaj);
+    Alert.alert(baslik, mesaj);
   }, []);
 
   // useEffect: oturumDustu fonksiyonunu api.js'e kaydeder; herhangi bir istek 401 alınca o çağrılır.
@@ -112,6 +113,10 @@ export function OturumProvider({ children }) {
   // .catch: oturumDustu async; telefonun deposu (SecureStore) hata verirse yakalanmamış hata kalmasın.
   const dairedenCikarildi = useCallback(({ mesaj }) => oturumDustu(mesaj).catch(() => {}), [oturumDustu]);
   useSoketOlayi('dairedenCikarildi', dairedenCikarildi);
+  // Aynı hesap başka bir telefonda silindiyse bu telefondaki oturum da kapanır (aynı işleyici, mesaj farklı).
+  // Başlık ve mesaj, silme ekranının kendi gösterdiğiyle aynıdır: hangisi önce gelirse gelsin kullanıcı aynı uyarıyı görür.
+  const hesapSilindi = useCallback(({ mesaj }) => oturumDustu(mesaj, 'Hesap silindi').catch(() => {}), [oturumDustu]);
+  useSoketOlayi('hesapSilindi', hesapSilindi);
 
   // Soket bağlanamadıysa ve sunucu "daireden çıkarıldı" dediyse (telefon kapalıyken çıkarılmış olabilir)
   // oturum kapatılır. Diğer bağlantı hatalarında (internet yok vb.) hiçbir şey yapılmaz, soket kendisi tekrar dener.
@@ -143,8 +148,10 @@ export function OturumProvider({ children }) {
   useSoketOlayi('rolDegisti', oturumuYenile);
 
   // Provider: içine sarılan tüm ekranlara oturum bilgisini ve fonksiyonları dağıtır.
+  // oturumuKapat: oturumDustu'nun ekranlara açılan adı. Hesap silindikten sonra HesapSil ekranı bunu çağırır;
+  // cikisYap'tan farkı sunucuya istek atmamasıdır (hesap zaten silindi, push token isteği 401 alırdı).
   return (
-    <OturumContext.Provider value={{ oturum, hazir, oturumAc, cikisYap, oturumuYenile }}>{children}</OturumContext.Provider>
+    <OturumContext.Provider value={{ oturum, hazir, oturumAc, cikisYap, oturumuYenile, oturumuKapat: oturumDustu }}>{children}</OturumContext.Provider>
   );
 }
 

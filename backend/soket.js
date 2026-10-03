@@ -4,6 +4,7 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const Kullanici = require('./models/Kullanici');
+const SilinenHesap = require('./models/SilinenHesap');
 const { DAIREDEN_CIKARILDI } = require('./middleware/kimlik');
 
 // Sunucu tarafındaki Socket.io nesnesi; soketiBaslat çağrılınca oluşturulur.
@@ -25,11 +26,12 @@ function soketiBaslat(httpSunucu, corsAdresleri) {
     try {
       const { id } = jwt.verify(socket.handshake.auth?.token, process.env.JWT_ANAHTARI);
       const kullanici = await Kullanici.findById(id).select('_id rol daireId').lean();
-      if (!kullanici) return next(new Error('Oturum geçersiz'));
-      // Daireden çıkarılmış sakin anlık bağlantı da kuramaz (API'deki girisGerekli ile aynı kural).
-      // hata.data.kod: telefon bu reddi diğer bağlantı hatalarından ayırt edip oturumu kapatabilsin diye eklenir
-      // (telefon kapalıyken çıkarılan sakin, uygulamayı açınca hemen bilgilendirilir).
-      if (kullanici.rol === 'sakin' && !kullanici.daireId) {
+      // Daireden çıkarılan sakinin hesabı silinmiştir; bağlantı reddedilir. hata.data.kod: telefon bu reddi diğer
+      // bağlantı hatalarından ayırt edip oturumu kapatabilsin diye eklenir (telefon kapalıyken çıkarılan sakin,
+      // uygulamayı açınca hemen bilgilendirilir). Dairesiz sakin kontrolü de ek güvenlik olarak kalır.
+      const cikarildi = !kullanici && (await SilinenHesap.exists({ kullaniciId: id }));
+      if (!kullanici && !cikarildi) return next(new Error('Oturum geçersiz'));
+      if (cikarildi || (kullanici.rol === 'sakin' && !kullanici.daireId)) {
         const hata = new Error(DAIREDEN_CIKARILDI);
         hata.data = { kod: 'DAIREDEN_CIKARILDI' };
         return next(hata);
