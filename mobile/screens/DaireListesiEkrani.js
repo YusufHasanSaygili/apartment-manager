@@ -1,7 +1,8 @@
 // Daire listesi ekranı: yönetici sitedeki tüm daireleri bina bina görür.
-// Bir daireye dokununca o dairenin davet kodu ve paylaşma butonu açılır.
-import { useCallback, useEffect, useState } from 'react';
+// Bir daireye dokununca o dairenin davet kodu ve paylaşma butonu açılır; dolu dairede sakini çıkarma butonu da vardır.
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import HataMesaji from '../components/HataMesaji';
 import { renkler } from '../tema';
@@ -15,7 +16,7 @@ export default function DaireListesiEkrani({ navigation }) {
   const [hata, setHata] = useState('');
 
   // API isteği: GET /api/daireler ile sitenin binalarını ve dairelerini (kodlarıyla) çeker.
-  // useCallback: fonksiyonu her çizimde yeniden oluşturmaz; böylece useEffect gereksiz yere tekrar çalışmaz.
+  // useCallback: fonksiyonu her çizimde yeniden oluşturmaz; böylece useFocusEffect gereksiz yere tekrar çalışmaz.
   const listeyiYukle = useCallback(async () => {
     setHata('');
     try {
@@ -26,10 +27,13 @@ export default function DaireListesiEkrani({ navigation }) {
     }
   }, []);
 
-  // useEffect: ekran ilk açıldığında bir kez çalışır ve listeyi yükler.
-  useEffect(() => {
-    listeyiYukle();
-  }, [listeyiYukle]);
+  // useFocusEffect: ekran her öne geldiğinde listeyi yükler. Daire kodu penceresinde sakin çıkarılıp
+  // pencere kapanınca liste kendiliğinden güncellenir (daire boş ve yeni kodlu görünür).
+  useFocusEffect(
+    useCallback(() => {
+      listeyiYukle();
+    }, [listeyiYukle])
+  );
 
   // Hata varsa ortak hata kutusu; "Tekrar dene" listeyiYukle'yi yeniden çalıştırır.
   if (hata !== '') {
@@ -67,13 +71,20 @@ export default function DaireListesiEkrani({ navigation }) {
             {bina.daireler.map((daire) => {
               const daireAdi = `${bina.ad}${daire.daireNo}`;
               return (
-                // Daire kutucuğu: basınca DaireKodu ekranı açılır, daire adı ve kodu oraya gönderilir.
+                // Daire kutucuğu: basınca DaireKodu ekranı açılır. Oraya daire id'si (sakini çıkarma isteği için),
+                // daire adı, davet kodu, dolu bilgisi ve sakinin adı gönderilir; ekran tekrar istek atmadan bunları gösterir.
                 <Pressable
                   key={daire.id}
                   // dolu: sakin katılmış daireler koyu yeşil, katılmamışlar gri gösterilir.
                   style={({ pressed }) => [styles.daire, daire.dolu && styles.dolu, pressed && styles.basili]}
                   onPress={() =>
-                    navigation.navigate('DaireKodu', { daireAdi, davetKodu: daire.davetKodu, dolu: daire.dolu })
+                    navigation.navigate('DaireKodu', {
+                      daireId: daire.id,
+                      daireAdi,
+                      davetKodu: daire.davetKodu,
+                      dolu: daire.dolu,
+                      sakinAdi: daire.sakinAdi,
+                    })
                   }
                   accessibilityRole="button"
                   accessibilityLabel={`Daire ${daireAdi}${daire.dolu ? ', sakin katılmış' : ''}, davet kodunu göster`}

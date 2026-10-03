@@ -11,7 +11,7 @@ const Bina = require('../models/Bina');
 const Daire = require('../models/Daire');
 const dogrula = require('../middleware/dogrula');
 const { kayitSiniri, girisSiniri, kodSiniri } = require('../middleware/denemeSiniri');
-const { girisGerekli } = require('../middleware/kimlik');
+const { girisGerekli, DAIREDEN_CIKARILDI } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
 
 const router = express.Router();
@@ -169,6 +169,11 @@ router.post('/giris', girisSiniri, dogrula(girisSemasi), async (req, res) => {
   // kayıtlı olduğunu öğrenemez.
   if (!kullanici || !sifreDogru) {
     throw new ApiHatasi(401, 'E-posta veya şifre hatalı.');
+  }
+
+  // Daireden çıkarılmış sakin giriş yapamaz; şifre doğru olduğu için nedeni açıkça söylenir.
+  if (kullanici.rol === 'sakin' && !kullanici.daireId) {
+    throw new ApiHatasi(403, DAIREDEN_CIKARILDI);
   }
 
   const bilgi = await oturumBilgisi(kullanici);

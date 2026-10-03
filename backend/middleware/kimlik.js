@@ -4,6 +4,9 @@ const jwt = require('jsonwebtoken');
 const Kullanici = require('../models/Kullanici');
 const { ApiHatasi } = require('./hataYonetimi');
 
+// Daireden çıkarılan sakinin her yerde (giriş, istekler, soket) gördüğü ortak mesaj.
+const DAIREDEN_CIKARILDI = 'Bu hesap daireden çıkarılmıştır. Yeni dairenize katılmak için yöneticinizden davet kodu isteyin.';
+
 // girisGerekli: sadece giriş yapmış kullanıcıların geçebileceği route'lara konur.
 // Mobil uygulama her istekte "Authorization: Bearer <token>" başlığı gönderir.
 // throw ile fırlatılan ApiHatasi'ni Express 5 otomatik yakalar ve merkezi hata
@@ -27,6 +30,11 @@ async function girisGerekli(req, res, next) {
   const kullanici = await Kullanici.findById(icerik.id).lean();
   if (!kullanici) {
     throw new ApiHatasi(401, 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
+  }
+  // Yönetici bu sakini daireden çıkardıysa (daireId boşaldıysa) hesap artık hiçbir işlem yapamaz.
+  // 401 döner: telefon bunu görünce oturumu kapatır ve mesajı gösterir.
+  if (kullanici.rol === 'sakin' && !kullanici.daireId) {
+    throw new ApiHatasi(401, DAIREDEN_CIKARILDI);
   }
 
   // SİTE İZOLASYONU: route'lar siteId ve rolü SADECE buradan (veritabanındaki kayıttan) alır,
@@ -62,4 +70,4 @@ function sadeceSakin(req, res, next) {
   next();
 }
 
-module.exports = { girisGerekli, sadeceYonetici, sadeceSakin };
+module.exports = { girisGerekli, sadeceYonetici, sadeceSakin, DAIREDEN_CIKARILDI };

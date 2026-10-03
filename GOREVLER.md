@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 6.1
+**Mevcut görev:** 6.2
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -125,7 +125,7 @@ Kurallar:
 
 ## Aşama 6 — Hesap Yönetimi
 
-- [ ] **6.1 Sakini daireden çıkarma**
+- [x] **6.1 Sakini daireden çıkarma**
   - Sakinin daireyle bağı kaldırılır, daire için yeni davet kodu üretilir
   - Deneme: Çıkarılan sakin daireye erişemez, yeni kodla başka biri katılır
 

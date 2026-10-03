@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { OturumProvider, useOturum } from './services/OturumContext';
 import AcilisEkrani from './screens/AcilisEkrani';
@@ -40,6 +40,11 @@ const Stack = createNativeStackNavigator();
 function Ekranlar() {
   // oturum: giriş yapılmış mı; hazir: açılıştaki otomatik giriş kontrolü bitti mi (OturumContext'ten).
   const { oturum, hazir } = useOturum();
+  // useSafeAreaInsets: telefonun alt gezinme çubuğunun yüksekliği. Android'de uygulama ekranın en altına kadar
+  // uzandığı için bu kadar boşluk bırakılmazsa ekranların en alttaki butonları çubuğun arkasında kalır.
+  const { bottom: altBosluk } = useSafeAreaInsets();
+  // Sohbet ekranı alt boşluğu kendisi hesaplar (yazma kutusu klavyeyle birlikte hareket ettiği için); ona boşluk eklenmez.
+  const sohbetIcerikStili = { backgroundColor: renkler.arkaPlan };
 
   // Açılışta kayıtlı oturum kontrol edilirken boş ekran gösterilir (çok kısa sürer).
   // Bu sırada ekran seçilmez; yoksa giriş yapmış kullanıcı bir an açılış ekranını görürdü.
@@ -53,6 +58,8 @@ function Ekranlar() {
         headerStyle: { backgroundColor: renkler.arkaPlan },
         headerTintColor: renkler.yazi,
         headerShadowVisible: false,
+        // contentStyle: her ekranın dış kutusu. Alt çubuk kadar boşluk tüm ekranlara tek yerden eklenir.
+        contentStyle: { paddingBottom: altBosluk, backgroundColor: renkler.arkaPlan },
       }}
     >
       {oturum?.kullanici.rol === 'yonetici' ? (
@@ -102,7 +109,11 @@ function Ekranlar() {
           {/* Mesajlar (yönetici): ana ekrandaki "Mesajlar" butonuyla sakin listesi açılır; bir sakine dokununca
               Sohbet ekranı o sakinle açılır, başlıkta sakinin adı ve dairesi görünür */}
           <Stack.Screen name="Sohbetler" component={SohbetlerEkrani} options={{ title: 'Mesajlar' }} />
-          <Stack.Screen name="Sohbet" component={SohbetEkrani} options={({ route }) => ({ title: route.params.baslik })} />
+          <Stack.Screen
+            name="Sohbet"
+            component={SohbetEkrani}
+            options={({ route }) => ({ title: route.params.baslik, contentStyle: sohbetIcerikStili })}
+          />
         </>
       ) : oturum ? (
         // Sakin ekranları: ana ekran, aidat bildirimi, aidat takvimi, duyurular ve yöneticiyle sohbet.
@@ -114,7 +125,11 @@ function Ekranlar() {
           {/* Duyurular (sakin): aynı ekran, sadece okuma */}
           <Stack.Screen name="Duyurular" component={DuyurularEkrani} options={{ title: 'Duyurular' }} />
           {/* Sohbet (sakin): aynı ekran, kisiId verilmeden açılır → sakinin konuşabileceği tek kişi olan yönetici */}
-          <Stack.Screen name="Sohbet" component={SohbetEkrani} options={{ title: 'Yönetici ile mesajlar' }} />
+          <Stack.Screen
+            name="Sohbet"
+            component={SohbetEkrani}
+            options={{ title: 'Yönetici ile mesajlar', contentStyle: sohbetIcerikStili }}
+          />
         </>
       ) : (
         <>

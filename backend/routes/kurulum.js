@@ -1,6 +1,5 @@
 // Kurulum route'ları: yöneticinin sitedeki binaları ve daireleri bir kerede oluşturması
 // ve sitenin aylık aidat tutarını belirlemesi.
-const crypto = require('node:crypto');
 const express = require('express');
 const mongoose = require('mongoose');
 const { z } = require('zod');
@@ -12,6 +11,8 @@ const dogrula = require('../middleware/dogrula');
 const { tutarKurali } = require('../middleware/dogrula');
 const { girisGerekli, sadeceYonetici } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
+// Davet kodu üretici ortak servisten gelir: sakini daireden çıkarma route'u da aynı fonksiyonu kullanır.
+const { davetKodlariUret } = require('../services/davetKodu');
 
 const router = express.Router();
 
@@ -39,17 +40,6 @@ const kurulumSemasi = z.object({
     .min(1, 'Her binada en az 1 daire olmalı')
     .max(99, 'Bir binada en fazla 99 daire olabilir'),
 });
-
-// adet kadar, birbirinden farklı 6 haneli davet kodu üretir (örn. "048213").
-// crypto.randomInt: tahmin edilemeyen (kriptografik) rastgele sayı; Math.random tahmin edilebilir.
-// Set: aynı kod iki kez üretilirse ikincisi eklenmez, döngü yenisini üretir.
-function davetKodlariUret(adet) {
-  const kodlar = new Set();
-  while (kodlar.size < adet) {
-    kodlar.add(String(crypto.randomInt(0, 1_000_000)).padStart(6, '0'));
-  }
-  return [...kodlar];
-}
 
 // GET /api/kurulum
 // Kim kullanabilir: yönetici. Kendi sitesindeki bina ve daire sayısını, aylık aidat tutarını ve

@@ -1,13 +1,23 @@
 // Daire kodu ekranı: alttan açılan pencere (form sheet). Seçilen dairenin davet kodunu
 // büyük puntoyla gösterir ve kodu WhatsApp, SMS vb. ile paylaşmayı sağlar.
+// Dairede sakin varsa adı gösterilir ve yönetici "Sakini daireden çıkar" ile daireyi boşaltabilir
+// (daire el değiştirdiğinde); o zaman daireye yeni davet kodu verilir ve burada hemen gösterilir.
+import { useState } from 'react';
 import { Alert, Share, StyleSheet, Text, View } from 'react-native';
+import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
 import { renkler } from '../tema';
 
-// route.params: daire listesinden gönderilen daire adı (örn. "A3"), davet kodu ve dolu bilgisi.
+// route.params: daire listesinden gönderilen daire kimliği, adı (örn. "A3"), davet kodu, dolu bilgisi ve sakinin adı.
 export default function DaireKoduEkrani({ route, navigation }) {
-  const { daireAdi, davetKodu, dolu } = route.params;
+  const { daireId, daireAdi, sakinAdi } = route.params;
+  // useState: davet kodu ve dolu bilgisi listeden gelen değerlerle başlar; sakin çıkarılınca yeni kod
+  // gelir ve daire boş olur. State olduğu için ekran kendiliğinden yeni kodu gösterir.
+  const [davetKodu, setDavetKodu] = useState(route.params.davetKodu);
+  const [dolu, setDolu] = useState(route.params.dolu);
+  // useState: çıkarma isteği sürerken true; buton dönen simge gösterir ve tekrar basılamaz.
+  const [cikariliyor, setCikariliyor] = useState(false);
   // useOturum: giriş yapan kullanıcının oturum bilgisi; paylaşım mesajına site adını koymak için gerekir.
   const { oturum } = useOturum();
 
@@ -23,6 +33,32 @@ export default function DaireKoduEkrani({ route, navigation }) {
     }
   };
 
+  // API isteği: POST /api/daireler/:id/sakini-cikar. Sakinin daireyle bağı kesilir, hesabı giriş yapamaz olur
+  // ve sunucu daireye yeni davet kodu verir; yeni kod ekranda gösterilir ve paylaşılabilir.
+  const sakiniCikar = async () => {
+    setCikariliyor(true);
+    try {
+      const { data } = await api.post(`/daireler/${daireId}/sakini-cikar`);
+      setDavetKodu(data.davetKodu);
+      setDolu(false);
+    } catch (e) {
+      Alert.alert('Sakin çıkarılamadı', e.message);
+    } finally {
+      setCikariliyor(false);
+    }
+  };
+
+  // Çıkarma geri alınamaz; önce onay sorulur. "Çıkar" seçilirse sakiniCikar çalışır.
+  const cikarOnayi = () =>
+    Alert.alert(
+      'Sakini daireden çıkar',
+      `${sakinAdi ?? 'Sakin'} ${daireAdi} dairesinden çıkarılsın mı? Hesabı bir daha giriş yapamaz ve daireye yeni davet kodu verilir.`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'Çıkar', style: 'destructive', onPress: sakiniCikar },
+      ]
+    );
+
   return (
     <View style={styles.kapsayici}>
       <Text style={styles.baslik}>Daire {daireAdi}</Text>
@@ -33,7 +69,14 @@ export default function DaireKoduEkrani({ route, navigation }) {
       </Text>
       {/* Kod tek kullanımlık: kullanıldıysa paylaşma butonu gösterilmez */}
       {dolu ? (
-        <Text style={styles.not}>Bu kod kullanıldı. Dairede kayıtlı bir sakin var.</Text>
+        <>
+          <Text style={styles.not}>
+            Bu kod kullanıldı. Dairede oturan sakin: {sakinAdi ?? 'kayıtlı bir sakin'}.
+          </Text>
+          {/* "Sakini daireden çıkar" butonu: basınca cikarOnayi çalışır (önce onay sorulur), onaylanırsa
+              sakiniCikar ile sakin çıkarılır ve yeni davet kodu gösterilir */}
+          <Buton baslik="Sakini daireden çıkar" tur="ikincil" yukleniyor={cikariliyor} onPress={cikarOnayi} />
+        </>
       ) : (
         <>
           <Text style={styles.not}>Sakin bu kodla uygulamaya katılınca hesabı bu daireye bağlanır.</Text>

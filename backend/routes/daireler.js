@@ -1,8 +1,12 @@
-// Daire route'ları: yöneticinin sitesindeki daireleri ve davet kodlarını görmesi.
+// Daire route'ları: yöneticinin sitesindeki daireleri ve davet kodlarını görmesi, sakini daireden çıkarması.
 const express = require('express');
 const Bina = require('../models/Bina');
 const Daire = require('../models/Daire');
-const { girisGerekli, sadeceYonetici } = require('../middleware/kimlik');
+const Kullanici = require('../models/Kullanici');
+const { girisGerekli, sadeceYonetici, DAIREDEN_CIKARILDI } = require('../middleware/kimlik');
+const { ApiHatasi } = require('../middleware/hataYonetimi');
+const { davetKodlariUret } = require('../services/davetKodu');
+const { kullaniciyiKopar } = require('../soket');
 
 const router = express.Router();
 
@@ -13,16 +17,20 @@ router.use(girisGerekli, sadeceYonetici);
 
 // GET /api/daireler
 // Kim kullanabilir: yönetici. Kendi sitesindeki binaları, her binanın içinde daireleriyle
-// (numara, davet kodu, dolu mu) sıralı olarak döner. siteId token'dan alınır; başka sitenin
+// (numara, davet kodu, dolu mu, sakinin adı) sıralı olarak döner. siteId token'dan alınır; başka sitenin
 // dairesi bu sorguya hiçbir şekilde giremez.
 router.get('/', async (req, res) => {
   const { siteId } = req.kullanici;
 
-  // İki sorgu aynı anda çalışır (Promise.all), sonuçlar sıralı gelir: binalar A→Z, daireler 1→n.
-  const [binalar, daireler] = await Promise.all([
+  // Sorgular aynı anda çalışır (Promise.all), sonuçlar sıralı gelir: binalar A→Z, daireler 1→n.
+  // Sakinler de alınır: daireye dokununca yönetici dairede kimin oturduğunu görsün (çıkarmadan önce).
+  const [binalar, daireler, sakinler] = await Promise.all([
     Bina.find({ siteId }).sort({ ad: 1 }).lean(),
     Daire.find({ siteId }).sort({ daireNo: 1 }).select('binaId daireNo davetKodu davetKoduKullanildi').lean(),
+    Kullanici.find({ siteId, rol: 'sakin', daireId: { $ne: null } }).select('ad daireId').lean(),
   ]);
+  // daireId → sakinin adı (Map: her daire için ayrı sorgu atmadan hızlıca bulmak için).
+  const sakinAdi = new Map(sakinler.map((k) => [String(k.daireId), k.ad]));
 
   // Daireler kendi binasının altına yerleştirilir; mobil ekran bina bina listeler.
   // binaId bir ObjectId (nesne) olduğu için === ile değil .equals() ile karşılaştırılır.
@@ -37,10 +45,54 @@ router.get('/', async (req, res) => {
         daireNo: d.daireNo,
         davetKodu: d.davetKodu,
         dolu: d.davetKoduKullanildi, // kod kullanıldıysa dairede kayıtlı bir sakin var
+        sakinAdi: sakinAdi.get(String(d._id)) ?? null,
       })),
   }));
 
   res.json(sonuc);
+});
+
+// POST /api/daireler/:id/sakini-cikar
+// Kim kullanabilir: yönetici. Daire el değiştirdiğinde eski sakini daireden çıkarır ve daireye YENİ davet kodu verir:
+// - Sakinin hesabının daireyle bağı (daireId) ve bildirim adresi (pushToken) silinir. Hesap bundan sonra
+//   giriş yapamaz ve hiçbir işlem yapamaz ("Bu hesap daireden çıkarılmıştır" mesajını görür).
+// - Telefonu açıksa soket ile haber verilir ve bağlantısı kapatılır; uygulama oturumu hemen kapatır.
+// - Eski davet kodu geçersiz olur; yeni sakin yeni kodla katılır.
+// - Dairenin aidat geçmişi SİLİNMEZ (site için gerekli kayıt); yönetici takvimde görmeye devam eder.
+// Daire sorgusunda siteId olduğu için başka sitenin dairesi bulunamaz (404).
+router.post('/:id/sakini-cikar', async (req, res) => {
+  const { siteId } = req.kullanici;
+  const daire = await Daire.findOne({ _id: req.params.id, siteId }).lean();
+  if (!daire) throw new ApiHatasi(404, 'Daire bulunamadı.');
+  if (!daire.davetKoduKullanildi) throw new ApiHatasi(400, 'Bu dairede kayıtlı bir sakin yok.');
+
+  // Dairedeki sakin (siteId ve daireId ile). Hesabını silmiş olabilir; o zaman sadece daire sıfırlanır.
+  const sakin = await Kullanici.findOneAndUpdate(
+    { siteId, rol: 'sakin', daireId: daire._id },
+    { daireId: null, pushToken: null }
+  );
+
+  // Daireye yeni kod verilir ve daire boş işaretlenir. Kod başka bir dairenin koduyla çakışırsa
+  // (çok düşük ihtimal) unique index 11000 hatası verir; o durumda yeni kodla en fazla 3 kez denenir.
+  let yeniKod;
+  for (let deneme = 1; ; deneme++) {
+    try {
+      [yeniKod] = davetKodlariUret(1);
+      await Daire.updateOne(
+        { _id: daire._id, siteId },
+        { davetKodu: yeniKod, davetKoduKullanildi: false, sakinId: null }
+      );
+      break;
+    } catch (hata) {
+      if (hata.code === 11000 && deneme < 3) continue;
+      throw hata;
+    }
+  }
+
+  // Soket haberi veritabanı güncellendikten SONRA gönderilir: telefon tekrar bağlanmayı/istek atmayı
+  // denerse girisGerekli artık onu reddeder. Yeni kod cevapla döner, yöneticinin ekranında hemen görünür.
+  if (sakin) kullaniciyiKopar(sakin._id, 'dairedenCikarildi', { mesaj: DAIREDEN_CIKARILDI });
+  res.json({ davetKodu: yeniKod });
 });
 
 module.exports = router;

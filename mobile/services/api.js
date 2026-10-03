@@ -24,6 +24,14 @@ function hataMesajiOlustur(hata) {
   return 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.';
 }
 
+// Oturum düşünce çağrılacak fonksiyon. OturumContext, uygulama açılınca bir useEffect içinde
+// oturumDusunceAyarla ile kaydeder. api.js bir React component'i olmadığı için
+// oturumu kendisi kapatamaz; bu yüzden işi OturumContext'e bırakır.
+let oturumDustuIsleyici = null;
+export function oturumDusunceAyarla(fn) {
+  oturumDustuIsleyici = fn;
+}
+
 // Interceptor (araya giren fonksiyon): her hatalı cevap ekrana ulaşmadan önce buradan geçer.
 // Hata tek tip bir nesneye çevrilir; ekranlar sadece hata.message'ı göstermekle yetinir,
 // her ekranda ayrı ayrı hata ayıklama kodu yazmak gerekmez.
@@ -35,6 +43,12 @@ api.interceptors.response.use(
     const ortakHata = new Error(hataMesajiOlustur(hata));
     // Ekran gerekirse duruma göre davranabilsin diye HTTP kodu da eklenir (örn. 401 → girişe yönlendir).
     ortakHata.durumKodu = hata.response?.status;
+    // 401 + istekte token vardı: oturum artık geçersiz (süresi doldu, hesap silindi veya sakin daireden
+    // çıkarıldı). Hangi ekranda olursa olsun oturum kapatılır ve sunucunun mesajı gösterilir.
+    // (Giriş ekranındaki "şifre hatalı" 401'inde token olmadığı için bu çalışmaz.)
+    if (ortakHata.durumKodu === 401 && hata.config?.headers?.Authorization) {
+      oturumDustuIsleyici?.(ortakHata.message)?.catch?.(() => {});
+    }
     return Promise.reject(ortakHata);
   }
 );

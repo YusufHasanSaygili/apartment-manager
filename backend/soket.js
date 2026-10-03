@@ -4,6 +4,7 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const Kullanici = require('./models/Kullanici');
+const { DAIREDEN_CIKARILDI } = require('./middleware/kimlik');
 
 // Sunucu tarafındaki Socket.io nesnesi; soketiBaslat çağrılınca oluşturulur.
 let io = null;
@@ -23,8 +24,16 @@ function soketiBaslat(httpSunucu, corsAdresleri) {
   io.use(async (socket, next) => {
     try {
       const { id } = jwt.verify(socket.handshake.auth?.token, process.env.JWT_ANAHTARI);
-      const kullanici = await Kullanici.findById(id).select('_id').lean();
+      const kullanici = await Kullanici.findById(id).select('_id rol daireId').lean();
       if (!kullanici) return next(new Error('Oturum geçersiz'));
+      // Daireden çıkarılmış sakin anlık bağlantı da kuramaz (API'deki girisGerekli ile aynı kural).
+      // hata.data.kod: telefon bu reddi diğer bağlantı hatalarından ayırt edip oturumu kapatabilsin diye eklenir
+      // (telefon kapalıyken çıkarılan sakin, uygulamayı açınca hemen bilgilendirilir).
+      if (kullanici.rol === 'sakin' && !kullanici.daireId) {
+        const hata = new Error(DAIREDEN_CIKARILDI);
+        hata.data = { kod: 'DAIREDEN_CIKARILDI' };
+        return next(hata);
+      }
       // Kullanıcının kimliği bağlantıya yazılır; oda bu bilgiyle seçilir (istekten alınmaz).
       socket.data.kullaniciId = String(kullanici._id);
       next();
@@ -49,4 +58,13 @@ function kullaniciyaGonder(kullaniciId, olay, veri) {
   io?.to(odaAdi(String(kullaniciId))).emit(olay, veri);
 }
 
-module.exports = { soketiBaslat, kullaniciyaGonder };
+// Bir kullanıcının açık tüm bağlantılarını kapatır (örn. sakin daireden çıkarıldı).
+// Kapatmadan önce olay gönderilir: telefon bunu alınca oturumu kapatır ve mesajı gösterir.
+// Sunucu tarafından kapatılan bağlantıya Socket.io kendiliğinden yeniden bağlanmaz.
+function kullaniciyiKopar(kullaniciId, olay, veri) {
+  const oda = odaAdi(String(kullaniciId));
+  io?.to(oda).emit(olay, veri);
+  io?.in(oda).disconnectSockets();
+}
+
+module.exports = { soketiBaslat, kullaniciyaGonder, kullaniciyiKopar };

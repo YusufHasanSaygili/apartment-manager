@@ -47,7 +47,12 @@ router.get('/takvim', dogrula(yilSemasi, 'query'), async (req, res) => {
   const { id, siteId, daireId } = req.kullanici;
   // Sakinin hesap açma tarihi: katıldığı aydan önceki aylar takvimde gri ("Sakin yok") görünür.
   const sakin = await Kullanici.findById(id).select('createdAt').lean();
-  res.json({ aylar: await Aidat.yillikTakvim(siteId, daireId, req.query.yil, sakin?.createdAt ?? null) });
+  const aylar = await Aidat.yillikTakvim(siteId, daireId, req.query.yil, sakin.createdAt);
+  // Daire el değiştirdiyse önceki sakinin ödemeleri yeni sakine gösterilmez (gizlilik):
+  // sakinin katıldığı aydan önceki aylar, kayıt olsa bile "bos" (gri) döner. Yönetici takviminde hepsi görünür.
+  // Ay sırası = yıl × 12 + ay (Aidat.aySirasi ile aynı hesap): iki ayı tek bir < karşılaştırmasıyla kıyaslamak için.
+  const katilmaSirasi = Aidat.aySirasi(sakin.createdAt);
+  res.json({ aylar: aylar.map((a) => (req.query.yil * 12 + a.ay < katilmaSirasi ? { ay: a.ay, durum: 'bos' } : a)) });
 });
 
 // GET /api/aidatlar/benim
@@ -55,13 +60,18 @@ router.get('/takvim', dogrula(yilSemasi, 'query'), async (req, res) => {
 // sakinin KENDİ dairesinin bildirim geçmişini (yeniden eskiye, son 2 kayıt) döner.
 // Ana ekran kısa kalsın diye sadece son 2 bildirim gönderilir; tüm aylar "Aidat takvimim" ekranında görülür.
 router.get('/benim', async (req, res) => {
-  const { siteId, daireId } = req.kullanici;
+  const { id, siteId, daireId } = req.kullanici;
+  // Sakinin hesap açma tarihi: ondan önce gönderilmiş bildirimler (dairenin önceki sakinine ait) gösterilmez.
+  const { createdAt } = await Kullanici.findById(id).select('createdAt').lean();
   // Promise.all: iki sorguyu sırayla değil AYNI ANDA çalıştırır, cevap daha hızlı döner.
   // Aidat sorgusu hem siteId hem daireId ile filtrelenir: sakin başka dairenin kaydını göremez.
   const [site, bildirimler] = await Promise.all([
     Site.findById(siteId).select('aidatTutari').lean(),
     // Sadece sakinin KENDİ gönderdiği bildirimler (yöneticinin elle işaretledikleri takvimde görünür).
-    Aidat.find({ siteId, daireId, odemeYontemi: { $ne: 'yonetici' } }).sort({ tarih: -1 }).limit(2).lean(),
+    Aidat.find({ siteId, daireId, odemeYontemi: { $ne: 'yonetici' }, tarih: { $gte: createdAt } })
+      .sort({ tarih: -1 })
+      .limit(2)
+      .lean(),
   ]);
 
   res.json({
@@ -92,9 +102,19 @@ router.post('/', dogrula(bildirimSemasi), async (req, res) => {
   }
 
   // Reddedilen bildirimler sayılmaz: reddedilen aya tekrar bildirim gönderilebilir.
-  const varMi = await Aidat.exists({ siteId, daireId, ay, yil, durum: { $in: ['bekliyor', 'onaylandi'] } });
-  if (varMi) {
-    throw new ApiHatasi(409, 'Bu ay için zaten bekleyen veya onaylanmış bir bildiriminiz var.');
+  const mevcut = await Aidat.findOne({ siteId, daireId, ay, yil, durum: { $in: ['bekliyor', 'onaylandi'] } })
+    .select('tarih')
+    .lean();
+  if (mevcut) {
+    // Kayıt bu sakin katılmadan önce oluşturulduysa dairenin ÖNCEKİ sakinine aittir (daire el değiştirmiş);
+    // sakin o kaydı hiçbir ekranda göremediği için mesaj buna göre verilir.
+    const { createdAt } = await Kullanici.findById(req.kullanici.id).select('createdAt').lean();
+    throw new ApiHatasi(
+      409,
+      mevcut.tarih < createdAt
+        ? 'Bu ay için dairenin önceki sakinine ait bir aidat kaydı var. Lütfen yöneticinizle görüşün.'
+        : 'Bu ay için zaten bekleyen veya onaylanmış bir bildiriminiz var.'
+    );
   }
 
   // Math.round(... * 100) / 100: tutarı tam 2 kuruş basamağına yuvarlar (ondalık hatalarını önler).
