@@ -50,6 +50,7 @@ Bu projede **sadece** aşağıdaki eklentiler kullanılır. Aynı veya benzer is
 | **web-design-guidelines** | https://github.com/vercel-labs/agent-skills (Vercel'in arayüz kuralları) | Tasarım denetimi (erişilebilirlik, dokunma alanı, koyu mod, yazı, formlar) | Sadece **denetim listesi** olarak kullan. Kurallar web için yazılmıştır; React Native'e uyanları uygula (CSS/HTML'e özel kuralları atla). |
 | **building-components** | https://vercel.com/docs/agent-resources/skills (vercel/components.build) | Erişilebilir, tema destekli, iyi tasarlanmış ortak component yazma | Ortak component'leri (Buton, FormAlani, MetinButonu, SecimDugmesi) ve temayı yazarken kullan. Web örneklerini React Native'e uyarla (`View`, `Text`, `Pressable`, `StyleSheet`); shadcn/Tailwind/npm yayınlama kısımlarını atla. |
 | **vercel-composition-patterns** | https://github.com/vercel-labs/agent-skills | Component'leri çok sayıda true/false prop yerine parçalı (compound) kurma kalıpları | Bir component'in prop sayısı kontrolden çıkarsa uygula; küçük component'lere zorla uygulama (ponytail kuralı önceliklidir). |
+| **frontend-design** (Anthropic) | https://github.com/anthropics/skills | Sıradan görünmeyen, net bir estetik yönü olan arayüz tasarımı (renk, yazı, yerleşim, hareket) | Tasarım turunda yön ve token sistemini kurarken kullan. Web örneklerini React Native'e uyarla. |
 | **Design** (Anthropic) | Claude eklenti dizini (anthropics/knowledge-work-plugins) | Tasarım eleştirisi, tasarım sistemi, erişilebilirlik denetimi, UX metinleri | Tasarım turunun sonunda ekranları denetlemek için kullan. İçindeki bağlayıcılar (Figma, Slack vb.) bu projede kullanılmaz. |
 
 > **Klasör adı uyarısı:** Proje klasörünün adı değişirse proje kapsamlı eklenti ve skill kayıtları eski adreste kalır ve sessizce yüklenmez (2026-10'da `Apartmanım` → `Apartmanim` değişikliğinde yaşandı). Klasör adı değişince eklentileri yeniden kur ve skill'leri `--copy` ile yeniden ekle.
@@ -72,6 +73,7 @@ npx skills add vercel-labs/agent-skills --skill vercel-react-native-skills
 npx skills add vercel-labs/agent-skills --skill web-design-guidelines --agent claude-code --copy -y
 npx skills add vercel/components.build --skill building-components --agent claude-code --copy -y
 npx skills add vercel-labs/agent-skills --skill vercel-composition-patterns --agent claude-code --copy -y
+npx skills add anthropics/skills --skill frontend-design --agent claude-code --copy -y
 
 # Design (Anthropic): Claude eklenti dizininden kurulur
 
