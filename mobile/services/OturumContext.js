@@ -12,6 +12,9 @@ import { soketBaglan, soketKes, useSoketOlayi } from './soket';
 // Token telefonda bu anahtar adıyla saklanır.
 const TOKEN_ANAHTARI = 'oturumToken';
 
+// Sunucu soket bağlantısını bir kodla reddederse gösterilecek uyarı başlıkları (kod → başlık).
+const BAGLANTI_RED_BASLIKLARI = { DAIREDEN_CIKARILDI: 'Oturum kapandı', SIFRE_DEGISTI: 'Şifre değişti' };
+
 const OturumContext = createContext(null);
 
 export function OturumProvider({ children }) {
@@ -99,7 +102,9 @@ export function OturumProvider({ children }) {
     dustuRef.current = true;
     soketKes();
     tokenAyarla(null);
-    await SecureStore.deleteItemAsync(TOKEN_ANAHTARI);
+    // Telefonun deposu (SecureStore) hata verse bile oturum kapatılır; hata burada yakalanır, böylece bu fonksiyonu
+    // çağıran yerlerin (api.js, soket olayları, hesap silme ekranı) ayrıca hata yakalamasına gerek kalmaz.
+    await SecureStore.deleteItemAsync(TOKEN_ANAHTARI).catch(() => {});
     setOturum(null);
     Alert.alert(baslik, mesaj);
   }, []);
@@ -109,26 +114,26 @@ export function OturumProvider({ children }) {
     oturumDusunceAyarla(oturumDustu);
   }, [oturumDustu]);
 
-  // Soket olayı: yönetici bu sakini daireden çıkarınca sunucu haber verir; uygulama açıksa oturum anında kapanır.
-  // .catch: oturumDustu async; telefonun deposu (SecureStore) hata verirse yakalanmamış hata kalmasın.
-  const dairedenCikarildi = useCallback(({ mesaj }) => oturumDustu(mesaj).catch(() => {}), [oturumDustu]);
+  // Soket olayları: sunucu bu oturumu kapatmak isteyince haber verir, uygulama açıksa oturum anında kapanır.
+  // - dairedenCikarildi: yönetici bu sakini daireden çıkardı (hesabı silindi).
+  // - hesapSilindi: aynı hesap başka bir telefonda silindi. Başlık ve mesaj, silme ekranının kendi gösterdiğiyle
+  //   aynıdır: hangisi önce gelirse gelsin kullanıcı aynı uyarıyı görür.
+  // - sifreDegisti: şifre başka bir telefondan sıfırlandı; bu telefondaki (artık eski) oturum kapatılır.
+  // Mesaj sunucudan gelir; başlık olaya göre seçilir. useCallback: dinleyiciler her çizimde yeniden kurulmasın.
+  const dairedenCikarildi = useCallback(({ mesaj }) => oturumDustu(mesaj), [oturumDustu]);
+  const hesapSilindi = useCallback(({ mesaj }) => oturumDustu(mesaj, 'Hesap silindi'), [oturumDustu]);
+  const sifreDegisti = useCallback(({ mesaj }) => oturumDustu(mesaj, 'Şifre değişti'), [oturumDustu]);
   useSoketOlayi('dairedenCikarildi', dairedenCikarildi);
-  // Aynı hesap başka bir telefonda silindiyse bu telefondaki oturum da kapanır.
-  // Başlık ve mesaj, silme ekranının kendi gösterdiğiyle aynıdır: hangisi önce gelirse gelsin kullanıcı aynı uyarıyı görür.
-  const hesapSilindi = useCallback(({ mesaj }) => oturumDustu(mesaj, 'Hesap silindi').catch(() => {}), [oturumDustu]);
   useSoketOlayi('hesapSilindi', hesapSilindi);
-  // Şifre başka bir telefondan sıfırlandıysa bu telefondaki (artık eski) oturum kapatılır.
-  // Uyarının başlığı "Şifre değişti" olur; mesaj sunucudan gelir ("Şifreniz değiştirildi...").
-  const sifreDegisti = useCallback(({ mesaj }) => oturumDustu(mesaj, 'Şifre değişti').catch(() => {}), [oturumDustu]);
   useSoketOlayi('sifreDegisti', sifreDegisti);
 
-  // Soket bağlanamadıysa ve sunucu "daireden çıkarıldı" dediyse (telefon kapalıyken çıkarılmış olabilir)
-  // oturum kapatılır. Diğer bağlantı hatalarında (internet yok vb.) hiçbir şey yapılmaz, soket kendisi tekrar dener.
+  // Soket bağlanamadıysa ve sunucu nedenini bir kodla bildirdiyse (telefon kapalıyken daireden çıkarılmış ya da
+  // şifresi başka yerden değiştirilmiş olabilir) oturum kapatılır. BAGLANTI_RED_BASLIKLARI: kod → uyarı başlığı.
+  // Kodu olmayan bağlantı hatalarında (internet yok vb.) hiçbir şey yapılmaz, soket kendisi tekrar dener.
   const baglantiReddedildi = useCallback(
     (hata) => {
-      if (hata.data?.kod === 'DAIREDEN_CIKARILDI') oturumDustu(hata.message).catch(() => {});
-      // Şifre başka yerden değiştirildiyse (bu telefondaki token artık eski) oturum kapatılır.
-      if (hata.data?.kod === 'SIFRE_DEGISTI') oturumDustu(hata.message, 'Şifre değişti').catch(() => {});
+      const baslik = BAGLANTI_RED_BASLIKLARI[hata.data?.kod];
+      if (baslik) oturumDustu(hata.message, baslik);
     },
     [oturumDustu]
   );

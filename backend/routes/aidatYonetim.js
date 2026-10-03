@@ -12,6 +12,7 @@ const { girisGerekli, sadeceYonetici } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
 const { pushGonder, ayYazisi } = require('../services/bildirim');
 const { siteyeHatirlatmaGonder } = require('../services/hatirlatma');
+const { daireAdlari } = require('../services/daire');
 
 const router = express.Router();
 
@@ -27,16 +28,15 @@ router.get('/bekleyen', async (req, res) => {
 
   // Site verisinin tamamı siteId ile filtrelenir. Daire/bina/sakin adları tek tek değil,
   // toplu sorgularla alınır (her bildirim için ayrı sorgu atmak yavaş olurdu).
-  const [bildirimler, daireler, binalar, sakinler] = await Promise.all([
+  // daireAdlari: daireId → "A3" eşlemesi (ortak yardımcı, services/daire.js).
+  const [bildirimler, daireAdi, sakinler] = await Promise.all([
     Aidat.find({ siteId, durum: 'bekliyor' }).sort({ tarih: 1 }).lean(),
-    Daire.find({ siteId }).select('binaId daireNo').lean(),
-    Bina.find({ siteId }).select('ad').lean(),
-    Kullanici.find({ siteId, rol: 'sakin' }).select('ad daireId').lean(),
+    daireAdlari(siteId),
+    // rol filtresi yok: dairede şu an kayıtlı kişinin adı görünür (devirle yönetici olmuş olsa da; dairesi kayıtlı kalır).
+    Kullanici.find({ siteId, daireId: { $ne: null } }).select('ad daireId').lean(),
   ]);
 
-  // id → ad eşlemeleri (Map): bir bildirimin dairesini ve sakinini hızlıca bulmak için.
-  const binaAdi = new Map(binalar.map((b) => [String(b._id), b.ad]));
-  const daireAdi = new Map(daireler.map((d) => [String(d._id), `${binaAdi.get(String(d.binaId))}${d.daireNo}`]));
+  // daireId → sakinin adı eşlemesi (Map): her bildirimin dairesinde oturan sakini ayrı sorgu atmadan bulmak için.
   const sakinAdi = new Map(sakinler.map((k) => [String(k.daireId), k.ad]));
 
   res.json(

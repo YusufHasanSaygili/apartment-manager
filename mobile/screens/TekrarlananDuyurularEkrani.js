@@ -2,11 +2,14 @@
 // ekler ve siler ("Her pazartesi 08:00 — Çöp günü"). Vakti gelince duyuru, duyurular listesine düşer ve
 // sitedeki herkese bildirim gider. Üstte ekleme formu, altta mevcut tekrarlayan duyuruların listesi vardır.
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import api from '../services/api';
 import Buton from '../components/Buton';
+import MetinButonu from '../components/MetinButonu';
+// SecimDugmesi: seçilebilir gün düğmesi (ortak component); coklu: birden fazla gün seçilebilir.
+import SecimDugmesi from '../components/SecimDugmesi';
 import FormAlani from '../components/FormAlani';
 import HataMesaji from '../components/HataMesaji';
 import { tarihBicimi } from '../bicim';
@@ -163,15 +166,7 @@ export default function TekrarlananDuyurularEkrani() {
           const secili = secilenGunler.includes(g.deger);
           return (
             // Gün düğmesi: basınca gunDegistir çalışır, gün seçilir veya seçimden çıkarılır (seçiliyse dolu renkli).
-            <Pressable
-              key={g.deger}
-              style={[styles.gun, secili && styles.gunSecili]}
-              onPress={() => gunDegistir(g.deger)}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: secili }}
-            >
-              <Text style={[styles.gunYazi, secili && styles.gunYaziSecili]}>{g.kisa}</Text>
-            </Pressable>
+            <SecimDugmesi key={g.deger} yazi={g.kisa} secili={secili} coklu onPress={() => gunDegistir(g.deger)} />
           );
         })}
       </View>
@@ -201,9 +196,7 @@ export default function TekrarlananDuyurularEkrani() {
               {gunMetni(t.gunler)} · {saatMetni(t.saat, t.dakika)}
             </Text>
             {/* "Sil" düğmesi: basınca silOnayi çalışır (önce onay sorulur) */}
-            <Pressable onPress={() => silOnayi(t)} hitSlop={10} accessibilityRole="button">
-              <Text style={styles.sil}>Sil</Text>
-            </Pressable>
+            <MetinButonu baslik="Sil" tehlike ortada={false} onPress={() => silOnayi(t)} />
           </View>
           <Text style={styles.kartBaslik}>{t.baslik}</Text>
           <Text style={styles.kartMetin}>{t.icerik}</Text>
@@ -247,28 +240,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 16,
   },
-  gun: {
-    minWidth: 48,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: renkler.kenarlik,
-    alignItems: 'center',
-    backgroundColor: renkler.kart,
-  },
-  gunSecili: {
-    borderColor: renkler.birincil,
-    backgroundColor: renkler.birincil,
-  },
-  gunYazi: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: renkler.yazi,
-  },
-  gunYaziSecili: {
-    color: renkler.birincilUzeri,
-  },
   listeBaslik: {
     marginTop: 24,
     marginBottom: 8,
@@ -296,11 +267,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: renkler.birincil,
-  },
-  sil: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: renkler.hata,
   },
   kartBaslik: {
     fontSize: 17,

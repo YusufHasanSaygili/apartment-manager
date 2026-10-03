@@ -3,11 +3,12 @@
 // 2. adım: kodu ve yeni şifresini yazar; şifre değişir ve kullanıcı doğrudan giriş yapmış olur.
 // route.params.eposta: giriş ekranında yazılmışsa e-posta kutusu dolu gelir.
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
+import MetinButonu from '../components/MetinButonu';
 import FormAlani from '../components/FormAlani';
 import HataMesaji from '../components/HataMesaji';
 import { renkler } from '../tema';
@@ -111,12 +112,10 @@ export default function SifremiUnuttumEkrani({ route }) {
           {/* "Şifremi değiştir" butonu: basınca sifirla çalışır; kod doğruysa şifre değişir ve giriş yapılır */}
           <Buton baslik="Şifremi değiştir" onPress={sifirla} yukleniyor={yukleniyor} />
           {/* "Kodu tekrar gönder" bağlantısı: basınca kodIste yeniden çalışır; yeni kod gelir, eskisi geçersiz olur */}
-          <Pressable style={styles.baglanti} onPress={kodIste} disabled={yukleniyor} hitSlop={8} accessibilityRole="button">
-            <Text style={styles.baglantiYazi}>Kodu tekrar gönder</Text>
-          </Pressable>
+          <MetinButonu baslik="Kodu tekrar gönder" onPress={kodIste} disabled={yukleniyor} />
           {/* "Farklı e-posta" bağlantısı: 1. adıma döner, e-posta kutusu yeniden düzenlenebilir olur */}
-          <Pressable
-            style={styles.baglanti}
+          <MetinButonu
+            baslik="Farklı e-posta"
             onPress={() => {
               setKodGonderildi(false);
               setKod('');
@@ -124,11 +123,7 @@ export default function SifremiUnuttumEkrani({ route }) {
               setBilgi('');
               setHata('');
             }}
-            hitSlop={8}
-            accessibilityRole="button"
-          >
-            <Text style={styles.baglantiYazi}>Farklı e-posta</Text>
-          </Pressable>
+          />
         </>
       )}
 
@@ -158,14 +153,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: renkler.basarili,
-  },
-  baglanti: {
-    alignSelf: 'center',
-    marginTop: 16,
-  },
-  baglantiYazi: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: renkler.birincil,
   },
 });

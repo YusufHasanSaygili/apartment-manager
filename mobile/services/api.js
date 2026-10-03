@@ -47,7 +47,7 @@ api.interceptors.response.use(
     // çıkarıldı). Hangi ekranda olursa olsun oturum kapatılır ve sunucunun mesajı gösterilir.
     // (Giriş ekranındaki "şifre hatalı" 401'inde token olmadığı için bu çalışmaz.)
     if (ortakHata.durumKodu === 401 && hata.config?.headers?.Authorization) {
-      oturumDustuIsleyici?.(ortakHata.message)?.catch?.(() => {});
+      oturumDustuIsleyici?.(ortakHata.message);
     }
     return Promise.reject(ortakHata);
   }

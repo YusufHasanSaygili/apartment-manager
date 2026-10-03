@@ -9,7 +9,6 @@ const Site = require('../models/Site');
 const Kullanici = require('../models/Kullanici');
 const Bina = require('../models/Bina');
 const Daire = require('../models/Daire');
-const Mesaj = require('../models/Mesaj');
 const SilinenHesap = require('../models/SilinenHesap');
 const dogrula = require('../middleware/dogrula');
 const crypto = require('node:crypto');
@@ -17,10 +16,10 @@ const { kayitSiniri, girisSiniri, kodSiniri, epostaSiniri } = require('../middle
 const { epostaGonder } = require('../services/eposta');
 const { girisGerekli, DAIREDEN_CIKARILDI, SIFRE_DEGISTI } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
-const { davetKodlariUret } = require('../services/davetKodu');
 // kullaniciyiKopar: hesap silinince veya şifre sıfırlanınca aynı hesabın başka telefonlardaki
 // soket bağlantısını kapatmak için (önce olay gönderir, telefon oturumu kapatıp mesajı gösterir).
 const { kullaniciyiKopar } = require('../soket');
+const { sakiniKaldir } = require('../services/daire');
 
 const router = express.Router();
 
@@ -192,12 +191,6 @@ router.post('/giris', girisSiniri, dogrula(girisSemasi), async (req, res) => {
     throw new ApiHatasi(401, 'E-posta veya şifre hatalı.');
   }
 
-  // Ek güvenlik: daireye bağlı olmayan sakin giriş yapamaz. Normalde olmaz (daireden çıkarılan sakinin
-  // hesabı artık silinir, yukarıdaki SilinenHesap kontrolüne takılır); şifre doğru olduğu için nedeni açıkça söylenir.
-  if (kullanici.rol === 'sakin' && !kullanici.daireId) {
-    throw new ApiHatasi(403, DAIREDEN_CIKARILDI);
-  }
-
   const bilgi = await oturumBilgisi(kullanici);
   // Sitesi silinmiş bir hesapla giriş yapılamaz (sunucu hata vermesin diye kontrol).
   if (!bilgi) throw new ApiHatasi(401, 'E-posta veya şifre hatalı.');
@@ -328,11 +321,6 @@ router.post('/sifre-sifirla', kodSiniri, dogrula(sifirlaSemasi), async (req, res
     throw new ApiHatasi(400, GECERSIZ);
   }
 
-  // Ek güvenlik (girişteki kuralla aynı): dairesine bağlı olmayan sakin şifre sıfırlayıp giriş yapamaz.
-  if (kullanici.rol === 'sakin' && !kullanici.daireId) {
-    throw new ApiHatasi(403, DAIREDEN_CIKARILDI);
-  }
-
   // Doğru kod: yeni şifre atanır (modeldeki pre('save') onu bcrypt ile hash'ler), kod silinir.
   kullanici.sifre = yeniSifre;
   kullanici.sifirlamaKodu = null;
@@ -382,34 +370,14 @@ router.delete('/', girisSiniri, girisGerekli, dogrula(hesapSilSemasi), async (re
     throw new ApiHatasi(400, 'Şifre hatalı.');
   }
 
-  // Yeni davet kodu başka bir dairenin koduyla çakışırsa (çok düşük ihtimal) unique index 11000 hatası
-  // verir ve transaction geri alınır; o durumda yeni kodla en fazla 3 kez denenir.
-  for (let deneme = 1; ; deneme++) {
-    try {
-      await mongoose.connection.transaction(async (session) => {
-        // Kişinin gönderdiği ve aldığı tüm mesajlar (siteId filtresiyle).
-        await Mesaj.deleteMany({ siteId, $or: [{ gonderenId: id }, { aliciId: id }] }, { session });
-        // Hesap kaydı silinir: ad, e-posta, şifre hash'i ve push token birlikte gider. Kayıt olmadığı için
-        // bu hesabın token'ı artık hiçbir istekte geçmez (girisGerekli kullanıcıyı bulamaz → 401).
-        await Kullanici.deleteOne({ _id: id }, { session });
-        // Daire boşaltılır: sakin bağı kaldırılır ve eski kod yerine kullanılmamış yeni bir davet kodu konur.
-        // Filtrede siteId de var (site izolasyonu). daireId kontrolü sadece güvenlik önlemi; sakinde hep doludur.
-        if (kullanici.daireId) {
-          const [yeniKod] = davetKodlariUret(1);
-          await Daire.updateOne(
-            // sakinId: id → daire gerçekten bu kişiye kayıtlıysa sıfırlanır (bu arada daireye başkası geldiyse dokunulmaz).
-            { _id: kullanici.daireId, siteId, sakinId: id },
-            { davetKodu: yeniKod, davetKoduKullanildi: false, sakinId: null },
-            { session }
-          );
-        }
-      });
-      break;
-    } catch (hata) {
-      if (hata.code === 11000 && deneme < 3) continue;
-      throw hata;
-    }
-  }
+  // Hesap ve mesajlar silinir, daire boşaltılıp yeni kod alır; kendi silen sakin için iz bırakılmaz.
+  // sakinId: id → daire gerçekten bu kişiye kayıtlıysa sıfırlanır (bu arada daireye başkası geldiyse dokunulmaz).
+  // daireId kontrolü sadece güvenlik önlemi; sakinde hep doludur. Ayrıntılar services/daire.js içindeki sakiniKaldir'da.
+  await sakiniKaldir({
+    siteId,
+    sakin: kullanici,
+    daireFiltresi: kullanici.daireId ? { _id: kullanici.daireId, sakinId: id } : null,
+  });
 
   // Aynı hesap başka bir telefonda da açıksa o uygulamaya haber verilir ve bağlantısı kapatılır.
   kullaniciyiKopar(id, 'hesapSilindi', { mesaj: 'Hesabınız ve kişisel bilgileriniz silindi.' });

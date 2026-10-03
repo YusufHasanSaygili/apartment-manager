@@ -1,15 +1,12 @@
 // Daire route'ları: yöneticinin sitesindeki daireleri ve davet kodlarını görmesi, sakini daireden çıkarması.
 const express = require('express');
-const mongoose = require('mongoose');
 const Bina = require('../models/Bina');
 const Daire = require('../models/Daire');
 const Kullanici = require('../models/Kullanici');
-const Mesaj = require('../models/Mesaj');
-const SilinenHesap = require('../models/SilinenHesap');
 const { girisGerekli, sadeceYonetici, DAIREDEN_CIKARILDI } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
-const { davetKodlariUret } = require('../services/davetKodu');
 const { kullaniciyiKopar } = require('../soket');
+const { sakiniKaldir } = require('../services/daire');
 
 const router = express.Router();
 
@@ -77,42 +74,13 @@ router.post('/:id/sakini-cikar', async (req, res) => {
     throw new ApiHatasi(400, 'Bu daire site yöneticisine ait; yönetici daireden çıkarılamaz.');
   }
 
-  // Dairedeki sakin (siteId ve daireId ile). Hesabını kendisi silmiş olabilir; o zaman sadece daire sıfırlanır.
+  // Dairedeki sakin (siteId ve daireId ile). Normalde hep bulunur (sakin hesabını kendisi silseydi daire zaten
+  // boşaltılmış olurdu ve yukarıdaki 400 dönerdi). Kayıt tutarsızsa ve sakin bulunamazsa sadece daire sıfırlanır.
   const sakin = await Kullanici.findOne({ siteId, rol: 'sakin', daireId: daire._id }).select('eposta').lean();
 
-  // Hepsi tek transaction'da (ya hepsi ya hiçbiri): sakinin mesajları ve hesabı silinir, iz bırakılır,
-  // daireye yeni kod verilip boş işaretlenir. Kod başka bir dairenin koduyla çakışırsa (çok düşük ihtimal)
-  // unique index 11000 hatası verir, transaction geri alınır ve yeni kodla en fazla 3 kez denenir.
-  let yeniKod;
-  for (let deneme = 1; ; deneme++) {
-    try {
-      [yeniKod] = davetKodlariUret(1);
-      await mongoose.connection.transaction(async (session) => {
-        if (sakin) {
-          // Sakinin gönderdiği ve aldığı tüm mesajlar, sonra hesabın kendisi silinir (ikisinde de siteId filtresi var).
-          await Mesaj.deleteMany({ siteId, $or: [{ gonderenId: sakin._id }, { aliciId: sakin._id }] }, { session });
-          await Kullanici.deleteOne({ _id: sakin._id, siteId }, { session });
-          // İz bırakılır: e-postanın kendisi değil özeti saklanır (kişisel bilgi kalmaz).
-          // upsert: bu e-postanın izi zaten varsa (daha önce de çıkarılmış) güncellenir, yoksa oluşturulur.
-          // tarih yenilendiği için 30 günlük süre de baştan başlar.
-          await SilinenHesap.updateOne(
-            { epostaOzeti: SilinenHesap.ozet(sakin.eposta) },
-            { kullaniciId: sakin._id, tarih: new Date() },
-            { upsert: true, session }
-          );
-        }
-        await Daire.updateOne(
-          { _id: daire._id, siteId },
-          { davetKodu: yeniKod, davetKoduKullanildi: false, sakinId: null },
-          { session }
-        );
-      });
-      break;
-    } catch (hata) {
-      if (hata.code === 11000 && deneme < 3) continue;
-      throw hata;
-    }
-  }
+  // Sakinin hesabı ve mesajları silinir, iz bırakılır (iz: true), daire boşaltılıp yeni kod alır.
+  // Hepsi tek transaction'da yapılır; ayrıntılar services/daire.js içindeki sakiniKaldir'da.
+  const yeniKod = await sakiniKaldir({ siteId, sakin, iz: true, daireFiltresi: { _id: daire._id } });
 
   // Soket haberi veritabanı güncellendikten SONRA gönderilir: telefon tekrar bağlanmayı/istek atmayı
   // denerse girisGerekli artık onu reddeder. Yeni kod cevapla döner, yöneticinin ekranında hemen görünür.

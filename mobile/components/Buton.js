@@ -28,10 +28,12 @@ export default function Buton({ baslik, altYazi, onPress, tur = 'birincil', yukl
       ) : (
         <>
           <Text style={[styles.yazi, birincil ? styles.birincilYazi : styles.ikincilYazi]}>{baslik}</Text>
-          {/* altYazi verilmişse başlığın altında küçük puntoyla gösterilir */}
-          {altYazi && (
+          {/* altYazi verilmişse başlığın altında küçük puntoyla gösterilir.
+              "altYazi && ..." yerine üçlü (? :) kullanılır: altYazi boş metin ("") olursa && onu ekrana yazmaya
+              çalışır ve React Native, Text dışındaki metin yüzünden çöker. ? : ise boşta null döner. */}
+          {altYazi ? (
             <Text style={[styles.altYazi, birincil ? styles.birincilYazi : styles.ikincilYazi]}>{altYazi}</Text>
-          )}
+          ) : null}
         </>
       )}
     </Pressable>

@@ -2,28 +2,14 @@
 // Önce yeni yöneticinin dairesi seçilir (örn. "B12 · Ahmet"). Yöneticinin kayıtlı bir dairesi yoksa (siteyi kuran
 // yönetici) devirden sonra oturacağı boş daire de seçilir. Devirden sonra ekranlar kendiliğinden sakin ekranlarına geçer.
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
 import HataMesaji from '../components/HataMesaji';
+// SecimDugmesi: seçilebilir daire düğmesi (ortak component); listeden yalnız biri seçilir.
+import SecimDugmesi from '../components/SecimDugmesi';
 import { renkler } from '../tema';
-
-// Seçilebilir küçük kutu (daire düğmesi). secili ise dolu renkli görünür.
-// Bu ekranda iki ayrı listede aynı görünüm kullanıldığı için küçük bir component olarak yazıldı.
-function SecimDugmesi({ yazi, secili, onPress }) {
-  return (
-    // Daire düğmesi: basınca onPress çalışır ve bu daire seçilir.
-    <Pressable
-      style={[styles.dugme, secili && styles.dugmeSecili]}
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ selected: secili }}
-    >
-      <Text style={[styles.dugmeYazi, secili && styles.dugmeYaziSecili]}>{yazi}</Text>
-    </Pressable>
-  );
-}
 
 export default function DevirEkrani() {
   // oturumuYenile: devirden sonra rolü sunucudan yeniden çeker; App.js sakin ekranlarına geçer.
@@ -207,26 +193,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-  },
-  dugme: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: renkler.kenarlik,
-    backgroundColor: renkler.kart,
-  },
-  dugmeSecili: {
-    borderColor: renkler.birincil,
-    backgroundColor: renkler.birincil,
-  },
-  dugmeYazi: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: renkler.yazi,
-  },
-  dugmeYaziSecili: {
-    color: renkler.birincilUzeri,
   },
   alt: {
     marginTop: 16,

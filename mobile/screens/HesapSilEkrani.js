@@ -37,9 +37,9 @@ export default function HesapSilEkrani({ navigation }) {
       setSiliniyor(false);
       return;
     }
-    // Hesap silindi: telefondaki oturum kapatılır. Burada bir hata olsa bile (çok nadir) hesap zaten silinmiştir;
-    // bu yüzden ayrı yakalanır ve ekranda "silinemedi" gibi yanlış bir hata gösterilmez.
-    await oturumuKapat('Hesabınız ve kişisel bilgileriniz silindi.', 'Hesap silindi').catch(() => {});
+    // Hesap silindi: telefondaki oturum kapatılır (oturumuKapat kendi hatasını içeride yakalar; hesap zaten silindiği
+    // için ekranda "silinemedi" gibi yanlış bir hata gösterilmez).
+    await oturumuKapat('Hesabınız ve kişisel bilgileriniz silindi.', 'Hesap silindi');
   };
 
   // Silme geri alınamaz; şifre girildikten sonra bir kez daha onay sorulur. "Sil" seçilirse sil çalışır.

@@ -4,26 +4,17 @@ const express = require('express');
 const { z } = require('zod');
 const Mesaj = require('../models/Mesaj');
 const Kullanici = require('../models/Kullanici');
-const Daire = require('../models/Daire');
-const Bina = require('../models/Bina');
 const dogrula = require('../middleware/dogrula');
 const { girisGerekli } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
 const { kullaniciyaGonder } = require('../soket');
 const { pushGonder } = require('../services/bildirim');
+const { daireAdlari } = require('../services/daire');
 
 const router = express.Router();
 
 // Tüm mesaj route'ları giriş gerektirir. siteId ve kullanıcı kimliği her zaman req.kullanici'dan (token) alınır.
 router.use(girisGerekli);
-
-// Dairesinden çıkarılmış (daireId'si olmayan) sakin mesajlaşamaz; yönetici her zaman geçer.
-// Rol kontrolü backend'de yapılır, ekranda butonu gizlemek tek başına yetmez.
-function mesajlasabilirMi(ben) {
-  if (ben.rol === 'sakin' && !ben.daireId) {
-    throw new ApiHatasi(403, 'Mesajlaşmak için bir daireye bağlı olmalısınız.');
-  }
-}
 
 // Konuşulmak istenen kişiyi bulur ve bu kişiyle yazışma izni olup olmadığını kontrol eder:
 // - yönetici → sadece kendi sitesindeki, bir daireye bağlı sakinler
@@ -31,7 +22,6 @@ function mesajlasabilirMi(ben) {
 // Kişi yoksa, başka sitedeyse veya izin yoksa 404 döner (kişinin var olduğu belli edilmez).
 // Geçersiz biçimdeki id CastError verir, merkezi hata yakalayıcı onu da 404'e çevirir.
 async function karsiTarafiBul(ben, kisiId) {
-  mesajlasabilirMi(ben);
   const izinliRol = ben.rol === 'yonetici' ? { rol: 'sakin', daireId: { $ne: null } } : { rol: 'yonetici' };
   // pushToken da alınır: mesaj gönderilince karşı tarafa bildirim göndermek için gerekir.
   const kisi = await Kullanici.findOne({ _id: kisiId, siteId: ben.siteId, ...izinliRol }).select('ad pushToken').lean();
@@ -58,20 +48,14 @@ const mesajBicimi = (m, benimId) => ({
 // okunmamis: o kişiden gelen ve henüz okumadığım mesaj sayısı (listede rozet olarak gösterilir).
 router.get('/sohbetler', async (req, res) => {
   const { id, siteId, rol } = req.kullanici;
-  // Daireden çıkarılmış sakin listeyi de göremez (403).
-  mesajlasabilirMi(req.kullanici);
-
   let kisiler;
   if (rol === 'yonetici') {
-    // Sakinler, daireler ve binalar aynı anda (Promise.all) çekilir; hepsi siteId ile filtrelenir.
-    const [sakinler, daireler, binalar] = await Promise.all([
+    // Sakinler ve daire adları aynı anda (Promise.all) çekilir; hepsi siteId ile filtrelenir.
+    // daireAdlari: daireId → "A5" eşlemesi (Map); her sakin için daire adını tek tek sorgu atmadan bulmayı sağlar.
+    const [sakinler, daireAdi] = await Promise.all([
       Kullanici.find({ siteId, rol: 'sakin', daireId: { $ne: null } }).select('ad daireId').lean(),
-      Daire.find({ siteId }).select('binaId daireNo').lean(),
-      Bina.find({ siteId }).select('ad').lean(),
+      daireAdlari(siteId),
     ]);
-    // Map: id → ad eşlemesi; her sakin için daire adını ("A5") tek tek sorgu atmadan bulmayı sağlar.
-    const binaAdi = new Map(binalar.map((b) => [String(b._id), b.ad]));
-    const daireAdi = new Map(daireler.map((d) => [String(d._id), `${binaAdi.get(String(d.binaId))}${d.daireNo}`]));
     kisiler = sakinler.map((s) => ({ id: s._id, ad: s.ad, altBaslik: daireAdi.get(String(s.daireId)) ?? '—' }));
   } else {
     const yonetici = await Kullanici.findOne({ siteId, rol: 'yonetici' }).select('ad').lean();

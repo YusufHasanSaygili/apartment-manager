@@ -3,7 +3,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { z } = require('zod');
-const Bina = require('../models/Bina');
 const Daire = require('../models/Daire');
 const Kullanici = require('../models/Kullanici');
 const Site = require('../models/Site');
@@ -12,21 +11,13 @@ const { girisGerekli, sadeceYonetici } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
 const { kullaniciyaGonder } = require('../soket');
 const { pushGonder } = require('../services/bildirim');
+// daireAdlari: daireId → "B12" eşlemesi (ortak yardımcı, services/daire.js).
+const { daireAdlari } = require('../services/daire');
 
 const router = express.Router();
 
 // Devir sadece sitenin YÖNETİCİSİ tarafından yapılabilir. siteId ve yöneticinin kimliği token'dan alınır.
 router.use(girisGerekli, sadeceYonetici);
-
-// Daire adlarını ("B12") hesaplamak için: daireId → ad eşlemesi (Map) döner. Tüm sorgular siteId ile filtrelenir.
-async function daireAdlari(siteId) {
-  const [binalar, daireler] = await Promise.all([
-    Bina.find({ siteId }).select('ad').lean(),
-    Daire.find({ siteId }).select('binaId daireNo').lean(),
-  ]);
-  const binaAdi = new Map(binalar.map((b) => [String(b._id), b.ad]));
-  return new Map(daireler.map((d) => [String(d._id), `${binaAdi.get(String(d.binaId))}${d.daireNo}`]));
-}
 
 // "A2" "A10"dan önce gelsin diye sayısal (numeric) sıralama.
 const adaGore = (a, b) => a.ad.localeCompare(b.ad, 'tr', { numeric: true });

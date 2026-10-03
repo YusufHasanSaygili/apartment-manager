@@ -29,6 +29,7 @@ Kod profesyonel standartta yazılır; anlaşılırlık açıklama satırlarıyla
 | Otomatik görevler | node-cron |
 | HTTP istekleri | axios |
 | İkonlar | @expo/vector-icons |
+| Yazı tipleri | @expo-google-fonts/geist, @expo-google-fonts/geist-mono (Vercel'in Geist yazı tipleri), expo-font |
 | Emülatör | Android Studio |
 
 Yukarıdaki listede olmayan bir kütüphane eklemeden önce kullanıcıya sor ve nedenini açıkla.
@@ -37,15 +38,21 @@ Yukarıdaki listede olmayan bir kütüphane eklemeden önce kullanıcıya sor ve
 
 ## Eklentiler ve Kullanım Kuralları
 
-Bu projede **sadece** aşağıdaki 4 eklenti kullanılır. Aynı veya benzer isimli başka bir eklenti, fork ya da sürüm kullanma.
+Bu projede **sadece** aşağıdaki eklentiler kullanılır. Aynı veya benzer isimli başka bir eklenti, fork ya da sürüm kullanma.
 Çakıştıklarında **bu dosyadaki kurallar önceliklidir.**
 
 | Eklenti | Resmi adres | Ne için | Kural |
 |---|---|---|---|
 | **Context7** | https://context7.com | Expo, React Navigation, expo-notifications, Mongoose gibi kütüphanelerin güncel dokümanı | Bir kütüphane API'sini kullanmadan önce güncel kullanımını Context7 ile kontrol et. |
 | **ponytail** | https://github.com/DietrichGebert/ponytail | Gereksiz kod ve kütüphaneden kaçınmak | `full` modunda kullan, `ultra` kullanma. Kod kısalabilir ama **`//` açıklamaları asla kısaltılmaz veya silinmez.** |
-| **vercel-react-native-skills** | https://github.com/vercel-labs/agent-skills (sadece React Native skill'i) | React Native / Expo iyi uygulamaları | React Native kodunu bu kurallara göre yaz. Önerdiği yeni bir kütüphane (Zustand, Reanimated vb.) gerçekten fayda sağlıyorsa öner, eklemeden önce kullanıcıya sor. Vercel'in web/Next.js skill'lerini kullanma. |
+| **vercel-react-native-skills** | https://github.com/vercel-labs/agent-skills (sadece React Native skill'i) | React Native / Expo iyi uygulamaları | React Native kodunu bu kurallara göre yaz. Önerdiği yeni bir kütüphane (Zustand, Reanimated vb.) gerçekten fayda sağlıyorsa öner, eklemeden önce kullanıcıya sor. Vercel'in diğer web/Next.js skill'lerini kullanma (istisna: aşağıdaki web-design-guidelines). |
 | **UI UX Pro Max** | https://github.com/nextlevelbuilder/ui-ux-pro-max-skill | Renk, yazı tipi, düzen ve UX kararları | Sadece tasarım kararları için kullan. shadcn/ui veya web component'i **önerme**; bu proje React Native: `View`, `Text`, `Pressable`, `StyleSheet`. Ekstra UI kütüphanesi eklemeden önce kullanıcıya sor. |
+| **web-design-guidelines** | https://github.com/vercel-labs/agent-skills (Vercel'in arayüz kuralları) | Tasarım denetimi (erişilebilirlik, dokunma alanı, koyu mod, yazı, formlar) | Sadece **denetim listesi** olarak kullan. Kurallar web için yazılmıştır; React Native'e uyanları uygula (CSS/HTML'e özel kuralları atla). |
+| **building-components** | https://vercel.com/docs/agent-resources/skills (vercel/components.build) | Erişilebilir, tema destekli, iyi tasarlanmış ortak component yazma | Ortak component'leri (Buton, FormAlani, MetinButonu, SecimDugmesi) ve temayı yazarken kullan. Web örneklerini React Native'e uyarla (`View`, `Text`, `Pressable`, `StyleSheet`); shadcn/Tailwind/npm yayınlama kısımlarını atla. |
+| **vercel-composition-patterns** | https://github.com/vercel-labs/agent-skills | Component'leri çok sayıda true/false prop yerine parçalı (compound) kurma kalıpları | Bir component'in prop sayısı kontrolden çıkarsa uygula; küçük component'lere zorla uygulama (ponytail kuralı önceliklidir). |
+| **Design** (Anthropic) | Claude eklenti dizini (anthropics/knowledge-work-plugins) | Tasarım eleştirisi, tasarım sistemi, erişilebilirlik denetimi, UX metinleri | Tasarım turunun sonunda ekranları denetlemek için kullan. İçindeki bağlayıcılar (Figma, Slack vb.) bu projede kullanılmaz. |
+
+> **Klasör adı uyarısı:** Proje klasörünün adı değişirse proje kapsamlı eklenti ve skill kayıtları eski adreste kalır ve sessizce yüklenmez (2026-10'da `Apartmanım` → `Apartmanim` değişikliğinde yaşandı). Klasör adı değişince eklentileri yeniden kur ve skill'leri `--copy` ile yeniden ekle.
 
 ### Kurulum komutları (Claude Code)
 
@@ -60,6 +67,13 @@ Bu projede **sadece** aşağıdaki 4 eklenti kullanılır. Aynı veya benzer isi
 
 # Vercel React Native skill (terminalde, proje klasöründe)
 npx skills add vercel-labs/agent-skills --skill vercel-react-native-skills
+
+# Vercel web-design-guidelines (denetim listesi; --copy: kısayol değil kopya, klasör adı değişse de kopmaz)
+npx skills add vercel-labs/agent-skills --skill web-design-guidelines --agent claude-code --copy -y
+npx skills add vercel/components.build --skill building-components --agent claude-code --copy -y
+npx skills add vercel-labs/agent-skills --skill vercel-composition-patterns --agent claude-code --copy -y
+
+# Design (Anthropic): Claude eklenti dizininden kurulur
 
 # Context7: https://context7.com/install sayfasındaki Claude Code komutunu kullan
 ```

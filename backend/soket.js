@@ -26,13 +26,13 @@ function soketiBaslat(httpSunucu, corsAdresleri) {
   io.use(async (socket, next) => {
     try {
       const { id, iat } = jwt.verify(socket.handshake.auth?.token, process.env.JWT_ANAHTARI);
-      const kullanici = await Kullanici.findById(id).select('_id rol daireId sifreDegisme').lean();
+      const kullanici = await Kullanici.findById(id).select('_id sifreDegisme').lean();
       // Daireden çıkarılan sakinin hesabı silinmiştir; bağlantı reddedilir. hata.data.kod: telefon bu reddi diğer
       // bağlantı hatalarından ayırt edip oturumu kapatabilsin diye eklenir (telefon kapalıyken çıkarılan sakin,
-      // uygulamayı açınca hemen bilgilendirilir). Dairesiz sakin kontrolü de ek güvenlik olarak kalır.
+      // uygulamayı açınca hemen bilgilendirilir).
       const cikarildi = !kullanici && (await SilinenHesap.exists({ kullaniciId: id }));
       if (!kullanici && !cikarildi) return next(new Error('Oturum geçersiz'));
-      if (cikarildi || (kullanici.rol === 'sakin' && !kullanici.daireId)) {
+      if (cikarildi) {
         const hata = new Error(DAIREDEN_CIKARILDI);
         hata.data = { kod: 'DAIREDEN_CIKARILDI' };
         return next(hata);

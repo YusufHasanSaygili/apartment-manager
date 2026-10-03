@@ -8,6 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
+import MetinButonu from '../components/MetinButonu';
 import CikisButonu from '../components/CikisButonu';
 import HataMesaji from '../components/HataMesaji';
 import { ayAdi, paraBicimi } from '../bicim';
@@ -62,7 +63,7 @@ export default function SakinAnaEkrani({ navigation }) {
 
       <View style={styles.kart}>
         <Text style={styles.kartEtiket}>Daireniz</Text>
-        {/* daire null olabilir (örn. sakin daireden çıkarıldıysa); o durumda çizgi gösterilir */}
+        {/* daire normalde hep doludur; sunucu dairenin/binanın kaydını bulamazsa null gelir, o durumda çizgi gösterilir */}
         <Text style={styles.daire}>{oturum.daire?.ad ?? '—'}</Text>
       </View>
 
@@ -136,9 +137,7 @@ export default function SakinAnaEkrani({ navigation }) {
         <CikisButonu />
         {/* "Hesabımı sil" bağlantısı: basınca HesapSil ekranı açılır (geri alınamaz işlem; orada şifre ve onay istenir).
             Kırmızı ve küçük yazı: ana işlem olmadığı, yanlışlıkla basılmaması için göze batmayan bir bağlantı. */}
-        <Pressable style={styles.hesapSil} onPress={() => navigation.navigate('HesapSil')} hitSlop={8} accessibilityRole="button">
-          <Text style={styles.hesapSilYazi}>Hesabımı sil</Text>
-        </Pressable>
+        <MetinButonu baslik="Hesabımı sil" tehlike onPress={() => navigation.navigate('HesapSil')} />
       </View>
     </View>
   );
@@ -236,15 +235,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 8,
     paddingBottom: 24,
-  },
-  // "Hesabımı sil" bağlantısı: çıkış butonunun altında, ortada; kırmızı yazı tehlikeli bir işlem olduğunu belli eder.
-  hesapSil: {
-    alignSelf: 'center',
-    marginTop: 16,
-  },
-  hesapSilYazi: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: renkler.hata,
   },
 });
