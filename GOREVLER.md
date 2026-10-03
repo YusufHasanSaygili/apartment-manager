@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 6.4
+**Mevcut görev:** 7.1
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -138,7 +138,7 @@ Kurallar:
   - Kişisel verilerin silinmesi, aidat kayıtlarının kişiden ayrılarak korunması; yönetici devretmeden silemez
   - Deneme: Sakin hesabını siler, tekrar giriş yapamaz; aidat geçmişi yönetici tarafında durur
 
-- [ ] **6.4 Şifremi unuttum**
+- [x] **6.4 Şifremi unuttum**
   - E-posta ile sıfırlama kodu (ücretsiz bir yöntemle; gereken kütüphane eklenmeden önce kullanıcıya sorulur)
   - Deneme: Kod e-postaya gelir, yeni şifreyle giriş yapılır
 

@@ -27,6 +27,16 @@ const kullaniciSemasi = new mongoose.Schema(
     // Telefonun Expo push adresi ("ExponentPushToken[...]"). Bildirim bu adrese gönderilir.
     // Giriş yapınca kaydedilir, çıkış yapınca silinir (çıkış yapmış telefona bildirim gitmesin).
     pushToken: { type: String, default: null },
+    // Şifremi unuttum: e-postaya gönderilen 6 haneli kodun bcrypt hash'i (kodun kendisi saklanmaz, şifre gibi).
+    // select: false → sorgularda varsayılan olarak gelmez, yanlışlıkla cevapla dışarı gönderilemez.
+    sifirlamaKodu: { type: String, default: null, select: false },
+    // Kodun son geçerlilik anı (gönderildikten 15 dakika sonra); bu andan sonra kod kabul edilmez.
+    sifirlamaSonTarih: { type: Date, default: null },
+    // Bu kod için yapılan yanlış deneme sayısı; 5'e ulaşınca kod iptal edilir (tahmin edilmesin diye).
+    sifirlamaDeneme: { type: Number, default: 0 },
+    // Şifrenin en son değiştirildiği an. Bu andan ÖNCE verilmiş oturumlar (token'lar) geçersiz sayılır:
+    // şifresi çalınan biri şifresini değiştirince, çalan kişinin telefonundaki oturum da kapanır.
+    sifreDegisme: { type: Date, default: null },
   },
   { timestamps: true }
 );
@@ -43,5 +53,11 @@ kullaniciSemasi.pre('save', async function () {
 // Sorgularda ikisi de seçilmelidir: .select('daireyeGiris createdAt').
 // statics: modelin kendisine eklenen yardımcı fonksiyon (Kullanici.daireyeGirisTarihi(k) diye çağrılır).
 kullaniciSemasi.statics.daireyeGirisTarihi = (k) => k.daireyeGiris ?? k.createdAt;
+
+// Token şifre değişmeden ÖNCE mi verildi? iat: token'ın verildiği an (saniye cinsinden, JWT'nin kendisi ekler).
+// Saniyeye yuvarlanarak karşılaştırılır: şifre değiştikten hemen sonra (aynı saniyede) verilen yeni token geçerli kalsın.
+// Bunun bedeli: şifre değişmeden önce ama aynı saniye içinde verilmiş bir token da geçerli kalır (kabul edilen çok küçük risk).
+kullaniciSemasi.statics.tokenEskiMi = (k, iat) =>
+  Boolean(k.sifreDegisme) && iat < Math.floor(new Date(k.sifreDegisme).getTime() / 1000);
 
 module.exports = mongoose.model('Kullanici', kullaniciSemasi);

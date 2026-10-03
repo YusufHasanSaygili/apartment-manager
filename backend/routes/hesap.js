@@ -1,5 +1,5 @@
 // Hesap route'ları: site oluşturma, davet koduyla katılma, giriş, oturum sahibini sorgulama,
-// telefonun push bildirim adresini (push token) kaydetme/silme ve hesabı kalıcı olarak silme.
+// telefonun push bildirim adresini (push token) kaydetme/silme, hesabı kalıcı olarak silme ve şifremi unuttum.
 const express = require('express');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
@@ -12,11 +12,14 @@ const Daire = require('../models/Daire');
 const Mesaj = require('../models/Mesaj');
 const SilinenHesap = require('../models/SilinenHesap');
 const dogrula = require('../middleware/dogrula');
-const { kayitSiniri, girisSiniri, kodSiniri } = require('../middleware/denemeSiniri');
-const { girisGerekli, DAIREDEN_CIKARILDI } = require('../middleware/kimlik');
+const crypto = require('node:crypto');
+const { kayitSiniri, girisSiniri, kodSiniri, epostaSiniri } = require('../middleware/denemeSiniri');
+const { epostaGonder } = require('../services/eposta');
+const { girisGerekli, DAIREDEN_CIKARILDI, SIFRE_DEGISTI } = require('../middleware/kimlik');
 const { ApiHatasi } = require('../middleware/hataYonetimi');
 const { davetKodlariUret } = require('../services/davetKodu');
-// kullaniciyiKopar: hesap silinince aynı hesabın başka telefonlardaki soket bağlantısını kapatmak için.
+// kullaniciyiKopar: hesap silinince veya şifre sıfırlanınca aynı hesabın başka telefonlardaki
+// soket bağlantısını kapatmak için (önce olay gönderir, telefon oturumu kapatıp mesajı gösterir).
 const { kullaniciyiKopar } = require('../soket');
 
 const router = express.Router();
@@ -241,6 +244,111 @@ router.get('/ben', girisGerekli, async (req, res) => {
   if (!bilgi) throw new ApiHatasi(401, 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
 
   res.json(bilgi);
+});
+
+// Şifremi unuttum formlarının kuralları. E-posta, giriş formundakiyle aynı biçimde işlenir (küçük harf, boşluksuz).
+const kodIsteSemasi = z.object({ eposta: hesapAlanlari.eposta });
+const sifirlaSemasi = z.object({
+  eposta: hesapAlanlari.eposta,
+  kod: z.string({ error: 'Kod girilmeli' }).trim().regex(/^\d{6}$/, 'Kod 6 haneli bir sayı olmalı'),
+  yeniSifre: hesapAlanlari.sifre, // en az 8, en fazla 72 karakter (kayıttaki kuralla aynı)
+});
+
+// Kodun geçerlilik süresi (15 dakika) ve izin verilen yanlış deneme sayısı.
+const KOD_SURESI = 15 * 60 * 1000;
+const EN_FAZLA_DENEME = 5;
+// Hangi e-postaların kayıtlı olduğu belli olmasın diye kod isteğine HER ZAMAN aynı cevap döner.
+const KOD_GONDERILDI = 'Bu e-posta kayıtlıysa 6 haneli bir kod gönderildi. Gelen kutunuzu ve spam klasörünü kontrol edin.';
+
+// POST /api/hesap/sifre-sifirla/kod-iste
+// Kim kullanabilir: herkes (giriş gerekmez). E-posta kayıtlıysa 6 haneli bir kod üretir, hash'ini 15 dakika
+// geçerli olarak kaydeder ve kodu e-postaya gönderir. epostaSiniri: başkalarının kutusunu doldurmayı engeller.
+router.post('/sifre-sifirla/kod-iste', epostaSiniri, dogrula(kodIsteSemasi), async (req, res) => {
+  const { eposta } = req.body;
+  // Cevap HEMEN ve her durumda aynı döner: e-posta kayıtlı olsun olmasın aynı mesaj ve aynı süre.
+  // (E-postanın gönderilmesi birkaç saniye sürer; bekleseydik kayıtlı e-postalar daha geç cevap alırdı.)
+  res.json({ mesaj: KOD_GONDERILDI });
+
+  try {
+    const kullanici = await Kullanici.findOne({ eposta });
+    if (!kullanici) return;
+    // crypto.randomInt: tahmin edilemeyen 6 haneli kod; padStart: "048213" gibi başı sıfırlı kodlar 6 hane kalsın.
+    const kod = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+    // Kodun kendisi değil bcrypt hash'i saklanır; yeni kod istenirse eskisi geçersiz olur ve deneme sayacı sıfırlanır.
+    kullanici.sifirlamaKodu = await bcrypt.hash(kod, 10);
+    kullanici.sifirlamaSonTarih = new Date(Date.now() + KOD_SURESI);
+    kullanici.sifirlamaDeneme = 0;
+    await kullanici.save();
+    await epostaGonder({
+      kime: eposta,
+      konu: 'Apartmanım şifre sıfırlama kodunuz',
+      metin: `Merhaba ${kullanici.ad},\n\nŞifre sıfırlama kodunuz: ${kod}\n\nKod 15 dakika geçerlidir ve bir kez kullanılabilir. Bu isteği siz yapmadıysanız bu e-postayı dikkate almayın; şifreniz değişmez.\n\nApartmanım`,
+    });
+  } catch (hata) {
+    // Cevap zaten gönderildiği için hata kullanıcıya iletilemez; sunucu konsoluna yazılır (kod/şifre yazılmaz).
+    console.error('Şifre sıfırlama e-postası gönderilemedi:', hata.message);
+  }
+});
+
+// POST /api/hesap/sifre-sifirla
+// Kim kullanabilir: herkes (giriş gerekmez). E-posta + 6 haneli kod + yeni şifre alır. Kod doğru ve süresi
+// geçmemişse şifre değişir, kod silinir (tek kullanımlık) ve kullanıcı doğrudan giriş yapmış olur (token döner).
+// kodSiniri: hatalı denemeleri IP başına sınırlar; ayrıca her kod için en fazla 5 yanlış deneme hakkı vardır.
+router.post('/sifre-sifirla', kodSiniri, dogrula(sifirlaSemasi), async (req, res) => {
+  const { eposta, kod, yeniSifre } = req.body;
+  const GECERSIZ = 'Kod hatalı veya süresi dolmuş. Yeni kod isteyebilirsiniz.';
+
+  // '+sifirlamaKodu': modelde select: false olan kod hash'i, karşılaştırma için bu sorguda özellikle istenir.
+  const kullanici = await Kullanici.findOne({ eposta }).select('+sifirlamaKodu');
+  // Kod her durumda bcrypt ile karşılaştırılır (kayıtsız e-postada sahte hash ile): cevap süresi aynı kalır,
+  // "bu e-posta kayıtlı mı?" sorusu cevabın ne kadar sürdüğünden anlaşılamaz (girişteki yöntemle aynı).
+  const kodDogru = await bcrypt.compare(kod, kullanici?.sifirlamaKodu ?? SAHTE_HASH);
+  // Kayıtlı olmayan e-posta, hiç kod istenmemiş veya süresi dolmuş kod: hepsi aynı mesajı alır.
+  // Deneme hakkı bitmiş kod da geçersizdir (aynı anda gönderilen istekler sayacı 5'in üstüne çıkarmış olabilir).
+  if (
+    !kullanici?.sifirlamaKodu ||
+    kullanici.sifirlamaSonTarih < new Date() ||
+    kullanici.sifirlamaDeneme >= EN_FAZLA_DENEME
+  ) {
+    throw new ApiHatasi(400, GECERSIZ);
+  }
+
+  if (!kodDogru) {
+    // Yanlış kod: deneme sayısı artar; 5'e ulaşınca kod tamamen iptal edilir (kalan haklarla tahmin edilemesin).
+    // $inc: sayaç veritabanında tek adımda artırılır. Önce okuyup sonra yazsaydık, aynı anda gelen istekler
+    // aynı eski değeri okuyup 5'ten fazla deneme yapabilirdi. returnDocument 'after': artırılmış değer döner.
+    const guncel = await Kullanici.findOneAndUpdate(
+      { _id: kullanici._id },
+      { $inc: { sifirlamaDeneme: 1 } },
+      { returnDocument: 'after' }
+    );
+    if (guncel.sifirlamaDeneme >= EN_FAZLA_DENEME) {
+      await Kullanici.updateOne({ _id: kullanici._id }, { sifirlamaKodu: null, sifirlamaSonTarih: null });
+    }
+    throw new ApiHatasi(400, GECERSIZ);
+  }
+
+  // Ek güvenlik (girişteki kuralla aynı): dairesine bağlı olmayan sakin şifre sıfırlayıp giriş yapamaz.
+  if (kullanici.rol === 'sakin' && !kullanici.daireId) {
+    throw new ApiHatasi(403, DAIREDEN_CIKARILDI);
+  }
+
+  // Doğru kod: yeni şifre atanır (modeldeki pre('save') onu bcrypt ile hash'ler), kod silinir.
+  kullanici.sifre = yeniSifre;
+  kullanici.sifirlamaKodu = null;
+  kullanici.sifirlamaSonTarih = null;
+  kullanici.sifirlamaDeneme = 0;
+  // sifreDegisme: bu andan önce verilmiş tüm oturumlar (başka telefonlardaki dahil) geçersiz olur.
+  kullanici.sifreDegisme = new Date();
+  await kullanici.save();
+  // O an açık olan diğer telefonlara haber verilir ve bağlantıları kapatılır; uygulama oturumu kapatıp mesajı gösterir.
+  kullaniciyiKopar(kullanici._id, 'sifreDegisti', { mesaj: SIFRE_DEGISTI });
+
+  // Şifre değişti; kullanıcı ayrıca giriş yapmak zorunda kalmasın diye oturum bilgisi ve token döner.
+  const bilgi = await oturumBilgisi(kullanici);
+  // Kullanıcının sitesi silinmişse oturum açılamaz; token verilmez.
+  if (!bilgi) throw new ApiHatasi(400, GECERSIZ);
+  res.json({ token: tokenUret(kullanici._id), ...bilgi });
 });
 
 // Hesap silme formunun kuralı: şifre tekrar girilmeli.

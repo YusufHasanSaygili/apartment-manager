@@ -5,7 +5,7 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const Kullanici = require('./models/Kullanici');
 const SilinenHesap = require('./models/SilinenHesap');
-const { DAIREDEN_CIKARILDI } = require('./middleware/kimlik');
+const { DAIREDEN_CIKARILDI, SIFRE_DEGISTI } = require('./middleware/kimlik');
 
 // Sunucu tarafındaki Socket.io nesnesi; soketiBaslat çağrılınca oluşturulur.
 let io = null;
@@ -21,11 +21,12 @@ function soketiBaslat(httpSunucu, corsAdresleri) {
 
   // GİRİŞ KONTROLÜ (middleware): her bağlantı kabul edilmeden önce burada token doğrulanır.
   // Telefon bağlanırken token'ını { auth: { token } } ile gönderir. Token yoksa, sahteyse, süresi
-  // dolmuşsa veya hesap silinmişse bağlantı reddedilir (next(new Error(...))).
+  // dolmuşsa, hesap silinmişse veya şifre token verildikten sonra değişmişse bağlantı reddedilir (next(new Error(...))).
+  // iat: token'ın verildiği an; şifre değişme zamanıyla karşılaştırmak için token'dan okunur.
   io.use(async (socket, next) => {
     try {
-      const { id } = jwt.verify(socket.handshake.auth?.token, process.env.JWT_ANAHTARI);
-      const kullanici = await Kullanici.findById(id).select('_id rol daireId').lean();
+      const { id, iat } = jwt.verify(socket.handshake.auth?.token, process.env.JWT_ANAHTARI);
+      const kullanici = await Kullanici.findById(id).select('_id rol daireId sifreDegisme').lean();
       // Daireden çıkarılan sakinin hesabı silinmiştir; bağlantı reddedilir. hata.data.kod: telefon bu reddi diğer
       // bağlantı hatalarından ayırt edip oturumu kapatabilsin diye eklenir (telefon kapalıyken çıkarılan sakin,
       // uygulamayı açınca hemen bilgilendirilir). Dairesiz sakin kontrolü de ek güvenlik olarak kalır.
@@ -34,6 +35,13 @@ function soketiBaslat(httpSunucu, corsAdresleri) {
       if (cikarildi || (kullanici.rol === 'sakin' && !kullanici.daireId)) {
         const hata = new Error(DAIREDEN_CIKARILDI);
         hata.data = { kod: 'DAIREDEN_CIKARILDI' };
+        return next(hata);
+      }
+      // Şifre değiştikten önce verilmiş token ile anlık bağlantı da kurulamaz (girisGerekli ile aynı kural).
+      // hata.data.kod: telefon kapalıyken şifre değiştiyse, uygulama açılınca soket bu kodu görür ve oturumu hemen kapatır.
+      if (Kullanici.tokenEskiMi(kullanici, iat)) {
+        const hata = new Error(SIFRE_DEGISTI);
+        hata.data = { kod: 'SIFRE_DEGISTI' };
         return next(hata);
       }
       // Kullanıcının kimliği bağlantıya yazılır; oda bu bilgiyle seçilir (istekten alınmaz).
@@ -60,7 +68,7 @@ function kullaniciyaGonder(kullaniciId, olay, veri) {
   io?.to(odaAdi(String(kullaniciId))).emit(olay, veri);
 }
 
-// Bir kullanıcının açık tüm bağlantılarını kapatır (örn. sakin daireden çıkarıldı).
+// Bir kullanıcının açık tüm bağlantılarını kapatır (örn. sakin daireden çıkarıldı, hesap silindi, şifre sıfırlandı).
 // Kapatmadan önce olay gönderilir: telefon bunu alınca oturumu kapatır ve mesajı gösterir.
 // Sunucu tarafından kapatılan bağlantıya Socket.io kendiliğinden yeniden bağlanmaz.
 function kullaniciyiKopar(kullaniciId, olay, veri) {

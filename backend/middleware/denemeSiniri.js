@@ -46,4 +46,14 @@ const kodSiniri = rateLimit({
   message: { mesaj: 'Çok fazla hatalı kod denemesi. Lütfen 15 dakika sonra tekrar deneyin.' },
 });
 
-module.exports = { genelSinir, kayitSiniri, girisSiniri, kodSiniri };
+// E-posta sınırı: bir IP 15 dakikada en fazla 5 "şifre sıfırlama kodu gönder" isteği atabilir.
+// Uygulamanın başkalarının e-posta kutusunu kodla doldurmak (spam) için kullanılmasını engeller.
+const epostaSiniri = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { mesaj: 'Çok fazla kod istendi. Lütfen 15 dakika sonra tekrar deneyin.' },
+});
+
+module.exports = { genelSinir, kayitSiniri, girisSiniri, kodSiniri, epostaSiniri };

@@ -113,16 +113,22 @@ export function OturumProvider({ children }) {
   // .catch: oturumDustu async; telefonun deposu (SecureStore) hata verirse yakalanmamış hata kalmasın.
   const dairedenCikarildi = useCallback(({ mesaj }) => oturumDustu(mesaj).catch(() => {}), [oturumDustu]);
   useSoketOlayi('dairedenCikarildi', dairedenCikarildi);
-  // Aynı hesap başka bir telefonda silindiyse bu telefondaki oturum da kapanır (aynı işleyici, mesaj farklı).
+  // Aynı hesap başka bir telefonda silindiyse bu telefondaki oturum da kapanır.
   // Başlık ve mesaj, silme ekranının kendi gösterdiğiyle aynıdır: hangisi önce gelirse gelsin kullanıcı aynı uyarıyı görür.
   const hesapSilindi = useCallback(({ mesaj }) => oturumDustu(mesaj, 'Hesap silindi').catch(() => {}), [oturumDustu]);
   useSoketOlayi('hesapSilindi', hesapSilindi);
+  // Şifre başka bir telefondan sıfırlandıysa bu telefondaki (artık eski) oturum kapatılır.
+  // Uyarının başlığı "Şifre değişti" olur; mesaj sunucudan gelir ("Şifreniz değiştirildi...").
+  const sifreDegisti = useCallback(({ mesaj }) => oturumDustu(mesaj, 'Şifre değişti').catch(() => {}), [oturumDustu]);
+  useSoketOlayi('sifreDegisti', sifreDegisti);
 
   // Soket bağlanamadıysa ve sunucu "daireden çıkarıldı" dediyse (telefon kapalıyken çıkarılmış olabilir)
   // oturum kapatılır. Diğer bağlantı hatalarında (internet yok vb.) hiçbir şey yapılmaz, soket kendisi tekrar dener.
   const baglantiReddedildi = useCallback(
     (hata) => {
       if (hata.data?.kod === 'DAIREDEN_CIKARILDI') oturumDustu(hata.message).catch(() => {});
+      // Şifre başka yerden değiştirildiyse (bu telefondaki token artık eski) oturum kapatılır.
+      if (hata.data?.kod === 'SIFRE_DEGISTI') oturumDustu(hata.message, 'Şifre değişti').catch(() => {});
     },
     [oturumDustu]
   );

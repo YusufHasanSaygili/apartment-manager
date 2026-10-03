@@ -5,6 +5,9 @@ const Kullanici = require('../models/Kullanici');
 const SilinenHesap = require('../models/SilinenHesap');
 const { ApiHatasi } = require('./hataYonetimi');
 
+// Şifre değiştirildikten sonra eski oturumların gördüğü mesaj.
+const SIFRE_DEGISTI = 'Şifreniz değiştirildi. Lütfen yeni şifrenizle giriş yapın.';
+
 // Daireden çıkarılan (ve bu yüzden hesabı silinen) sakinin her yerde (giriş, istekler, soket) gördüğü ortak mesaj.
 const DAIREDEN_CIKARILDI = 'Daireden çıkarıldığınız için hesabınız silinmiştir. Yeni dairenize katılmak için yöneticinizden davet kodu isteyin.';
 
@@ -40,6 +43,12 @@ async function girisGerekli(req, res, next) {
     throw new ApiHatasi(401, DAIREDEN_CIKARILDI);
   }
 
+  // Token, şifre değiştirilmeden önce verildiyse geçersizdir (örn. şifresi çalınan kişi şifresini sıfırladı;
+  // çalan kişinin elindeki eski oturum artık kullanılamaz). 401: telefon oturumu kapatır ve mesajı gösterir.
+  if (Kullanici.tokenEskiMi(kullanici, icerik.iat)) {
+    throw new ApiHatasi(401, SIFRE_DEGISTI);
+  }
+
   // SİTE İZOLASYONU: route'lar siteId ve rolü SADECE buradan (veritabanındaki kayıttan) alır,
   // asla istek gövdesinden veya adresten almaz. Böylece kimse başka bir sitenin verisine
   // istek gövdesine farklı bir siteId yazarak ulaşamaz.
@@ -73,4 +82,4 @@ function sadeceSakin(req, res, next) {
   next();
 }
 
-module.exports = { girisGerekli, sadeceYonetici, sadeceSakin, DAIREDEN_CIKARILDI };
+module.exports = { girisGerekli, sadeceYonetici, sadeceSakin, DAIREDEN_CIKARILDI, SIFRE_DEGISTI };

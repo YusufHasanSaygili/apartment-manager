@@ -27,6 +27,7 @@ import TekrarlananDuyurularEkrani from './screens/TekrarlananDuyurularEkrani';
 import SohbetlerEkrani from './screens/SohbetlerEkrani';
 import DevirEkrani from './screens/DevirEkrani';
 import HesapSilEkrani from './screens/HesapSilEkrani';
+import SifremiUnuttumEkrani from './screens/SifremiUnuttumEkrani';
 import SohbetEkrani from './screens/SohbetEkrani';
 import { renkler } from './tema';
 
@@ -145,6 +146,8 @@ function Ekranlar() {
           {/* Açılış ekranında üst başlık çubuğu gizlenir, ekranın kendi başlığı var */}
           <Stack.Screen name="Acilis" component={AcilisEkrani} options={{ headerShown: false }} />
           <Stack.Screen name="Giris" component={GirisEkrani} options={{ title: 'Giriş yap' }} />
+          {/* Şifremi unuttum: giriş ekranındaki bağlantıyla açılır (giriş yapmamış kullanıcılar için) */}
+          <Stack.Screen name="SifremiUnuttum" component={SifremiUnuttumEkrani} options={{ title: 'Şifremi unuttum' }} />
           <Stack.Screen name="SiteOlustur" component={SiteOlusturEkrani} options={{ title: 'Yeni site/apartman oluştur' }} />
           <Stack.Screen name="DavetKatil" component={DavetKatilEkrani} options={{ title: 'Davet koduyla katıl' }} />
         </>

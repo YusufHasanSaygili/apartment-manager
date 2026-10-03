@@ -19,7 +19,7 @@ Herkes kendi sitesini kurabilir; her sitenin verisi birbirinden tamamen ayrıdı
 | Katman | Teknoloji |
 |---|---|
 | Mobil | React Native (Expo), React Navigation, axios, expo-secure-store, react-native-keyboard-controller, expo-notifications, socket.io-client, @expo/vector-icons |
-| Backend | Node.js, Express, zod (veri doğrulama), Socket.io (anlık mesajlaşma), node-cron (zamanlanmış görevler) |
+| Backend | Node.js, Express, zod (veri doğrulama), Socket.io (anlık mesajlaşma), node-cron (zamanlanmış görevler), nodemailer (e-posta) |
 | Giriş | JWT, bcrypt |
 | Güvenlik | helmet, CORS, express-rate-limit, MongoDB enjeksiyon koruması |
 | Veritabanı | MongoDB Atlas, Mongoose |
@@ -50,6 +50,12 @@ MongoDB Atlas bağlantı adresinizi, `JWT_ANAHTARI` değerine uzun rastgele bir 
 ```bash
 npm run dev
 ```
+
+**E-posta ayarları ("Şifremi unuttum" kodları için):** `.env` içindeki `SMTP_` satırlarını doldurun.
+Gmail ile ücretsiz kullanım: Google hesabında 2 Adımlı Doğrulama'yı açın, https://myaccount.google.com/apppasswords
+adresinden bir uygulama şifresi oluşturun; `SMTP_SUNUCU=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_KULLANICI` Gmail
+adresiniz, `SMTP_SIFRE` 16 haneli uygulama şifresi olsun. (Kişisel Outlook/Hotmail hesapları SMTP ile gönderimi
+desteklemiyor.) Bu ayarlar yapılmazsa uygulama çalışır, sadece şifre sıfırlama kodu gönderilemez.
 
 Konsolda `MongoDB bağlantısı kuruldu` ve `Sunucu 3000 portunda çalışıyor` yazmalıdır.
 Tarayıcıda `http://localhost:3000/api/saglik` adresi `{"durum":"ok", ...}` döndürür.

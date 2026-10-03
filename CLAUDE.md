@@ -126,7 +126,7 @@ Yönetici değiştiğinde site **sıfırdan kurulmaz**; aidat geçmişi, dairele
 `Site` dışındaki **her modelde `siteId` bulunur** ve her sorgu bu alana göre filtrelenir.
 
 - **Site:** ad, yoneticiId, aidatTutari (yöneticinin belirlediği aylık tutar), olusturmaTarihi
-- **Kullanici:** siteId, ad, e-posta (giriş için, benzersiz), şifre (hash), rol (`yonetici` / `sakin`), daireId (oturduğu daire; siteyi kuran yönetici için boş), daireyeGiris (daireye geldiği tarih; aidat bu aydan itibaren beklenir), pushToken
+- **Kullanici:** siteId, ad, e-posta (giriş için, benzersiz), şifre (hash), rol (`yonetici` / `sakin`), daireId (oturduğu daire; siteyi kuran yönetici için boş), daireyeGiris (daireye geldiği tarih; aidat bu aydan itibaren beklenir), pushToken, sifirlamaKodu (hash) + sifirlamaSonTarih + sifirlamaDeneme (şifremi unuttum), sifreDegisme (bu andan önceki oturumlar geçersiz)
 - **Bina:** siteId, ad (A, B, C...)
 - **Daire:** siteId, binaId, daireNo, davetKodu, davetKoduKullanildi, sakinId
 - **Aidat:** siteId, daireId, ay, yil, tutar, odemeYontemi (`banka` / `elden` / `yonetici` = yönetici elle işaretledi), aciklama, durum (`bekliyor` / `onaylandi` / `reddedildi`), tarih

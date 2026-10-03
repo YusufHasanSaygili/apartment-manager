@@ -1,6 +1,7 @@
 // Giriş ekranı: hesabı olan kullanıcı (yönetici veya sakin) e-posta ve şifresiyle giriş yapar.
+// Şifresini unutan kullanıcı "Şifremi unuttum" bağlantısıyla sıfırlama ekranına geçer.
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
@@ -9,7 +10,8 @@ import FormAlani from '../components/FormAlani';
 import HataMesaji from '../components/HataMesaji';
 import { renkler } from '../tema';
 
-export default function GirisEkrani() {
+// navigation: "Şifremi unuttum" bağlantısıyla SifremiUnuttum ekranını açmak için kullanılır.
+export default function GirisEkrani({ navigation }) {
   // useState: formdaki e-posta ve şifre. Kullanıcı yazdıkça güncellenir.
   const [eposta, setEposta] = useState('');
   const [sifre, setSifre] = useState('');
@@ -80,6 +82,16 @@ export default function GirisEkrani() {
 
       {/* "Giriş yap" butonu: basınca girisYap çalışır ve bilgiler backend'e gönderilir */}
       <Buton baslik="Giriş yap" onPress={girisYap} yukleniyor={yukleniyor} />
+
+      {/* "Şifremi unuttum" bağlantısı: basınca SifremiUnuttum ekranı açılır; yazılmış e-posta da oraya taşınır */}
+      <Pressable
+        style={styles.unuttum}
+        onPress={() => navigation.navigate('SifremiUnuttum', { eposta })}
+        hitSlop={8}
+        accessibilityRole="button"
+      >
+        <Text style={styles.unuttumYazi}>Şifremi unuttum</Text>
+      </Pressable>
     </KeyboardAwareScrollView>
   );
 }
@@ -92,5 +104,14 @@ const styles = StyleSheet.create({
   icerik: {
     padding: 24,
     gap: 4,
+  },
+  unuttum: {
+    alignSelf: 'center',
+    marginTop: 20,
+  },
+  unuttumYazi: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: renkler.birincil,
   },
 });
