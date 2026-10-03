@@ -44,7 +44,7 @@ async function girisGerekli(req, res, next) {
     id: kullanici._id,
     siteId: kullanici.siteId,
     rol: kullanici.rol,
-    daireId: kullanici.daireId, // sakinin dairesi (yönetici için null)
+    daireId: kullanici.daireId, // oturduğu daire (siteyi kuran yönetici için null; devirle yönetici olanda dolu)
     ad: kullanici.ad,
     eposta: kullanici.eposta,
   };

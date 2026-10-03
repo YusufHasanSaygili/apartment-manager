@@ -25,6 +25,7 @@ import DuyurularEkrani from './screens/DuyurularEkrani';
 import DuyuruYazEkrani from './screens/DuyuruYazEkrani';
 import TekrarlananDuyurularEkrani from './screens/TekrarlananDuyurularEkrani';
 import SohbetlerEkrani from './screens/SohbetlerEkrani';
+import DevirEkrani from './screens/DevirEkrani';
 import SohbetEkrani from './screens/SohbetEkrani';
 import { renkler } from './tema';
 
@@ -106,6 +107,9 @@ function Ekranlar() {
             component={TekrarlananDuyurularEkrani}
             options={{ title: 'Tekrarlayan duyurular' }}
           />
+          {/* Yöneticiliği devret: ana ekrandaki "Yöneticiliği devret" butonuyla açılır. Devir tamamlanınca rol
+              "sakin" olur ve bu grup listeden çıkar; uygulama kendiliğinden sakin ekranlarına geçer. */}
+          <Stack.Screen name="Devir" component={DevirEkrani} options={{ title: 'Yöneticiliği devret' }} />
           {/* Mesajlar (yönetici): ana ekrandaki "Mesajlar" butonuyla sakin listesi açılır; bir sakine dokununca
               Sohbet ekranı o sakinle açılır, başlıkta sakinin adı ve dairesi görünür */}
           <Stack.Screen name="Sohbetler" component={SohbetlerEkrani} options={{ title: 'Mesajlar' }} />

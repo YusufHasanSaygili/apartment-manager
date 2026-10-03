@@ -123,9 +123,28 @@ export function OturumProvider({ children }) {
   );
   useSoketOlayi('connect_error', baglantiReddedildi);
 
+  // Oturum bilgisini (kullanıcı, rol, site, daire) sunucudan yeniden çeker; token aynı kalır.
+  // Yönetici devrinde rol değişince çağrılır: oturum güncellenince App.js yeni rolün ekranlarını kendiliğinden
+  // gösterir (yönetici → sakin ekranları veya tersi), tekrar giriş gerekmez. Hata olursa sessizce geçilir
+  // (401 ise api.js zaten oturumu kapatır).
+  // useCallback: fonksiyon sabit kalsın; aşağıdaki soket dinleyicisi her çizimde yeniden kurulmasın.
+  // setOturum((onceki) => ...): o anki oturumu okuyup token'ı korur; bu arada çıkış yapıldıysa (null) dokunmaz.
+  const oturumuYenile = useCallback(async () => {
+    try {
+      const { data } = await api.get('/hesap/ben');
+      setOturum((onceki) => (onceki ? { token: onceki.token, ...data } : onceki));
+    } catch {
+      // ağ hatası: bir sonraki açılışta zaten güncel bilgi gelir
+    }
+  }, []);
+
+  // Soket olayı: yöneticilik devredildi (bu kişi yönetici oldu ya da yöneticiliği bıraktı).
+  // Uygulama açıksa ekranlar anında yeni role geçer; diğer cihazdaki uygulama da aynı anda değişir.
+  useSoketOlayi('rolDegisti', oturumuYenile);
+
   // Provider: içine sarılan tüm ekranlara oturum bilgisini ve fonksiyonları dağıtır.
   return (
-    <OturumContext.Provider value={{ oturum, hazir, oturumAc, cikisYap }}>{children}</OturumContext.Provider>
+    <OturumContext.Provider value={{ oturum, hazir, oturumAc, cikisYap, oturumuYenile }}>{children}</OturumContext.Provider>
   );
 }
 

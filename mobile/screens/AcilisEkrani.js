@@ -1,15 +1,13 @@
 // Açılış ekranı: giriş yapmamış kullanıcının ilk gördüğü ekran.
-// 4 seçenek sunar: giriş yap, yeni site oluştur, davet koduyla katıl, devir koduyla yönetici ol.
-import { Alert, StyleSheet, Text, View } from 'react-native';
+// 3 seçenek sunar: giriş yap, yeni site oluştur, davet koduyla katıl.
+// (Yöneticilik, uygulama içinden bir sakine devredilir; devralan kişi kendi hesabıyla giriş yapar.)
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Buton from '../components/Buton';
 import { renkler } from '../tema';
 
 // navigation: React Navigation'ın her ekrana verdiği nesne; başka ekrana geçmek için kullanılır.
 export default function AcilisEkrani({ navigation }) {
-  // Henüz yapılmamış seçenekler için geçici uyarı (ilgili görevlerde gerçek ekranlar gelecek).
-  const yakinda = () => Alert.alert('Yakında', 'Bu özellik henüz hazır değil.');
-
   return (
     // SafeAreaView: içeriğin telefonun çentiği ve alt çubuğu altında kalmasını önler.
     <SafeAreaView style={styles.kapsayici}>
@@ -33,8 +31,6 @@ export default function AcilisEkrani({ navigation }) {
         {/* "Davet koduyla katıl" butonu: sakinler için; basınca DavetKatil ekranına geçilir */}
         <Buton baslik="Davet koduyla katıl" tur="ikincil" onPress={() => navigation.navigate('DavetKatil')} />
 
-        {/* "Devir koduyla yönetici ol" butonu: yöneticiliği devralan kişi için. Görev 6.2'de gelecek. */}
-        <Buton baslik="Devir koduyla yönetici ol" tur="ikincil" onPress={yakinda} />
       </View>
     </SafeAreaView>
   );

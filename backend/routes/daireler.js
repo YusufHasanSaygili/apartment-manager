@@ -27,10 +27,11 @@ router.get('/', async (req, res) => {
   const [binalar, daireler, sakinler] = await Promise.all([
     Bina.find({ siteId }).sort({ ad: 1 }).lean(),
     Daire.find({ siteId }).sort({ daireNo: 1 }).select('binaId daireNo davetKodu davetKoduKullanildi').lean(),
-    Kullanici.find({ siteId, rol: 'sakin', daireId: { $ne: null } }).select('ad daireId').lean(),
+    // Daireye bağlı tüm hesaplar: sakinler ve (devirle yönetici olduysa) dairesinde oturan yönetici.
+    Kullanici.find({ siteId, daireId: { $ne: null } }).select('ad rol daireId').lean(),
   ]);
-  // daireId → sakinin adı (Map: her daire için ayrı sorgu atmadan hızlıca bulmak için).
-  const sakinAdi = new Map(sakinler.map((k) => [String(k.daireId), k.ad]));
+  // daireId → o dairedeki kişi (Map: her daire için ayrı sorgu atmadan hızlıca bulmak için).
+  const kisi = new Map(sakinler.map((k) => [String(k.daireId), k]));
 
   // Daireler kendi binasının altına yerleştirilir; mobil ekran bina bina listeler.
   // binaId bir ObjectId (nesne) olduğu için === ile değil .equals() ile karşılaştırılır.
@@ -45,7 +46,9 @@ router.get('/', async (req, res) => {
         daireNo: d.daireNo,
         davetKodu: d.davetKodu,
         dolu: d.davetKoduKullanildi, // kod kullanıldıysa dairede kayıtlı bir sakin var
-        sakinAdi: sakinAdi.get(String(d._id)) ?? null,
+        sakinAdi: kisi.get(String(d._id))?.ad ?? null,
+        // yoneticiDairesi: dairede sitenin yöneticisi oturuyor; ekranda "Sakini çıkar" butonu gösterilmez.
+        yoneticiDairesi: kisi.get(String(d._id))?.rol === 'yonetici',
       })),
   }));
 
@@ -65,6 +68,10 @@ router.post('/:id/sakini-cikar', async (req, res) => {
   const daire = await Daire.findOne({ _id: req.params.id, siteId }).lean();
   if (!daire) throw new ApiHatasi(404, 'Daire bulunamadı.');
   if (!daire.davetKoduKullanildi) throw new ApiHatasi(400, 'Bu dairede kayıtlı bir sakin yok.');
+  // Dairede yönetici oturuyorsa çıkarılamaz (yönetici önce yöneticiliği devretmeli); dairenin kaydı bozulmasın.
+  if (await Kullanici.exists({ siteId, rol: 'yonetici', daireId: daire._id })) {
+    throw new ApiHatasi(400, 'Bu daire site yöneticisine ait; yönetici daireden çıkarılamaz.');
+  }
 
   // Dairedeki sakin (siteId ve daireId ile). Hesabını silmiş olabilir; o zaman sadece daire sıfırlanır.
   const sakin = await Kullanici.findOneAndUpdate(

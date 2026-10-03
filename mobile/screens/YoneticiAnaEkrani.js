@@ -3,6 +3,7 @@
 // yapılmadıysa kurulum ekranına yönlendirir. Onay bekleyen aidat bildirimlerinin sayısını gösterir ve
 // bildirimler ekranına geçirir. Daire haritası, Duyurular ve Mesajlar ekranlarına da buradan geçilir.
 // "Aidat hatırlatması gönder" butonuyla bu ayı ödemeyen sakinlere hemen hatırlatma bildirimi gönderilir.
+// "Yöneticiliği devret" butonuyla yöneticilik bir sakine devredilir.
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -139,6 +140,8 @@ export default function YoneticiAnaEkrani({ navigation }) {
             yukleniyor={hatirlatiliyor}
             onPress={hatirlatmaOnayi}
           />
+          {/* "Yöneticiliği devret" butonu: basınca Devir ekranı açılır; yönetici bir sakini yeni yönetici yapar */}
+          <Buton baslik="Yöneticiliği devret" tur="ikincil" onPress={() => navigation.navigate('Devir')} />
         </View>
       )}
 

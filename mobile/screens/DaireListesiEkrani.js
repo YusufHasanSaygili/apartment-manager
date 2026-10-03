@@ -72,7 +72,8 @@ export default function DaireListesiEkrani({ navigation }) {
               const daireAdi = `${bina.ad}${daire.daireNo}`;
               return (
                 // Daire kutucuğu: basınca DaireKodu ekranı açılır. Oraya daire id'si (sakini çıkarma isteği için),
-                // daire adı, davet kodu, dolu bilgisi ve sakinin adı gönderilir; ekran tekrar istek atmadan bunları gösterir.
+                // daire adı, davet kodu, dolu bilgisi, sakinin adı ve yoneticiDairesi (dairede yönetici mi oturuyor;
+                // öyleyse çıkarma butonu gösterilmez) gönderilir; ekran tekrar istek atmadan bunları gösterir.
                 <Pressable
                   key={daire.id}
                   // dolu: sakin katılmış daireler koyu yeşil, katılmamışlar gri gösterilir.
@@ -84,6 +85,7 @@ export default function DaireListesiEkrani({ navigation }) {
                       davetKodu: daire.davetKodu,
                       dolu: daire.dolu,
                       sakinAdi: daire.sakinAdi,
+                      yoneticiDairesi: daire.yoneticiDairesi,
                     })
                   }
                   accessibilityRole="button"

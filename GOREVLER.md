@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 6.2
+**Mevcut görev:** 6.3
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -129,9 +129,10 @@ Kurallar:
   - Sakinin daireyle bağı kaldırılır, daire için yeni davet kodu üretilir
   - Deneme: Çıkarılan sakin daireye erişemez, yeni kodla başka biri katılır
 
-- [ ] **6.2 Yönetici devri**
-  - 24 saat geçerli, tek kullanımlık devir kodu; "Devir koduyla yönetici ol" ekranı
-  - Deneme: Yeni yönetici siteyi tüm geçmişiyle devralır, eski yönetici yetkisini kaybeder
+- [x] **6.2 Yönetici devri**
+  - Yönetici sakini olan bir daireyi seçer, o sakin yönetici olur; eski yönetici sakin olur (kayıtlı dairesine veya seçtiği boş daireye)
+  - Kullanici modeline daireyeGiris (aidat bu aydan itibaren beklenir); açık uygulamalar soketle yeni role geçer
+  - Deneme: Yeni yönetici siteyi tüm geçmişiyle devralır, eski yönetici yetkisini kaybeder ve sakin olur
 
 - [ ] **6.3 Hesap silme**
   - Kişisel verilerin silinmesi, aidat kayıtlarının kişiden ayrılarak korunması; yönetici devretmeden silemez

@@ -1,6 +1,5 @@
 // Deneme sınırı (rate limit): aynı IP adresinden belli bir sürede gelebilecek istek
 // sayısını sınırlar. Sunucuyu aşırı istekle yormayı ve otomatik denemeleri engeller.
-// Devir kodu girme için sınır Görev 6.2'de eklenecek.
 const { rateLimit } = require('express-rate-limit');
 
 // Genel sınır: bir IP 15 dakikada en fazla 300 istek atabilir; aşarsa 429 hatası alır.

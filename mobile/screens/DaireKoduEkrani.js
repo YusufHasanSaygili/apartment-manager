@@ -11,7 +11,8 @@ import { renkler } from '../tema';
 
 // route.params: daire listesinden gönderilen daire kimliği, adı (örn. "A3"), davet kodu, dolu bilgisi ve sakinin adı.
 export default function DaireKoduEkrani({ route, navigation }) {
-  const { daireId, daireAdi, sakinAdi } = route.params;
+  // yoneticiDairesi: dairede sitenin yöneticisi oturuyor (devirle yönetici olmuş); çıkarma butonu gösterilmez.
+  const { daireId, daireAdi, sakinAdi, yoneticiDairesi } = route.params;
   // useState: davet kodu ve dolu bilgisi listeden gelen değerlerle başlar; sakin çıkarılınca yeni kod
   // gelir ve daire boş olur. State olduğu için ekran kendiliğinden yeni kodu gösterir.
   const [davetKodu, setDavetKodu] = useState(route.params.davetKodu);
@@ -67,8 +68,12 @@ export default function DaireKoduEkrani({ route, navigation }) {
       <Text style={styles.kod} selectable accessibilityLabel={`Davet kodu ${davetKodu.split('').join(' ')}`}>
         {davetKodu}
       </Text>
-      {/* Kod tek kullanımlık: kullanıldıysa paylaşma butonu gösterilmez */}
-      {dolu ? (
+      {/* Üç durum: 1) dairede yönetici oturuyor → sadece bilgi yazısı (çıkarma butonu yok, backend de engeller);
+          2) kod kullanılmış (dolu) → sakinin adı ve "Sakini daireden çıkar"; 3) boş → "Kodu paylaş".
+          Kod tek kullanımlık: kullanıldıysa paylaşma butonu gösterilmez */}
+      {yoneticiDairesi ? (
+        <Text style={styles.not}>Bu daire site yöneticisine ait.</Text>
+      ) : dolu ? (
         <>
           <Text style={styles.not}>
             Bu kod kullanıldı. Dairede oturan sakin: {sakinAdi ?? 'kayıtlı bir sakin'}.

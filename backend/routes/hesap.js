@@ -128,7 +128,8 @@ router.post('/katil', kodSiniri, dogrula(katilSemasi), async (req, res) => {
 
     // siteId ve daireId istekten değil, kodun ait olduğu daireden alınır.
     await Kullanici.create(
-      [{ _id: kullaniciId, siteId: daire.siteId, daireId: daire._id, ad, eposta, sifre, rol: 'sakin' }],
+      // daireyeGiris: sakinin bu daireye geldiği an; aidat hesapları bu aydan itibaren ödeme bekler.
+      [{ _id: kullaniciId, siteId: daire.siteId, daireId: daire._id, daireyeGiris: new Date(), ad, eposta, sifre, rol: 'sakin' }],
       { session }
     );
   });

@@ -79,13 +79,15 @@ Uygulama **tek bir site için değil, herkesin kendi sitesini kurabileceği** ş
 1. **Giriş yap:** Hesabı olan herkes.
 2. **Yeni site oluştur:** Yönetici olacak kişi. Butonun altında/yanında küçük puntoyla **"(Yönetici hesabı ile başlar)"** yazar. Kişi hesap bilgileri + site adı girer, ardından bina/daire kurulumuna geçer.
 3. **Davet koduyla katıl:** Sakin. Dairesinin davet kodunu girer, hesabı o daireye ve siteye bağlanır.
-4. **Devir koduyla yönetici ol:** Mevcut bir sitenin yöneticiliğini devralan kişi (bkz. Yönetici Devri).
+
+(Yöneticilik uygulama içinden bir sakine devredildiği için açılış ekranında ayrı bir "devir" seçeneği yoktur.)
 
 ### Yönetici Devri
 Yönetici değiştiğinde site **sıfırdan kurulmaz**; aidat geçmişi, daireler ve sakin hesapları korunur.
-- Mevcut yönetici ayarlardan **"Yöneticiliği devret"** der. Sistem tek kullanımlık, 24 saat geçerli bir **devir kodu** üretir.
-- Yeni yönetici uygulamayı indirir, **"Devir koduyla yönetici ol"** seçeneğiyle hesap açar (veya giriş yapar) ve kodu girer.
-- Devir tamamlanınca eski yöneticinin yönetici yetkisi kalkar ve siteden çıkarılır. O sitede oturmaya devam ediyorsa dairesinin davet koduyla sakin olarak tekrar katılabilir.
+- Mevcut yönetici **"Yöneticiliği devret"** der ve sakini olan dairelerden birini seçer (örn. B12). O dairenin sakini yeni yönetici olur.
+- Eski yönetici kendiliğinden **sakin** olur: kayıtlı bir dairesi varsa (daha önce devirle yönetici olduysa) o daireye, yoksa devir sırasında seçtiği boş daireye bağlanır. Aidat sorumluluğu devir ayından itibaren başlar.
+- Yeni yöneticinin dairesi hesabında kayıtlı kalır; yöneticiyken o daire aidat takibinin dışındadır (haritada gri). İleride yöneticiliği devrederse bu daireye sakin olarak döner.
+- İki tarafın da uygulaması açıksa sunucu soket ile haber verir; uygulamalar tekrar giriş gerekmeden yeni rolün ekranlarına geçer.
 
 ---
 
@@ -98,7 +100,7 @@ Yönetici değiştiğinde site **sıfırdan kurulmaz**; aidat geçmişi, dairele
 - Tüm siteye **duyuru** yapar ("Bugün çöp günü", "Tadilat olacak"). Duyuru tüm telefonlara push bildirim olarak gider.
 - Sakinlerle **mesajlaşır**.
 - Daire el değiştirdiğinde eski sakini daireden çıkarır ve o daire için **yeni davet kodu** üretir.
-- Yöneticiliği devir koduyla başka birine devreder.
+- Yöneticiliği sitedeki bir sakine devreder (bkz. Yönetici Devri).
 
 ### Daire Sakini
 - Davet koduyla kayıt olur, hesabı otomatik olarak kendi dairesine bağlanır.
@@ -122,8 +124,8 @@ Yönetici değiştiğinde site **sıfırdan kurulmaz**; aidat geçmişi, dairele
 
 `Site` dışındaki **her modelde `siteId` bulunur** ve her sorgu bu alana göre filtrelenir.
 
-- **Site:** ad, yoneticiId, aidatTutari (yöneticinin belirlediği aylık tutar), devirKodu (hash), devirKoduSonTarih, olusturmaTarihi
-- **Kullanici:** siteId, ad, e-posta (giriş için, benzersiz), şifre (hash), rol (`yonetici` / `sakin`), daireId (sakinse), pushToken
+- **Site:** ad, yoneticiId, aidatTutari (yöneticinin belirlediği aylık tutar), olusturmaTarihi
+- **Kullanici:** siteId, ad, e-posta (giriş için, benzersiz), şifre (hash), rol (`yonetici` / `sakin`), daireId (oturduğu daire; siteyi kuran yönetici için boş), daireyeGiris (daireye geldiği tarih; aidat bu aydan itibaren beklenir), pushToken
 - **Bina:** siteId, ad (A, B, C...)
 - **Daire:** siteId, binaId, daireNo, davetKodu, davetKoduKullanildi, sakinId
 - **Aidat:** siteId, daireId, ay, yil, tutar, odemeYontemi (`banka` / `elden` / `yonetici` = yönetici elle işaretledi), aciklama, durum (`bekliyor` / `onaylandi` / `reddedildi`), tarih
@@ -199,7 +201,7 @@ Hoca derste "bu kod ne işe yarıyor?" diye soracak. Bu yüzden:
 - JWT'nin bir geçerlilik süresi vardır (örn. 7 gün).
 - Token telefonda `expo-secure-store` ile saklanır, AsyncStorage kullanılmaz.
 - Giriş, kayıt ve kod girme işlemlerine **deneme sınırı** (rate limit) konur.
-- Davet kodları ve devir kodları **tek kullanımlıktır**; kullanılınca geçersiz olur. Devir kodu 24 saat sonra da geçersiz olur.
+- Davet kodları **tek kullanımlıktır**; kullanılınca geçersiz olur.
 
 ### Gerçek zamanlı bağlantı
 - Socket.io bağlantısı token ile doğrulanır. Token'sız veya geçersiz token'lı bağlantı reddedilir.

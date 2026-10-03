@@ -16,6 +16,7 @@ const aidatYonetimRoute = require('./routes/aidatYonetim');
 const duyurularRoute = require('./routes/duyurular');
 const mesajlarRoute = require('./routes/mesajlar');
 const tekrarlananDuyurularRoute = require('./routes/tekrarlananDuyurular');
+const devirRoute = require('./routes/devir');
 const { genelSinir } = require('./middleware/denemeSiniri');
 const temizle = require('./middleware/temizle');
 const { bulunamadi, hataYakalayici } = require('./middleware/hataYonetimi');
@@ -70,6 +71,7 @@ app.use('/api/yonetim/aidatlar', aidatYonetimRoute); // sadece yönetici: bildir
 app.use('/api/duyurular', duyurularRoute); // listeleme herkes, yazma/silme sadece yönetici
 app.use('/api/tekrarlanan-duyurular', tekrarlananDuyurularRoute); // sadece yönetici: tekrarlayan duyuru ekleme, listeleme, silme
 app.use('/api/mesajlar', mesajlarRoute); // giriş yapmış herkes: yönetici ↔ kendi sitesinin sakinleri arasında yazışma
+app.use('/api/devir', devirRoute); // sadece yönetici: yöneticiliği bir dairenin sakinine devretme
 
 // Hiçbir route'a uymayan istekler 404'e, tüm hatalar merkezi hata yakalayıcıya gider.
 // Bu ikisi route'lardan SONRA eklenmelidir; Express middleware'leri sırayla çalıştırır.

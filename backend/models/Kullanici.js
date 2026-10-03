@@ -16,9 +16,14 @@ const kullaniciSemasi = new mongoose.Schema(
     // Yetki kontrolleri bu alana göre yapılır. Kayıtta istekten alınmaz, route'ta sabit verilir
     // (site oluşturan → 'yonetici'), böylece kimse kendini yönetici yapamaz.
     rol: { type: String, enum: ['yonetici', 'sakin'], required: true },
-    // Sakinin dairesi (davet koduyla katılırken bağlanır). Yönetici için null.
-    // Sakin sadece bu dairenin verisini görebilir; bu yüzden istekten değil buradan okunur.
+    // Kişinin oturduğu daire. Sakin davet koduyla katılırken bağlanır; sakin sadece bu dairenin verisini
+    // görebilir, bu yüzden istekten değil buradan okunur. Yönetici için: devirle yönetici olan kişinin dairesi
+    // burada kalır (ileride yöneticiliği devrederse bu daireye sakin olarak döner); siteyi kuran yönetici için null.
     daireId: { type: mongoose.Schema.Types.ObjectId, ref: 'Daire', default: null },
+    // Daireye giriş tarihi: kişi bu daireye ne zaman sakin olarak geldi (davet koduyla katılma veya yönetici devri).
+    // Aidat hesapları "hangi aydan itibaren ödemesi gerekiyor?" sorusunu buna göre cevaplar. Bu alan eklenmeden
+    // önce katılan sakinlerde boştur (null); o zaman hesap açma tarihi (createdAt) kullanılır (bkz. daireyeGirisTarihi).
+    daireyeGiris: { type: Date, default: null },
     // Telefonun Expo push adresi ("ExponentPushToken[...]"). Bildirim bu adrese gönderilir.
     // Giriş yapınca kaydedilir, çıkış yapınca silinir (çıkış yapmış telefona bildirim gitmesin).
     pushToken: { type: String, default: null },
@@ -33,5 +38,10 @@ kullaniciSemasi.pre('save', async function () {
   if (!this.isModified('sifre')) return;
   this.sifre = await bcrypt.hash(this.sifre, 12);
 });
+
+// Bir kullanıcının daireye giriş tarihini verir: daireyeGiris doluysa o, değilse hesap açma tarihi.
+// Sorgularda ikisi de seçilmelidir: .select('daireyeGiris createdAt').
+// statics: modelin kendisine eklenen yardımcı fonksiyon (Kullanici.daireyeGirisTarihi(k) diye çağrılır).
+kullaniciSemasi.statics.daireyeGirisTarihi = (k) => k.daireyeGiris ?? k.createdAt;
 
 module.exports = mongoose.model('Kullanici', kullaniciSemasi);

@@ -76,17 +76,17 @@ router.get('/harita', dogrula(haritaSemasi, 'query'), async (req, res) => {
   const { siteId } = req.kullanici;
   const { ay, yil } = req.query;
 
-  // Reddedilen bildirimler durumu etkilemediği için hiç alınmaz. Sakinlerin hesap açma tarihi (createdAt)
+  // Reddedilen bildirimler durumu etkilemediği için hiç alınmaz. Sakinlerin daireye giriş tarihi (daireyeGiris, yoksa createdAt)
   // katıldıkları ayı bulmak için alınır.
   const [binalar, daireler, aidatlar, sakinler] = await Promise.all([
     Bina.find({ siteId }).sort({ ad: 1 }).lean(),
     Daire.find({ siteId }).sort({ daireNo: 1 }).select('binaId daireNo').lean(),
     Aidat.find({ siteId, ay, yil, durum: { $in: ['bekliyor', 'onaylandi'] } }).select('daireId durum').lean(),
-    Kullanici.find({ siteId, rol: 'sakin', daireId: { $ne: null } }).select('daireId createdAt').lean(),
+    Kullanici.find({ siteId, rol: 'sakin', daireId: { $ne: null } }).select('daireId daireyeGiris createdAt').lean(),
   ]);
 
   // daireId → sakinin katıldığı ayın sırası (yıl × 12 + ay). Dairesinde sakin olmayan daire bu listede yoktur.
-  const katilmaSirasi = new Map(sakinler.map((k) => [String(k.daireId), Aidat.aySirasi(k.createdAt)]));
+  const katilmaSirasi = new Map(sakinler.map((k) => [String(k.daireId), Aidat.aySirasi(Kullanici.daireyeGirisTarihi(k))]));
   const secilenSira = yil * 12 + ay;
 
   // daireId → o ayki durum ('bekliyor' veya 'onaylandi'). Bir dairede ikisinden en fazla biri olabilir.
@@ -134,9 +134,10 @@ router.get('/takvim/:daireId', dogrula(yilSemasi, 'query'), async (req, res) => 
   const daire = await Daire.findOne({ _id: req.params.daireId, siteId }).lean();
   if (!daire) throw new ApiHatasi(404, 'Daire bulunamadı.');
 
-  // Dairedeki sakin (varsa): katıldığı aydan önceki aylar takvimde gri görünür.
-  const sakin = await Kullanici.findOne({ siteId, daireId: daire._id, rol: 'sakin' }).select('createdAt').lean();
-  res.json({ aylar: await Aidat.yillikTakvim(siteId, daire._id, req.query.yil, sakin?.createdAt ?? null) });
+  // Dairedeki sakin (varsa): daireye giriş tarihinden (daireyeGirisTarihi) önceki aylar takvimde gri görünür.
+  const sakin = await Kullanici.findOne({ siteId, daireId: daire._id, rol: 'sakin' }).select('daireyeGiris createdAt').lean();
+  const giris = sakin ? Kullanici.daireyeGirisTarihi(sakin) : null;
+  res.json({ aylar: await Aidat.yillikTakvim(siteId, daire._id, req.query.yil, giris) });
 });
 
 // Elle işaretleme formunun kuralları. daireId: MongoDB kimliği biçiminde (24 karakter onaltılık).

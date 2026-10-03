@@ -16,8 +16,10 @@ async function siteyeHatirlatmaGonder(siteId, ay, yil) {
   // Sorguların hepsi siteId ile filtrelenir: bir sitenin hatırlatması başka sitenin sakinine gitmez.
   // Promise.all: iki sorgu birbirini beklemeden aynı anda çalışır, ikisi de bitince sonuçlar birlikte gelir.
   // 1) dairesi olan sakinler (katılma tarihi ve push adresiyle), 2) o ay ödemesi bekleyen/onaylı aidatlar.
+  // Katılma tarihi = daireye giriş tarihi (daireyeGiris, eski kayıtlarda createdAt); ikisi de seçilir ki
+  // Kullanici.daireyeGirisTarihi doğru hesaplayabilsin. rol: 'sakin' filtresi yüzünden yöneticiye hatırlatma gitmez.
   const [sakinler, odenenler] = await Promise.all([
-    Kullanici.find({ siteId, rol: 'sakin', daireId: { $ne: null } }).select('daireId createdAt pushToken').lean(),
+    Kullanici.find({ siteId, rol: 'sakin', daireId: { $ne: null } }).select('daireId daireyeGiris createdAt pushToken').lean(),
     Aidat.find({ siteId, ay, yil, durum: { $in: ['bekliyor', 'onaylandi'] } }).select('daireId').lean(),
   ]);
 
@@ -27,7 +29,7 @@ async function siteyeHatirlatmaGonder(siteId, ay, yil) {
   // tek bir >= karşılaştırmasıyla anlaşılır. Sakinin katılma ayı da aynı formülle hesaplanır (Aidat.aySirasi).
   const secilenSira = yil * 12 + ay;
   const odemeyenler = sakinler.filter(
-    (s) => !odeyenDaireler.has(String(s.daireId)) && secilenSira >= Aidat.aySirasi(s.createdAt)
+    (s) => !odeyenDaireler.has(String(s.daireId)) && secilenSira >= Aidat.aySirasi(Kullanici.daireyeGirisTarihi(s))
   );
 
   // Bildirimi kapalı (pushToken'ı olmayan) sakinlere gönderilemez; filter(Boolean) boş olanları atar.
