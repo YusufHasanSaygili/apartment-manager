@@ -64,6 +64,29 @@ Mobil Programlama dersi projesi olarak React Native (Expo) ve Node.js ile geliş
 
 Sunumda uygulamanın nasıl gösterileceği [SUNUM.md](SUNUM.md) dosyasındadır.
 
+## Hazır APK
+
+Android telefona doğrudan kurulabilen APK, GitHub'daki **Releases** sayfasındadır (`Apartmanim-v1.0.0.apk`).
+
+- APK, backend'e derlendiği bilgisayarın yerel IP adresiyle (`mobile/.env` içindeki `EXPO_PUBLIC_API_URL`) bağlanır.
+  Bu yüzden sadece backend'in çalıştığı bilgisayarla **aynı Wi-Fi ağındaki** telefonlarda çalışır. Kendi
+  bilgisayarınızda kullanmak için `.env`'deki IP'yi değiştirip APK'yı aşağıdaki adımlarla yeniden derleyin.
+- Backend yerel ağda `http` ile çalıştığı için APK'da şifresiz bağlantı izni açıktır (`mobile/plugins/httpIzni.js`).
+  Giriş bilgileri yerel ağda şifrelenmeden gider; APK sunum/test amaçlıdır ve geliştirme (debug) anahtarıyla imzalıdır.
+- Kurulum: APK'yı telefona indirin, "Bilinmeyen kaynaklardan yükleme" iznini verip açın.
+
+APK'yı yeniden derlemek (mobil kurulum adımları yapıldıktan sonra, `mobile` klasöründe):
+
+```bash
+npx expo prebuild --platform android
+```
+
+```bash
+cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
+```
+
+Çıktı: `mobile/android/app/build/outputs/apk/release/app-release.apk`
+
 ## Kurulum
 
 ### Gereksinimler

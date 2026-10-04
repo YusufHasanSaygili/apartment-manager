@@ -6,6 +6,7 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
@@ -24,6 +25,9 @@ import { karistir, kose, renkler, yaziTipi, yazilar } from '../tema';
 export default function YoneticiAnaEkrani({ navigation }) {
   // oturum burada asla null değildir: App.js bu ekranı sadece oturum açıkken gösterir.
   const { oturum } = useOturum();
+  // useSafeAreaInsets: telefonun üstteki saat/şarj çubuğunun (ve çentiğin) yüksekliği. Bu ekranda üst başlık çubuğu
+  // olmadığı için kaydırılan sayfa bu yükseklik kadar aşağıdan başlar; yoksa içerik saatin altına girerdi.
+  const { top: ustBosluk } = useSafeAreaInsets();
 
   // useState: ekranın verisi { ozet, harita, okunmamis, sonDuyuru }. null → henüz yüklenmedi.
   // ozet: bina/daire sayısı, aidat tutarı, bekleyen sayısı; harita: bu ayın daire durumları (kadran ve mini harita için).
@@ -113,7 +117,7 @@ export default function YoneticiAnaEkrani({ navigation }) {
 
   return (
     // ScrollView: içerik ekrana sığmazsa sayfa kaydırılır.
-    <ScrollView style={styles.dis} contentContainerStyle={styles.icerik} refreshControl={yenileme}>
+    <ScrollView style={[styles.dis, { marginTop: ustBosluk }]} contentContainerStyle={styles.icerik} refreshControl={yenileme}>
       {/* Selamlama, site adı (sağında logo, SiteBasligi, ImageBackground) ve kısa özet (bina, daire, aidat) */}
       <View style={styles.selamBlok}>
         <SiteBasligi selam={`Hoş geldin, ${oturum.kullanici.ad}`} ad={oturum.site.ad} />
@@ -306,10 +310,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: renkler.arkaPlan,
   },
-  // paddingTop: üst çubuk olmadığı için durum çubuğunun altından başlar
+  // paddingTop: saat çubuğunun altında (marginTop ile) kalan küçük boşluk
   icerik: {
     paddingHorizontal: 18,
-    paddingTop: 56,
+    paddingTop: 20,
     paddingBottom: 28,
     gap: 12,
   },

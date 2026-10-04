@@ -22,6 +22,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/httpIzni",
       "expo-secure-store",
       "expo-notifications",
       [
