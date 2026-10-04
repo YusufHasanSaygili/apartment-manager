@@ -60,6 +60,22 @@ desteklemiyor.) Bu ayarlar yapılmazsa uygulama çalışır, sadece şifre sıf�
 Konsolda `MongoDB bağlantısı kuruldu` ve `Sunucu 3000 portunda çalışıyor` yazmalıdır.
 Tarayıcıda `http://localhost:3000/api/saglik` adresi `{"durum":"ok", ...}` döndürür.
 
+**Demo verisi (isteğe bağlı):** Uygulamayı boş bir site yerine dolu bir örnekle görmek için:
+
+```bash
+npm run demo
+```
+
+Bu komut "Lale Sitesi" adlı bir örnek site kurar: 2 bina, 16 daire, 10 sakin, son 9 ayın aidatları (bu ay
+ödeyen, onay bekleyen ve ödemeyen daireler karışık), duyurular, bir tekrarlayan duyuru ve mesajlar. Tarihler
+komutun çalıştığı güne göre hesaplanır. Komut tekrar çalıştırılırsa eski demo sitesi silinip yeniden kurulur;
+diğer sitelere dokunulmaz. Tüm demo hesaplarının şifresi `Demo1234`:
+
+| Hesap | E-posta |
+|---|---|
+| Yönetici (Zeynep Kaya) | `lale.yonetici@ornek.com` |
+| Sakinler | `lale.a1@ornek.com`, `lale.a2@`, `lale.a3@`, `lale.a5@`, `lale.a6@`, `lale.a8@`, `lale.b1@`, `lale.b2@`, `lale.b4@`, `lale.b7@ornek.com` |
+
 ### 2. Mobil uygulama
 
 ```bash

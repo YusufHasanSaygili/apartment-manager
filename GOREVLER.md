@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 7.2
+**Mevcut görev:** 7.5
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -145,14 +145,14 @@ Kurallar:
 ## Aşama 7 — Son Dokunuşlar
 
 - [x] **7.1 İkon ve açılış ekranı (splash)** → 7.3 ile birleştirildi (7.3 adım 2)
-- [ ] **7.2 Kullanıcı deneyimi turu:** internet yok uyarısı; tüm ekranlarda yükleniyor, boş liste ve hata durumlarının gözden geçirilmesi
+- [x] **7.2 Kullanıcı deneyimi turu:** internet yok uyarısı; tüm ekranlarda yükleniyor, boş liste ve hata durumlarının gözden geçirilmesi
 - [x] **7.3 Tasarım turu (Gece Gold, köşeli; önizleme: tasarim-onizleme/):** 4 adımda yapılır, her adım telefonda denenir:
   1. tema.js, gömülü Geist yazı tipleri, özel ikon seti (react-native-svg), ortak component'ler
   2. Giriş öncesi ekranlar + uygulama ikonu ve açılış ekranı (7.1)
   3. Yönetici ekranları
   4. Sakin ekranları
   - İlk tanım: renk paleti (tema.js), ikon ve semboller, buton boyutları, boşluklar ve yazı boyutları; ortak component'ler (Buton, FormAlani, HataMesaji) üzerinden tüm uygulamaya uygulanır. Ekran görüntülerinden (7.5) önce yapılır. İkon kütüphanesi gerekirse önce kullanıcıya sorulur.
-- [ ] **7.4 Demo verisi:** Sunum için örnek site, daireler, aidatlar ve mesajlar oluşturan script
+- [x] **7.4 Demo verisi:** Sunum için örnek site, daireler, aidatlar ve mesajlar oluşturan script
 - [ ] **7.5 Teslim hazırlığı:** README'nin son hali ve ekran görüntüleri, sunum akışı
 - [ ] **7.6 İndirilebilir APK:** Android Studio araçlarıyla yerelde release APK derlenir ve GitHub Releases'a yüklenir. Karar: APK, backend'i çalışan bilgisayarla aynı Wi-Fi'da kullanılır (ders online, sunum evden ekran paylaşımıyla yapılır); backend internete taşınmaz. APK yerel IP'ye `http` ile bağlanabilsin diye cleartext izni verilir.
 
