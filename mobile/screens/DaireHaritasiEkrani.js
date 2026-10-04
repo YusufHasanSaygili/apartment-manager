@@ -7,6 +7,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import api from '../services/api';
 import HataMesaji from '../components/HataMesaji';
+import { useYenileme } from '../components/Yenileme';
 import SayfaSecici from '../components/SayfaSecici';
 import { BinaKarti, DURUMLAR, Lejant } from '../components/Durum';
 import { ayAdi } from '../bicim';
@@ -63,6 +64,9 @@ export default function DaireHaritasiEkrani({ navigation }) {
     }, [yukle]),
   );
 
+  // Aşağı çekip yenileme: sayfa en üstteyken aşağı çekilince yukle tekrar çalışır (components/Yenileme.js).
+  const yenileme = useYenileme(yukle);
+
   const sondaMi = secilenAy.ay === EN_SON_AY.ay && secilenAy.yil === EN_SON_AY.yil;
   const ozet = veri?.ozet;
   const dolu = ozet ? ozet.odendi + ozet.bekliyor + ozet.odenmedi : 0;
@@ -99,6 +103,7 @@ export default function DaireHaritasiEkrani({ navigation }) {
   return (
     // FlatList: binaları alt alta listeler; her bina kendi kartında, daireleri 4'lü satırlarda.
     <FlatList
+      refreshControl={yenileme}
       style={styles.dis}
       contentContainerStyle={styles.icerik}
       data={veri?.binalar ?? []}

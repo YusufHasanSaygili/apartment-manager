@@ -32,14 +32,37 @@ export function oturumDusunceAyarla(fn) {
   oturumDustuIsleyici = fn;
 }
 
+// Bağlantı durumu: sunucuya şu an ulaşılabiliyor mu. Her istek sonucu (aşağıdaki interceptor) ve soket
+// bağlanıp koptukça (soket.js) güncellenir. "Bağlantı yok" şeridi (BaglantiSeridi) bunu dinler.
+// Telefonun internete bağlı olması yetmez; asıl önemli olan bilgisayardaki sunucuya ulaşabilmektir.
+let baglantiVar = true;
+const baglantiDinleyicileri = new Set();
+export function baglantiDurumuAyarla(durum) {
+  if (durum === baglantiVar) return;
+  baglantiVar = durum;
+  baglantiDinleyicileri.forEach((fn) => fn());
+}
+// useSyncExternalStore için: dinleyici ekleyip kaldırma ve o anki durumu okuma (bkz. BaglantiSeridi).
+export const baglantiyiDinle = (fn) => {
+  baglantiDinleyicileri.add(fn);
+  return () => baglantiDinleyicileri.delete(fn);
+};
+export const baglantiVarMi = () => baglantiVar;
+
 // Interceptor (araya giren fonksiyon): her hatalı cevap ekrana ulaşmadan önce buradan geçer.
 // Hata tek tip bir nesneye çevrilir; ekranlar sadece hata.message'ı göstermekle yetinir,
 // her ekranda ayrı ayrı hata ayıklama kodu yazmak gerekmez.
 api.interceptors.response.use(
-  // Başarılı cevap: hiç değiştirilmeden ekrana iletilir.
-  (cevap) => cevap,
+  // Başarılı cevap: sunucuya ulaşıldı → bağlantı var. Cevap hiç değiştirilmeden ekrana iletilir.
+  (cevap) => {
+    baglantiDurumuAyarla(true);
+    return cevap;
+  },
   // Hatalı cevap: ortak hata nesnesine çevrilip ekrana fırlatılır (ekranda catch ile yakalanır).
   (hata) => {
+    // Sunucu cevap verdiyse (400, 404 vb.) bağlantı var; hiç cevap gelmediyse (internet yok, sunucu kapalı,
+    // zaman aşımı) bağlantı yok sayılır ve "Bağlantı yok" şeridi çıkar.
+    baglantiDurumuAyarla(Boolean(hata.response));
     const ortakHata = new Error(hataMesajiOlustur(hata));
     // Ekran gerekirse duruma göre davranabilsin diye HTTP kodu da eklenir (örn. 401 → girişe yönlendir).
     ortakHata.durumKodu = hata.response?.status;

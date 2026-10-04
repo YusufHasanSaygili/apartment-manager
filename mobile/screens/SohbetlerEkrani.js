@@ -7,6 +7,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useSoketOlayi } from '../services/soket';
 import HataMesaji from '../components/HataMesaji';
+import { useYenileme } from '../components/Yenileme';
 import { goreliGun, saatBicimi } from '../bicim';
 import { kose, renkler, yaziTipi, yazilar } from '../tema';
 
@@ -19,8 +20,6 @@ export default function SohbetlerEkrani({ navigation }) {
   const [sohbetler, setSohbetler] = useState(null);
   // useState: liste yüklenemezse gösterilecek hata mesajı.
   const [hata, setHata] = useState('');
-  // useState: listeyi aşağı çekip yenilerken true (üstte dönen simge görünür).
-  const [yenileniyor, setYenileniyor] = useState(false);
 
   // API isteği: GET /api/mesajlar/sohbetler ile sakinleri ve her biriyle son mesajı çeker.
   // useCallback: fonksiyon her çizimde yeniden oluşmaz; useFocusEffect onu bağımlılık olarak kullandığı için
@@ -54,12 +53,8 @@ export default function SohbetlerEkrani({ navigation }) {
   useSoketOlayi('yeniMesaj', gorunurkenYukle);
   useSoketOlayi('connect', gorunurkenYukle);
 
-  // Listeyi aşağı çekince çalışır: yenileme simgesini gösterir, listeyi yeniden çeker, simgeyi kapatır.
-  const yenile = async () => {
-    setYenileniyor(true);
-    await yukle();
-    setYenileniyor(false);
-  };
+  // Aşağı çekip yenileme: sayfa en üstteyken aşağı çekilince yukle tekrar çalışır (components/Yenileme.js).
+  const yenileme = useYenileme(yukle);
 
   // Okunmamış mesajı olan sohbetler üstte ayrı bölümde, diğer sakinler altta. Toplam okunmamış sayısı özet kartında.
   const okunmamislar = (sohbetler ?? []).filter((x) => x.okunmamis > 0);
@@ -71,14 +66,13 @@ export default function SohbetlerEkrani({ navigation }) {
   ].filter((b) => b.data.length > 0);
 
   return (
-    // SectionList: bölümlü liste (Okunmamış / Diğer sakinler). Aşağı çekince yenile çalışır.
+    // SectionList: bölümlü liste (Okunmamış / Diğer sakinler). Aşağı çekince liste yenilenir.
     <SectionList
       style={styles.dis}
       contentContainerStyle={styles.icerik}
       sections={bolumler}
       keyExtractor={(x) => x.id}
-      onRefresh={yenile}
-      refreshing={yenileniyor}
+      refreshControl={yenileme}
       stickySectionHeadersEnabled={false}
       ListHeaderComponent={
         <>

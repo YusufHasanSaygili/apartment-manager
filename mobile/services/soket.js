@@ -4,6 +4,7 @@
 import { useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { API_URL } from '../config';
+import { baglantiDurumuAyarla } from './api';
 
 // Bağlanırken sunucuya gönderilecek oturum token'ı (soketBaglan ile ayarlanır).
 let mevcutToken = null;
@@ -24,6 +25,15 @@ const soket = io(API_URL, {
 // yoksa anlık mesajlar uygulama yeniden açılana kadar sessizce dururdu.
 soket.on('connect_error', () => {
   if (mevcutToken && !soket.active) setTimeout(() => mevcutToken && soket.connect(), 5000);
+});
+
+// Soket bağlandıysa sunucuya ulaşılıyor demektir → "Bağlantı yok" şeridi kalkar.
+// Bağlantı kendiliğinden koptuysa (internet gitti, sunucu kapandı) şerit çıkar. Çıkış yapınca bizim
+// kapattığımız kopuş ('io client disconnect') ve sunucunun bizi bilerek kopardığı durum ('io server disconnect':
+// hesap silindi, daireden çıkarıldı, şifre değişti) bağlantı sorunu değildir, şerit çıkmaz.
+soket.on('connect', () => baglantiDurumuAyarla(true));
+soket.on('disconnect', (neden) => {
+  if (neden !== 'io client disconnect' && neden !== 'io server disconnect') baglantiDurumuAyarla(false);
 });
 
 // Giriş yapılınca (veya kayıtlı oturumla açılınca) çağrılır: token'ı ayarlar ve bağlanır.

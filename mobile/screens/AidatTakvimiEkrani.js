@@ -8,6 +8,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 're
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import HataMesaji from '../components/HataMesaji';
+import { useYenileme } from '../components/Yenileme';
 import SayfaSecici from '../components/SayfaSecici';
 import { AyKutusu } from '../components/Durum';
 import { AY_ADLARI } from '../bicim';
@@ -41,7 +42,6 @@ export default function AidatTakvimiEkrani({ route }) {
   const yukle = useCallback(async () => {
     const no = ++sonIstek.current;
     setHata('');
-    setAylar(null);
     try {
       const adres = yonetici ? `/yonetim/aidatlar/takvim/${daireId}` : '/aidatlar/takvim';
       const { data } = await api.get(adres, { params: { yil } });
@@ -55,6 +55,16 @@ export default function AidatTakvimiEkrani({ route }) {
   useEffect(() => {
     yukle();
   }, [yukle]);
+
+  // Ok butonları yılı değiştirir; eski yılın takvimi yeni yıl yüklenene kadar görünmesin diye aylar temizlenir.
+  // (Aşağı çekip yenilemede ve elle işaretlemeden sonra temizlenmez; takvim yerinde kalıp güncellenir.)
+  const yilDegistir = (fark) => {
+    setAylar(null);
+    setYil((y) => y + fark);
+  };
+
+  // Aşağı çekip yenileme: sayfa en üstteyken aşağı çekilince yukle tekrar çalışır (components/Yenileme.js).
+  const yenileme = useYenileme(yukle);
 
   // Elle işaretleme (sadece yönetici): önce onay sorulur; "İşaretle" seçilirse POST /api/yonetim/aidatlar/elle
   // isteğiyle o ay ödendi sayılır ve takvim yeniden yüklenir.
@@ -92,13 +102,13 @@ export default function AidatTakvimiEkrani({ route }) {
   const satirlar = aylar ? Array.from({ length: 6 }, (_, i) => aylar.slice(i * 2, i * 2 + 2)) : [];
 
   return (
-    <ScrollView style={styles.dis} contentContainerStyle={styles.icerik}>
+    <ScrollView style={styles.dis} contentContainerStyle={styles.icerik} refreshControl={yenileme}>
       {/* Yıl seçici: oklarla önceki/sonraki yıl (5 yıl geriye, 1 yıl ileriye kadar) */}
       <SayfaSecici
         baslik={String(yil)}
         alt={yonetici ? `Daire ${route.params.daireAdi}` : oturum.daire ? `Daire ${oturum.daire.ad}` : undefined}
-        onOnceki={() => setYil((y) => y - 1)}
-        onSonraki={() => setYil((y) => y + 1)}
+        onOnceki={() => yilDegistir(-1)}
+        onSonraki={() => yilDegistir(1)}
         oncekiPasif={yil <= enEskiYil}
         sonrakiPasif={yil >= enSonYil}
         oncekiAdi="Önceki yıl"

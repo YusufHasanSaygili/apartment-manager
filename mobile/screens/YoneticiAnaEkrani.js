@@ -10,6 +10,7 @@ import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
 import HataMesaji from '../components/HataMesaji';
+import { useYenileme } from '../components/Yenileme';
 import HesapKarti from '../components/HesapKarti';
 import Kutu from '../components/Kutu';
 import Gosterge from '../components/Gosterge';
@@ -72,6 +73,9 @@ export default function YoneticiAnaEkrani({ navigation }) {
     }, [yukle]),
   );
 
+  // Aşağı çekip yenileme: sayfa en üstteyken aşağı çekilince yukle tekrar çalışır (components/Yenileme.js).
+  const yenileme = useYenileme(yukle);
+
   // API isteği: POST /api/yonetim/aidatlar/hatirlatma ile bu ayın aidatını ödemeyen sakinlere hatırlatma gönderir.
   // Sonuçta kaç daireye gönderildiği, bildirimi kapalı sakin varsa o da yöneticiye gösterilir.
   const hatirlatmaGonder = async () => {
@@ -108,7 +112,7 @@ export default function YoneticiAnaEkrani({ navigation }) {
 
   return (
     // ScrollView: içerik ekrana sığmazsa sayfa kaydırılır.
-    <ScrollView style={styles.dis} contentContainerStyle={styles.icerik}>
+    <ScrollView style={styles.dis} contentContainerStyle={styles.icerik} refreshControl={yenileme}>
       {/* Selamlama, site adı ve kısa özet (bina, daire, aidat) */}
       <View style={styles.selamBlok}>
         <Text style={styles.selam}>Hoş geldin, {oturum.kullanici.ad}</Text>

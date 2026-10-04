@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, View } from 'reac
 import api from '../services/api';
 import Buton from '../components/Buton';
 import HataMesaji from '../components/HataMesaji';
+import { useYenileme } from '../components/Yenileme';
 import { ayAdi, paraBicimi, tarihBicimi } from '../bicim';
 import { kose, renkler, yaziTipi } from '../tema';
 
@@ -33,6 +34,9 @@ export default function BekleyenBildirimlerEkrani() {
   useEffect(() => {
     yukle();
   }, [yukle]);
+
+  // Aşağı çekip yenileme: sayfa en üstteyken aşağı çekilince yukle tekrar çalışır (components/Yenileme.js).
+  const yenileme = useYenileme(yukle);
 
   // islem: 'onayla' veya 'reddet'. API isteği: POST /api/yonetim/aidatlar/:id/onayla|reddet.
   // Başarılı olunca bildirim listeden çıkarılır (sunucudan yeniden çekmeye gerek yok).
@@ -81,6 +85,7 @@ export default function BekleyenBildirimlerEkrani() {
     // FlatList: bildirimleri listeler; boşsa ListEmptyComponent gösterilir.
     // keyExtractor: React'in her kartı ayırt etmesi için benzersiz anahtar (bildirim id'si).
     <FlatList
+      refreshControl={yenileme}
       style={styles.dis}
       contentContainerStyle={styles.icerik}
       data={bildirimler}

@@ -30,32 +30,45 @@ export function OturumProvider({ children }) {
   // useState değil useRef: değişince ekranın yeniden çizilmesine gerek yok.
   const dustuRef = useRef(false);
 
-  // useEffect: uygulama ilk açıldığında bir kez çalışır → otomatik giriş.
-  // Telefonda kayıtlı token varsa GET /api/hesap/ben ile hâlâ geçerli mi diye sorulur.
-  useEffect(() => {
-    const kayitliOturumuYukle = async () => {
-      try {
-        const token = await SecureStore.getItemAsync(TOKEN_ANAHTARI);
-        if (token) {
-          tokenAyarla(token);
-          const { data } = await api.get('/hesap/ben');
-          // Token geçerli: anlık mesajlar için soket bağlantısı da bu token ile açılır.
-          soketBaglan(token);
-          setOturum({ token, ...data });
-        }
-      } catch (hata) {
-        // 401: token süresi dolmuş veya hesap silinmiş → kayıtlı token silinir.
-        // Ağ hatasında token silinmez; internet gelince bir sonraki açılışta tekrar denenir.
-        tokenAyarla(null);
-        if (hata.durumKodu === 401) {
-          await SecureStore.deleteItemAsync(TOKEN_ANAHTARI);
-        }
-      } finally {
-        setHazir(true);
+  // useState: açılışta kayıtlı oturum sunucuya sorulamadıysa hatanın mesajı ('' = sorun yok). Doluysa App.js
+  // açılış ekranı yerine bu mesajı ve "Tekrar dene" butonunu gösterir; yoksa giriş yapmış kullanıcı
+  // (internet yok, sunucu kapalı) kendini çıkış yapmış sanırdı.
+  const [acilisHatasi, setAcilisHatasi] = useState('');
+
+  // Otomatik giriş: telefonda kayıtlı token varsa GET /api/hesap/ben ile hâlâ geçerli mi diye sorulur.
+  // useCallback: açılışta bir kez, sonra "Tekrar dene" butonuyla tekrar çağrılır.
+  // hataMesaji: sonuç en sonda tek seferde yazılır; böylece tekrar denerken ekran arada açılış ekranına atlamaz.
+  const kayitliOturumuYukle = useCallback(async () => {
+    let hataMesaji = '';
+    try {
+      const token = await SecureStore.getItemAsync(TOKEN_ANAHTARI);
+      if (token) {
+        tokenAyarla(token);
+        const { data } = await api.get('/hesap/ben');
+        // Token geçerli: anlık mesajlar için soket bağlantısı da bu token ile açılır.
+        soketBaglan(token);
+        setOturum({ token, ...data });
       }
-    };
-    kayitliOturumuYukle();
+    } catch (hata) {
+      tokenAyarla(null);
+      // 401: token süresi dolmuş veya hesap silinmiş → kayıtlı token silinir, açılış ekranı gösterilir.
+      // Diğer hatalarda (internet yok, sunucu kapalı, sunucu hatası) token silinmez; "Tekrar dene" ekranı çıkar,
+      // sunucuya ulaşılınca oturum kaldığı yerden devam eder.
+      if (hata.durumKodu === 401) {
+        await SecureStore.deleteItemAsync(TOKEN_ANAHTARI);
+      } else {
+        hataMesaji = hata.message;
+      }
+    } finally {
+      setAcilisHatasi(hataMesaji);
+      setHazir(true);
+    }
   }, []);
+
+  // useEffect: uygulama ilk açıldığında bir kez çalışır → otomatik giriş.
+  useEffect(() => {
+    kayitliOturumuYukle();
+  }, [kayitliOturumuYukle]);
 
   // useEffect: oturum açıldığında (giriş, kayıt, katılma veya otomatik giriş) çalışır.
   // Telefonun push token'ı alınıp PUT /api/hesap/push-token ile hesaba kaydedilir; böylece
@@ -159,10 +172,11 @@ export function OturumProvider({ children }) {
   useSoketOlayi('rolDegisti', oturumuYenile);
 
   // Provider: içine sarılan tüm ekranlara oturum bilgisini ve fonksiyonları dağıtır.
+  // acilisHatasi + kayitliOturumuYukle: App.js açılışta sunucuya ulaşılamazsa "Tekrar dene" ekranı için kullanır.
   // oturumuKapat: oturumDustu'nun ekranlara açılan adı. Hesap silindikten sonra HesapSil ekranı bunu çağırır;
   // cikisYap'tan farkı sunucuya istek atmamasıdır (hesap zaten silindi, push token isteği 401 alırdı).
   return (
-    <OturumContext.Provider value={{ oturum, hazir, oturumAc, cikisYap, oturumuYenile, oturumuKapat: oturumDustu }}>{children}</OturumContext.Provider>
+    <OturumContext.Provider value={{ oturum, hazir, acilisHatasi, kayitliOturumuYukle, oturumAc, cikisYap, oturumuYenile, oturumuKapat: oturumDustu }}>{children}</OturumContext.Provider>
   );
 }
 

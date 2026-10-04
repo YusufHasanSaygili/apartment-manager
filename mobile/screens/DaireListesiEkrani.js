@@ -6,6 +6,7 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-nativ
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import HataMesaji from '../components/HataMesaji';
+import { useYenileme } from '../components/Yenileme';
 import { BinaKarti, Lejant } from '../components/Durum';
 import { renkler, yaziTipi } from '../tema';
 
@@ -36,6 +37,9 @@ export default function DaireListesiEkrani({ navigation }) {
     }, [listeyiYukle]),
   );
 
+  // Aşağı çekip yenileme: sayfa en üstteyken aşağı çekilince listeyiYukle tekrar çalışır (components/Yenileme.js).
+  const yenileme = useYenileme(listeyiYukle);
+
   if (hata !== '') {
     return (
       <View style={styles.orta}>
@@ -56,6 +60,7 @@ export default function DaireListesiEkrani({ navigation }) {
   return (
     // FlatList: binaları alt alta listeler; her bina kendi kartında.
     <FlatList
+      refreshControl={yenileme}
       style={styles.dis}
       contentContainerStyle={styles.icerik}
       data={binalar}

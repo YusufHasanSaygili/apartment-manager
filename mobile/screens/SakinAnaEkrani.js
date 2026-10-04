@@ -8,6 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import HataMesaji from '../components/HataMesaji';
+import { useYenileme } from '../components/Yenileme';
 import HesapKarti from '../components/HesapKarti';
 import Kutu from '../components/Kutu';
 import { DURUMLAR, DurumRozeti } from '../components/Durum';
@@ -67,6 +68,9 @@ export default function SakinAnaEkrani({ navigation }) {
     }, [yukle]),
   );
 
+  // Aşağı çekip yenileme: sayfa en üstteyken aşağı çekilince yukle tekrar çalışır (components/Yenileme.js).
+  const yenileme = useYenileme(yukle);
+
   // Takvimdeki durumu ekrana çevirir: gelecek ayların "ödenmedi"si "henüz gelmedi", katılmadan önceki aylar "once"
   const ayDurumu = (a) => (a.durum === 'odenmedi' && a.ay > ay ? 'gelecek' : a.durum === 'bos' ? 'once' : a.durum);
   const buAy = veri ? ayDurumu(veri.aylar[ay - 1]) : null;
@@ -74,7 +78,7 @@ export default function SakinAnaEkrani({ navigation }) {
 
   return (
     // ScrollView: içerik ekrana sığmazsa sayfa kaydırılır.
-    <ScrollView style={styles.dis} contentContainerStyle={styles.icerik}>
+    <ScrollView style={styles.dis} contentContainerStyle={styles.icerik} refreshControl={yenileme}>
       <View style={styles.selamBlok}>
         <Text style={styles.selam}>Hoş geldin, {oturum.kullanici.ad}</Text>
         <Text style={styles.siteAd}>{oturum.site.ad}</Text>

@@ -9,6 +9,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import HataMesaji from '../components/HataMesaji';
+import { useYenileme } from '../components/Yenileme';
 import Ikon from '../components/Ikon';
 import Kutu from '../components/Kutu';
 import { goreliGun, saatBicimi, tarihBlogu } from '../bicim';
@@ -44,6 +45,9 @@ export default function DuyurularEkrani({ navigation }) {
     }, [yukle]),
   );
 
+  // Aşağı çekip yenileme: sayfa en üstteyken aşağı çekilince yukle tekrar çalışır (components/Yenileme.js).
+  const yenileme = useYenileme(yukle);
+
   // Listenin üst kısmı: yöneticiye iki kutu ve kısa ipucu; hata veya yükleniyor
   const ust = (
     <View style={styles.ust}>
@@ -67,6 +71,7 @@ export default function DuyurularEkrani({ navigation }) {
   return (
     // FlatList: duyuruları alt alta listeler.
     <FlatList
+      refreshControl={yenileme}
       style={styles.dis}
       contentContainerStyle={styles.icerik}
       data={duyurular ?? []}

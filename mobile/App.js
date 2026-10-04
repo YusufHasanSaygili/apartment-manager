@@ -2,7 +2,7 @@
 // yöneten React Navigation'ı kurar.
 import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer } from '@react-navigation/native';
@@ -33,6 +33,8 @@ import HesapSilEkrani from './screens/HesapSilEkrani';
 import SifremiUnuttumEkrani from './screens/SifremiUnuttumEkrani';
 import SohbetEkrani from './screens/SohbetEkrani';
 import AcilisAnimasyonu from './components/AcilisAnimasyonu';
+import BaglantiSeridi from './components/BaglantiSeridi';
+import HataMesaji from './components/HataMesaji';
 import { kose, renkler, yaziTipi } from './tema';
 
 // Telefonun koyu açılış ekranı (splash) kendiliğinden kapanmasın: açılış animasyonu ilk karesini çizince
@@ -61,7 +63,10 @@ const Stack = createNativeStackNavigator();
 // (Asıl yetki kontrolü backend'dedir; bu ayrım kullanıcıya doğru ekranları göstermek içindir.)
 function Ekranlar() {
   // oturum: giriş yapılmış mı; hazir: açılıştaki otomatik giriş kontrolü bitti mi (OturumContext'ten).
-  const { oturum, hazir } = useOturum();
+  const { oturum, hazir, acilisHatasi, kayitliOturumuYukle } = useOturum();
+  // useState: açılıştaki "Tekrar dene" isteği sürüyor mu. Sürerken buton yerine dönen simge gösterilir
+  // (sunucu cevap vermezse istek 10 sn sürebilir; kullanıcı butonun çalıştığını görsün).
+  const [deneniyor, setDeneniyor] = useState(false);
   // useSafeAreaInsets: telefonun alt gezinme çubuğunun yüksekliği. Android'de uygulama ekranın en altına kadar
   // uzandığı için bu kadar boşluk bırakılmazsa ekranların en alttaki butonları çubuğun arkasında kalır.
   const { bottom: altBosluk } = useSafeAreaInsets();
@@ -72,6 +77,28 @@ function Ekranlar() {
   // Bu sırada ekran seçilmez; yoksa giriş yapmış kullanıcı bir an açılış ekranını görürdü.
   if (!hazir) {
     return <View style={{ flex: 1, backgroundColor: renkler.arkaPlan }} />;
+  }
+
+  // Açılışta kayıtlı oturum sunucuya sorulamadı (internet yok, sunucu kapalı): açılış ekranı yerine hata ve
+  // "Tekrar dene" gösterilir. Kullanıcı çıkış yapmış sayılmaz; sunucuya ulaşılınca oturum kaldığı yerden açılır.
+  if (acilisHatasi) {
+    // "Tekrar dene" butonuna basınca: OturumContext'teki kayitliOturumuYukle tekrar çalışır (GET /api/hesap/ben).
+    // deneniyor kontrolü: butona hızlıca iki kez basılırsa ikinci istek atılmaz.
+    const tekrarDene = async () => {
+      if (deneniyor) return;
+      setDeneniyor(true);
+      await kayitliOturumuYukle();
+      setDeneniyor(false);
+    };
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: renkler.arkaPlan }}>
+        {deneniyor ? (
+          <ActivityIndicator size="large" color={renkler.birincil} />
+        ) : (
+          <HataMesaji mesaj={acilisHatasi} tekrarDene={tekrarDene} />
+        )}
+      </View>
+    );
   }
 
   return (
@@ -238,6 +265,8 @@ export default function App() {
             {/* StatusBar: telefonun üstteki saat/şarj çubuğu; koyu temada okunsun diye açık renk yazı */}
             <StatusBar style="light" />
           </NavigationContainer>
+          {/* Bağlantı yok şeridi: sunucuya ulaşılamayınca her ekranın altında görünür, bağlantı gelince kaybolur */}
+          <BaglantiSeridi />
           {/* Açılış animasyonu: uygulamanın üstünde tam ekran oynar; o sırada altta oturum kontrolü yapılır */}
           {!animasyonBitti && <AcilisAnimasyonu onBitti={() => setAnimasyonBitti(true)} />}
         </OturumProvider>
