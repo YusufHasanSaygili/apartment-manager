@@ -7,8 +7,9 @@ import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
 import FormAlani from '../components/FormAlani';
+import KodAlani from '../components/KodAlani';
 import HataMesaji from '../components/HataMesaji';
-import { renkler } from '../tema';
+import { renkler, yaziTipi } from '../tema';
 
 export default function DavetKatilEkrani() {
   // useState: formdaki 4 alanın değerleri. Kullanıcı yazdıkça güncellenir.
@@ -69,14 +70,8 @@ export default function DavetKatilEkrani() {
         Davet kodunu site yöneticinizden alabilirsiniz. Hesabınız kodun ait olduğu daireye bağlanır.
       </Text>
 
-      {/* Davet kodu alanı: sadece rakam kabul eder (rakam olmayanlar silinir), en fazla 6 hane */}
-      <FormAlani
-        etiket="Davet kodu (6 haneli)"
-        value={davetKodu}
-        onChangeText={(metin) => setDavetKodu(metin.replace(/\D/g, ''))}
-        keyboardType="number-pad"
-        maxLength={6}
-      />
+      {/* Davet kodu alanı: 6 ayrı kutu; sadece rakam kabul eder (rakam olmayanları KodAlani siler) */}
+      <KodAlani etiket="Davet kodu (6 haneli)" value={davetKodu} onChangeText={setDavetKodu} />
       <FormAlani etiket="Adınız Soyadınız" value={ad} onChangeText={setAd} autoComplete="name" />
       <FormAlani
         etiket="E-posta"
@@ -116,6 +111,7 @@ const styles = StyleSheet.create({
   },
   aciklama: {
     marginBottom: 20,
+    fontFamily: yaziTipi.metin,
     fontSize: 15,
     lineHeight: 22,
     color: renkler.soluk,

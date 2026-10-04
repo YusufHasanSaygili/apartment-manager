@@ -6,7 +6,7 @@ import api from '../services/api';
 import Buton from '../components/Buton';
 import HataMesaji from '../components/HataMesaji';
 import { ayAdi, paraBicimi, tarihBicimi } from '../bicim';
-import { renkler } from '../tema';
+import { kose, renkler, yaziTipi } from '../tema';
 
 export default function BekleyenBildirimlerEkrani() {
   // useState: sunucudan gelen bekleyen bildirimler. null → henüz yüklenmedi.
@@ -85,25 +85,34 @@ export default function BekleyenBildirimlerEkrani() {
       contentContainerStyle={styles.icerik}
       data={bildirimler}
       keyExtractor={(b) => b.id}
-      ListEmptyComponent={<Text style={styles.bos}>Onay bekleyen bildirim yok.</Text>}
+      ListEmptyComponent={<Text style={styles.bos}>Onay bekleyen aidat yok.</Text>}
       renderItem={({ item: b }) => (
         <View style={styles.kart}>
+          {/* Üst satır: solda daire rozeti, sağda tutar ve altında hangi ayın aidatı olduğu */}
           <View style={styles.ustSatir}>
-            <Text style={styles.daire}>{b.daire}</Text>
-            <Text style={styles.tutar}>{paraBicimi(b.tutar)}</Text>
+            <View style={styles.daireRozet}>
+              <Text style={styles.daire}>{b.daire}</Text>
+            </View>
+            <View style={styles.tutarBlok}>
+              <Text style={styles.tutar}>{paraBicimi(b.tutar)}</Text>
+              <Text style={styles.soluk}>{ayAdi(b.ay, b.yil)}</Text>
+            </View>
           </View>
-          <Text style={styles.satir}>
-            {ayAdi(b.ay, b.yil)} · {b.odemeYontemi === 'banka' ? 'Banka havalesi' : 'Elden'}
-          </Text>
+          {/* Ödeme yöntemi ve bildirimin gönderildiği tarih; altında sakinin adı tek başına */}
           <Text style={styles.soluk}>
-            {b.sakin} · {tarihBicimi(b.tarih)}
+            {b.odemeYontemi === 'banka' ? 'Banka havalesi' : 'Elden'} · {tarihBicimi(b.tarih)}
           </Text>
-          {b.aciklama !== '' && <Text style={styles.aciklama}>"{b.aciklama}"</Text>}
+          <Text style={styles.sakin}>{b.sakin}</Text>
+          {b.aciklama !== '' && (
+            <View style={styles.alinti}>
+              <Text style={styles.aciklama}>“{b.aciklama}”</Text>
+            </View>
+          )}
 
           <View style={styles.butonlar}>
-            {/* "Onayla" butonu: basınca sonuclandir(id, 'onayla') çalışır; o ay ödenmiş sayılır */}
+            {/* "Onayla" butonu (₺ coin ikonlu): basınca sonuclandir(id, 'onayla') çalışır; o ay ödenmiş sayılır */}
             <View style={styles.buton}>
-              <Buton baslik="Onayla" onPress={() => sonuclandir(b.id, 'onayla')} yukleniyor={islenenId === b.id} />
+              <Buton baslik="Onayla" ikon="odedi" onPress={() => sonuclandir(b.id, 'onayla')} yukleniyor={islenenId === b.id} />
             </View>
             {/* "Reddet" butonu: basınca önce onay sorulur (reddetOnayi), onaylanırsa bildirim reddedilir */}
             <View style={styles.buton}>
@@ -122,7 +131,7 @@ const styles = StyleSheet.create({
     backgroundColor: renkler.arkaPlan,
   },
   icerik: {
-    padding: 16,
+    padding: 18,
     gap: 12,
   },
   orta: {
@@ -135,40 +144,64 @@ const styles = StyleSheet.create({
   bos: {
     marginTop: 24,
     textAlign: 'center',
+    fontFamily: yaziTipi.metin,
     fontSize: 15,
     color: renkler.soluk,
   },
   kart: {
     padding: 16,
-    gap: 4,
-    borderRadius: 16,
+    gap: 6,
+    borderRadius: kose,
+    borderWidth: 1,
+    borderColor: renkler.kenarlik,
     backgroundColor: renkler.kart,
   },
   ustSatir: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+  },
+  daireRozet: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: kose,
+    backgroundColor: renkler.yuzey3,
   },
   daire: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontFamily: yaziTipi.mono,
+    fontSize: 17,
+    fontWeight: '600',
     color: renkler.yazi,
   },
-  tutar: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: renkler.birincil,
+  tutarBlok: {
+    alignItems: 'flex-end',
   },
-  satir: {
-    fontSize: 15,
+  tutar: {
+    fontFamily: yaziTipi.mono,
+    fontSize: 20,
+    fontWeight: '600',
     color: renkler.yazi,
   },
   soluk: {
-    fontSize: 14,
+    fontFamily: yaziTipi.metin,
+    fontSize: 13,
     color: renkler.soluk,
   },
+  sakin: {
+    fontFamily: yaziTipi.metin,
+    fontSize: 15.5,
+    fontWeight: '600',
+    color: renkler.yazi,
+  },
+  // Açıklama: solda ince çizgiyle alıntı gibi
+  alinti: {
+    marginTop: 2,
+    paddingLeft: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: renkler.kenarlikGuclu,
+  },
   aciklama: {
-    marginTop: 4,
+    fontFamily: yaziTipi.metin,
     fontSize: 14,
     fontStyle: 'italic',
     color: renkler.yazi,
@@ -177,7 +210,7 @@ const styles = StyleSheet.create({
   butonlar: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 12,
+    marginTop: 8,
   },
   buton: {
     flex: 1,

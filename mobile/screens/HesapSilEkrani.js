@@ -9,7 +9,8 @@ import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
 import FormAlani from '../components/FormAlani';
 import HataMesaji from '../components/HataMesaji';
-import { renkler } from '../tema';
+import Ikon from '../components/Ikon';
+import { kose, renkler, yaziTipi } from '../tema';
 
 // navigation: yöneticiyi Devir ekranına göndermek için kullanılır.
 export default function HesapSilEkrani({ navigation }) {
@@ -55,12 +56,19 @@ export default function HesapSilEkrani({ navigation }) {
   if (yonetici) {
     return (
       <View style={styles.yoneticiKutu}>
-        <Text style={styles.metin}>
-          Yönetici hesabı silinemez. Hesabınızı silmek için önce yöneticiliği sitedeki bir sakine devredin; devirden sonra
-          sakin olursunuz ve hesabınızı buradan silebilirsiniz.
-        </Text>
+        {/* Uyarı kartı: gri zeminde sarı kalkan, başlık ve açıklama */}
+        <View style={styles.kart}>
+          <View style={styles.buyukIkon}>
+            <Ikon ad="kalkan" boyut={30} renk={renkler.uyari} arka={renkler.yuzey3} />
+          </View>
+          <Text style={styles.kartBaslik}>Önce yöneticiliği devredin</Text>
+          <Text style={styles.metin}>
+            Site yöneticisiz kalamaz. Yöneticiliği bir sakine devrettikten sonra sakin olursunuz ve hesabınızı buradan
+            silebilirsiniz.
+          </Text>
+        </View>
         {/* "Yöneticiliği devret" butonu: basınca Devir ekranı açılır */}
-        <Buton baslik="Yöneticiliği devret" onPress={() => navigation.navigate('Devir')} />
+        <Buton baslik="Yöneticiliği devret" ikon="devret" onPress={() => navigation.navigate('Devir')} />
       </View>
     );
   }
@@ -73,20 +81,24 @@ export default function HesapSilEkrani({ navigation }) {
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.baslik}>Hesabınız kalıcı olarak silinecek</Text>
-      <Text style={styles.metin}>
-        • Adınız, e-postanız, şifreniz ve mesajlarınız silinir.{'\n'}
-        • Bu hesapla bir daha giriş yapılamaz.{'\n'}
-        • Dairenizin aidat geçmişi site kaydı olarak yöneticide kalır (adınız olmadan).{'\n'}
-        • Daireniz boşaltılır; yeni sakin yöneticiden alacağı yeni kodla katılır.
-      </Text>
+      {/* Uyarı kartı: kırmızı çerçeve, piksellere dağılan kimlik kartı ikonu ve silinecek bilgiler */}
+      <View style={[styles.kart, styles.kartTehlike]}>
+        <View style={[styles.buyukIkon, styles.buyukIkonTehlike]}>
+          <Ikon ad="hesapSil" boyut={30} renk={renkler.hata} arka={renkler.hataZemin} />
+        </View>
+        <Text style={styles.kartBaslik}>Hesabınız kalıcı olarak silinecek</Text>
+        <Text style={styles.metin}>
+          Adınız, e-postanız ve mesajlarınız silinir; bu hesapla bir daha giriş yapılamaz. Aidat geçmişi dairede kalır ama
+          sizinle bağlantısı kaldırılır. Bu işlem geri alınamaz.
+        </Text>
+      </View>
 
       {/* Şifre: hesabı sadece sahibinin silebilmesi için tekrar istenir (sağdaki göz ikonuyla görülebilir) */}
       <FormAlani etiket="Şifreniz" value={sifre} onChangeText={setSifre} secureTextEntry autoCapitalize="none" />
 
       {hata !== '' && <HataMesaji mesaj={hata} />}
       {/* "Hesabımı kalıcı olarak sil" butonu: basınca silOnayi çalışır (önce son onay sorulur) */}
-      <Buton baslik="Hesabımı kalıcı olarak sil" onPress={silOnayi} yukleniyor={siliniyor} />
+      <Buton baslik="Hesabımı kalıcı olarak sil" ikon="hesapSil" tur="tehlike" onPress={silOnayi} yukleniyor={siliniyor} />
     </KeyboardAwareScrollView>
   );
 }
@@ -97,23 +109,50 @@ const styles = StyleSheet.create({
     backgroundColor: renkler.arkaPlan,
   },
   icerik: {
-    padding: 24,
-    gap: 12,
+    padding: 18,
+    gap: 14,
   },
   yoneticiKutu: {
     flex: 1,
-    padding: 24,
-    gap: 16,
+    padding: 18,
+    gap: 14,
     backgroundColor: renkler.arkaPlan,
   },
-  baslik: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: renkler.hata,
+  kart: {
+    padding: 16,
+    gap: 9,
+    borderRadius: kose,
+    borderWidth: 1,
+    borderColor: renkler.kenarlik,
+    backgroundColor: renkler.kart,
+  },
+  kartTehlike: {
+    borderColor: renkler.hataCizgi,
+  },
+  // Büyük ikon kutusu: yöneticide gri zeminde sarı kalkan; sakinde koyu kırmızı zeminde kırmızı ikon (buton da aynı kırmızı)
+  buyukIkon: {
+    width: 56,
+    height: 56,
+    borderRadius: kose,
+    backgroundColor: renkler.yuzey3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buyukIkonTehlike: {
+    backgroundColor: renkler.hataZemin,
+    borderWidth: 1,
+    borderColor: renkler.hataCizgi,
+  },
+  kartBaslik: {
+    fontFamily: yaziTipi.metin,
+    fontSize: 17,
+    fontWeight: '600',
+    color: renkler.yazi,
   },
   metin: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: renkler.yazi,
+    fontFamily: yaziTipi.metin,
+    fontSize: 14,
+    lineHeight: 20,
+    color: renkler.soluk,
   },
 });

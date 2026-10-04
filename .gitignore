@@ -29,3 +29,6 @@ Thumbs.db
 
 # Firebase yapılandırması (her geliştirici kendi Firebase projesinden indirir)
 mobile/google-services.json
+
+# Tasarım önizleme sitesi (yerel çalışma aracı, ekran görüntüleri içerir)
+tasarim-onizleme/

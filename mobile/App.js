@@ -1,7 +1,10 @@
 // Uygulamanın giriş noktası: oturum bilgisini (OturumProvider) ve ekranlar arası geçişi
 // yöneten React Navigation'ı kurar.
+import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +32,23 @@ import DevirEkrani from './screens/DevirEkrani';
 import HesapSilEkrani from './screens/HesapSilEkrani';
 import SifremiUnuttumEkrani from './screens/SifremiUnuttumEkrani';
 import SohbetEkrani from './screens/SohbetEkrani';
-import { renkler } from './tema';
+import AcilisAnimasyonu from './components/AcilisAnimasyonu';
+import { kose, renkler, yaziTipi } from './tema';
+
+// Telefonun koyu açılış ekranı (splash) kendiliğinden kapanmasın: açılış animasyonu ilk karesini çizince
+// kapatılır (AcilisAnimasyonu içinde). Böylece splash ile animasyon arasında boş/beyaz kare görünmez.
+SplashScreen.preventAutoHideAsync();
+
+// Üst çubuktaki geri butonunun kutusu (36x36, koyu zemin, köşeli)
+const geriStili = {
+  width: 36,
+  height: 36,
+  marginRight: 12,
+  borderRadius: kose,
+  backgroundColor: renkler.yuzey2,
+  alignItems: 'center',
+  justifyContent: 'center',
+};
 
 // Stack navigator: ekranları üst üste dizer; yeni ekran açılınca öncekinin üstüne
 // gelir, geri tuşuyla bir öncekine dönülür.
@@ -57,26 +76,56 @@ function Ekranlar() {
 
   return (
     <Stack.Navigator
-      screenOptions={{
+      // screenOptions fonksiyon: her ekranın navigation nesnesine ulaşıp kendi geri butonunu çizmek için.
+      screenOptions={({ navigation }) => ({
         headerStyle: { backgroundColor: renkler.arkaPlan },
         headerTintColor: renkler.yazi,
+        // Başlık yazısı Geist yarı kalın; tüm ekranların üst çubuğu aynı görünür.
+        headerTitleStyle: {
+          fontFamily: yaziTipi.metin,
+          fontWeight: '600',
+          fontSize: 18,
+        },
         headerShadowVisible: false,
         // contentStyle: her ekranın dış kutusu. Alt çubuk kadar boşluk tüm ekranlara tek yerden eklenir.
-        contentStyle: { paddingBottom: altBosluk, backgroundColor: renkler.arkaPlan },
-      }}
+        contentStyle: {
+          paddingBottom: altBosluk,
+          backgroundColor: renkler.arkaPlan,
+        },
+        // Geri butonu: köşeli koyu kutu içinde ok (önizlemedeki tasarım). Basınca bir önceki ekrana dönülür.
+        headerLeft: ({ canGoBack }) =>
+          canGoBack ? (
+            <Pressable
+              onPress={navigation.goBack}
+              style={({ pressed }) => [geriStili, pressed && { opacity: 0.6 }]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Geri"
+            >
+              <Feather name="arrow-left" size={20} color={renkler.yazi} />
+            </Pressable>
+          ) : null,
+      })}
     >
       {oturum?.kullanici.rol === 'yonetici' ? (
         <>
-          <Stack.Screen name="YoneticiAna" component={YoneticiAnaEkrani} options={{ title: 'Apartmanım' }} />
+          {/* Ana ekranlarda üst çubuk yok: ekranın kendi büyük başlığı (site adı) var */}
+          <Stack.Screen name="YoneticiAna" component={YoneticiAnaEkrani} options={{ headerShown: false }} />
           {/* Kurulum ekranı: yönetici ana ekranındaki "Bina ve daire kurulumu" butonuyla açılır */}
           <Stack.Screen name="Kurulum" component={KurulumEkrani} options={{ title: 'Bina ve daire kurulumu' }} />
           {/* Daire listesi: ana ekrandaki "Daireler ve davet kodları" butonuyla açılır */}
           <Stack.Screen name="DaireListesi" component={DaireListesiEkrani} options={{ title: 'Daireler' }} />
-          {/* Daire kodu: alttan açılan pencere (formSheet); yüksekliği içeriğe göre ayarlanır */}
+          {/* Daire kodu: alttan açılan pencere. transparentModal: arkadaki daire listesi görünür kalır; karartma ve
+              pencere ekranın kendisinde çizilir (Android'in hazır pencere karartması sabit ve önizlemedekinden zayıf) */}
           <Stack.Screen
             name="DaireKodu"
             component={DaireKoduEkrani}
-            options={{ presentation: 'formSheet', headerShown: false, sheetAllowedDetents: 'fitToContents' }}
+            options={{
+              presentation: 'transparentModal',
+              animation: 'fade',
+              headerShown: false,
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
           />
           {/* Aidat tutarı: ana ekrandaki "Aidat tutarını belirle/değiştir" butonuyla açılır */}
           <Stack.Screen name="AidatTutari" component={AidatTutariEkrani} options={{ title: 'Aylık aidat tutarı' }} />
@@ -84,7 +133,7 @@ function Ekranlar() {
           <Stack.Screen
             name="BekleyenBildirimler"
             component={BekleyenBildirimlerEkrani}
-            options={{ title: 'Bekleyen bildirimler' }}
+            options={{ title: 'Bekleyen aidatlar' }}
           />
           {/* Daire haritası: ana ekrandaki "Daire haritası" butonuyla açılır */}
           <Stack.Screen name="DaireHaritasi" component={DaireHaritasiEkrani} options={{ title: 'Daire haritası' }} />
@@ -92,7 +141,9 @@ function Ekranlar() {
           <Stack.Screen
             name="AidatTakvimi"
             component={AidatTakvimiEkrani}
-            options={({ route }) => ({ title: `${route.params.daireAdi} aidat takvimi` })}
+            options={({ route }) => ({
+              title: `${route.params.daireAdi} aidat takvimi`,
+            })}
           />
           {/* Duyurular (yönetici): liste. DuyuruYaz "Yeni duyuru" butonuyla boş, bir duyuru kartına dokununca
               düzenleme modunda (dolu alanlar + silme butonu) açılır.
@@ -101,7 +152,9 @@ function Ekranlar() {
           <Stack.Screen
             name="DuyuruYaz"
             component={DuyuruYazEkrani}
-            options={({ route }) => ({ title: route.params?.duyuru ? 'Duyuruyu düzenle' : 'Yeni duyuru' })}
+            options={({ route }) => ({
+              title: route.params?.duyuru ? 'Duyuruyu düzenle' : 'Yeni duyuru',
+            })}
           />
           {/* Tekrarlayan duyurular: Duyurular ekranındaki "Tekrarlayan duyurular" butonuyla açılır (sadece yönetici) */}
           <Stack.Screen
@@ -120,13 +173,16 @@ function Ekranlar() {
           <Stack.Screen
             name="Sohbet"
             component={SohbetEkrani}
-            options={({ route }) => ({ title: route.params.baslik, contentStyle: sohbetIcerikStili })}
+            options={({ route }) => ({
+              title: route.params.baslik,
+              contentStyle: sohbetIcerikStili,
+            })}
           />
         </>
       ) : oturum ? (
         // Sakin ekranları: ana ekran, aidat bildirimi, aidat takvimi, duyurular ve yöneticiyle sohbet.
         <>
-          <Stack.Screen name="SakinAna" component={SakinAnaEkrani} options={{ title: 'Apartmanım' }} />
+          <Stack.Screen name="SakinAna" component={SakinAnaEkrani} options={{ headerShown: false }} />
           <Stack.Screen name="AidatBildir" component={AidatBildirEkrani} options={{ title: 'Aidat bildirimi' }} />
           {/* Aidat takvimi (sakin): aynı ekran, daireId verilmeden açılır → sakinin kendi dairesi */}
           <Stack.Screen name="AidatTakvimi" component={AidatTakvimiEkrani} options={{ title: 'Aidat takvimim' }} />
@@ -136,7 +192,11 @@ function Ekranlar() {
           <Stack.Screen
             name="Sohbet"
             component={SohbetEkrani}
-            options={{ title: 'Yönetici ile mesajlar', contentStyle: sohbetIcerikStili }}
+            // Başlık: ana ekrandan yöneticinin adıyla gelir ("Ayşe Yılmaz · Yönetici"); gelmezse genel başlık
+            options={({ route }) => ({
+              title: route.params?.baslik ?? 'Yönetici ile mesajlar',
+              contentStyle: sohbetIcerikStili,
+            })}
           />
           {/* Hesabımı sil (sakin): şifre onayıyla hesap kalıcı olarak silinir */}
           <Stack.Screen name="HesapSil" component={HesapSilEkrani} options={{ title: 'Hesabımı sil' }} />
@@ -148,7 +208,11 @@ function Ekranlar() {
           <Stack.Screen name="Giris" component={GirisEkrani} options={{ title: 'Giriş yap' }} />
           {/* Şifremi unuttum: giriş ekranındaki bağlantıyla açılır (giriş yapmamış kullanıcılar için) */}
           <Stack.Screen name="SifremiUnuttum" component={SifremiUnuttumEkrani} options={{ title: 'Şifremi unuttum' }} />
-          <Stack.Screen name="SiteOlustur" component={SiteOlusturEkrani} options={{ title: 'Yeni site/apartman oluştur' }} />
+          <Stack.Screen
+            name="SiteOlustur"
+            component={SiteOlusturEkrani}
+            options={{ title: 'Yeni site/apartman oluştur' }}
+          />
           <Stack.Screen name="DavetKatil" component={DavetKatilEkrani} options={{ title: 'Davet koduyla katıl' }} />
         </>
       )}
@@ -157,6 +221,9 @@ function Ekranlar() {
 }
 
 export default function App() {
+  // useState: açılış animasyonu bitti mi. Bitince (veya ekrana dokunup atlanınca) true olur ve animasyon kaldırılır.
+  const [animasyonBitti, setAnimasyonBitti] = useState(false);
+
   return (
     // SafeAreaProvider: ekranların telefonun çentik ve alt çubuk ölçülerini bilmesini sağlar.
     // KeyboardProvider: klavyenin açılıp kapanmasını tüm ekranlar için takip eder
@@ -168,9 +235,11 @@ export default function App() {
           {/* NavigationContainer: navigasyon durumunu tutar, tüm ekranları sarmalamak zorundadır */}
           <NavigationContainer>
             <Ekranlar />
-            {/* StatusBar: telefonun üstteki saat/şarj çubuğu; açık arka planda okunsun diye koyu yazı */}
-            <StatusBar style="dark" />
+            {/* StatusBar: telefonun üstteki saat/şarj çubuğu; koyu temada okunsun diye açık renk yazı */}
+            <StatusBar style="light" />
           </NavigationContainer>
+          {/* Açılış animasyonu: uygulamanın üstünde tam ekran oynar; o sırada altta oturum kontrolü yapılır */}
+          {!animasyonBitti && <AcilisAnimasyonu onBitti={() => setAnimasyonBitti(true)} />}
         </OturumProvider>
       </KeyboardProvider>
     </SafeAreaProvider>

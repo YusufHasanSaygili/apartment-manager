@@ -1,22 +1,36 @@
 // Ortak buton component'i: uygulamadaki tüm butonlar aynı görünüm ve davranışta olsun diye.
-// İki türü var: 'birincil' (dolu, ana işlem) ve 'ikincil' (çerçeveli, diğer seçenekler).
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
-import { renkler } from '../tema';
+// Dört türü var: 'birincil' (altın, ana işlem), 'ikincil' (koyu dolgu, diğer seçenekler),
+// 'tehlike' (kırmızı dolgu, geri alınamaz işlem) ve 'tehlikeCerceve' (koyu kırmızı zemin, daha hafif uyarı).
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { kose, renkler, yaziTipi } from '../tema';
+import Ikon from './Ikon';
+
+// Her türün zemin rengi, yazı rengi ve (varsa) çerçeve rengi. Tek tabloda durduğu için yeni tür eklemek kolay.
+const TURLER = {
+  birincil: { zemin: renkler.birincil, yazi: renkler.birincilUzeri },
+  ikincil: { zemin: renkler.yuzey2, yazi: renkler.yazi },
+  tehlike: { zemin: renkler.hataDolgu, yazi: '#FFFFFF' }, // ikonla aynı kırmızı ailesi, beyaz yazı okunaklı
+  tehlikeCerceve: { zemin: renkler.hataZemin, yazi: renkler.hata, cerceve: renkler.hataCizgi },
+};
 
 // baslik: buton yazısı, altYazi: (isteğe bağlı) başlığın altındaki küçük açıklama,
-// onPress: basınca çalışacak fonksiyon,
+// ikon: (isteğe bağlı) yazının solundaki ikonun adı (components/Ikon.js), onPress: basınca çalışacak fonksiyon,
 // yukleniyor: true ise yazı yerine dönen simge çıkar ve buton tekrar basılamaz
 // (aynı formun iki kez gönderilmesini önler).
-export default function Buton({ baslik, altYazi, onPress, tur = 'birincil', yukleniyor = false }) {
-  const birincil = tur === 'birincil';
+export default function Buton({ baslik, altYazi, ikon, onPress, tur = 'birincil', yukleniyor = false }) {
+  // Seçilen türün renklerini tablodan alır; aşağıda zemin, yazı ve ikon bu renklerle boyanır.
+  const renk = TURLER[tur];
 
   return (
     <Pressable
       style={({ pressed }) => [
         styles.buton,
-        birincil ? styles.birincil : styles.ikincil,
+        { backgroundColor: renk.zemin },
+        renk.cerceve && { borderWidth: 1, borderColor: renk.cerceve },
         (pressed || yukleniyor) && styles.basili,
       ]}
+      // Basınca ekranın gönderdiği onPress fonksiyonu çalışır (örn. giriş yap, aidat bildir).
+      // Yükleniyorken disabled olduğu için ikinci basış hiçbir şey yapmaz.
       onPress={onPress}
       disabled={yukleniyor}
       // Ekran okuyucu için: bunun bir buton olduğunu ve meşgulken beklemesi gerektiğini bildirir.
@@ -24,55 +38,53 @@ export default function Buton({ baslik, altYazi, onPress, tur = 'birincil', yukl
       accessibilityState={{ busy: yukleniyor }}
     >
       {yukleniyor ? (
-        <ActivityIndicator color={birincil ? renkler.birincilUzeri : renkler.birincil} />
+        <ActivityIndicator color={renk.yazi} />
       ) : (
-        <>
-          <Text style={[styles.yazi, birincil ? styles.birincilYazi : styles.ikincilYazi]}>{baslik}</Text>
-          {/* altYazi verilmişse başlığın altında küçük puntoyla gösterilir.
-              "altYazi && ..." yerine üçlü (? :) kullanılır: altYazi boş metin ("") olursa && onu ekrana yazmaya
-              çalışır ve React Native, Text dışındaki metin yüzünden çöker. ? : ise boşta null döner. */}
-          {altYazi ? (
-            <Text style={[styles.altYazi, birincil ? styles.birincilYazi : styles.ikincilYazi]}>{altYazi}</Text>
-          ) : null}
-        </>
+        <View style={styles.satir}>
+          {/* İkon verilmişse yazının solunda, yazıyla aynı renkte çizilir */}
+          {ikon ? <Ikon ad={ikon} boyut={20} renk={renk.yazi} arka={renk.zemin} /> : null}
+          <View style={styles.yazilar}>
+            <Text style={[styles.yazi, { color: renk.yazi }]}>{baslik}</Text>
+            {/* altYazi verilmişse başlığın altında küçük puntoyla gösterilir.
+                "altYazi && ..." yerine üçlü (? :) kullanılır: altYazi boş metin ("") olursa && onu ekrana yazmaya
+                çalışır ve React Native, Text dışındaki metin yüzünden çöker. ? : ise boşta null döner. */}
+            {altYazi ? <Text style={[styles.altYazi, { color: renk.yazi }]}>{altYazi}</Text> : null}
+          </View>
+        </View>
       )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  // minHeight 52: parmakla rahat basılabilecek boyut (en az 44 önerilir).
+  // minHeight 54: parmakla rahat basılabilecek boyut (en az 44 önerilir).
   buton: {
-    minHeight: 52,
+    minHeight: 54,
     paddingHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: kose,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  birincil: {
-    backgroundColor: renkler.birincil,
+  satir: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  ikincil: {
-    backgroundColor: renkler.kart,
-    borderWidth: 1.5,
-    borderColor: renkler.birincil,
+  yazilar: {
+    alignItems: 'center',
   },
   basili: {
     opacity: 0.75,
   },
   yazi: {
+    fontFamily: yaziTipi.metin,
     fontSize: 16,
     fontWeight: '600',
   },
   altYazi: {
     marginTop: 2,
-    fontSize: 13,
-    opacity: 0.85,
-  },
-  birincilYazi: {
-    color: renkler.birincilUzeri,
-  },
-  ikincilYazi: {
-    color: renkler.birincil,
+    fontFamily: yaziTipi.metin,
+    fontSize: 12,
+    opacity: 0.75,
   },
 });

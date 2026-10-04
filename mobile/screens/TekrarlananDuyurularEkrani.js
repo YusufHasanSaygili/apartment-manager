@@ -2,7 +2,7 @@
 // ekler ve siler ("Her pazartesi 08:00 — Çöp günü"). Vakti gelince duyuru, duyurular listesine düşer ve
 // sitedeki herkese bildirim gider. Üstte ekleme formu, altta mevcut tekrarlayan duyuruların listesi vardır.
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import api from '../services/api';
@@ -13,7 +13,8 @@ import SecimDugmesi from '../components/SecimDugmesi';
 import FormAlani from '../components/FormAlani';
 import HataMesaji from '../components/HataMesaji';
 import { tarihBicimi } from '../bicim';
-import { renkler } from '../tema';
+import Ikon from '../components/Ikon';
+import { kose, renkler, yaziTipi, yazilar } from '../tema';
 
 // Gün seçim düğmeleri Pazartesi'den başlar (Türkiye'de hafta Pazartesi başlar).
 // deger: backend'e giden sayı (JavaScript'teki gibi 0 = Pazar, 1 = Pazartesi ... 6 = Cumartesi).
@@ -48,7 +49,9 @@ export default function TekrarlananDuyurularEkrani() {
   const [baslik, setBaslik] = useState('');
   const [icerik, setIcerik] = useState('');
   const [secilenGunler, setSecilenGunler] = useState([]);
-  const [saat, setSaat] = useState('08:00');
+  // saat ve dakika ayrı kutularda elle yazılır ("08" : "00").
+  const [saatKutu, setSaatKutu] = useState('08');
+  const [dakikaKutu, setDakikaKutu] = useState('00');
   // useState: ekleme isteği sürerken true (form iki kez gönderilmez) ve formdaki hata mesajı.
   const [ekleniyor, setEkleniyor] = useState(false);
   const [formHatasi, setFormHatasi] = useState('');
@@ -78,17 +81,18 @@ export default function TekrarlananDuyurularEkrani() {
     setSecilenGunler((onceki) => (onceki.includes(deger) ? onceki.filter((g) => g !== deger) : [...onceki, deger]));
 
   // ekle: "Ekle" butonuna basınca çalışır. Telefonda kısa kontrol (hızlı geri bildirim), asıl kontrol backend'de.
-  // Saat "08:30" biçiminde yazılır; düzenli ifade (regex: metnin belli bir kalıba uyup uymadığını kontrol eden desen)
+  // Saat ve dakika iki ayrı kutudan alınıp "08:30" biçiminde birleştirilir; düzenli ifade (regex: metnin belli bir kalıba uyup uymadığını kontrol eden desen)
   // ile saat 0–23, dakika 0–59 olduğu kontrol edilir. Desenin parçaları:
   //   ^ ve $ → metnin tamamı kalıba uymalı (başında/sonunda fazlalık olamaz)
   //   ([01]?\d|2[0-3]) → saat: 0–19 ("8", "08", "19") veya 20–23
   //   :([0-5]\d) → iki nokta, ardından dakika: 00–59 (her zaman iki hane)
   // exec: uyarsa parantez içindeki kısımları verir (eslesme[1] = saat, eslesme[2] = dakika), uymazsa null döner.
   const ekle = async () => {
-    const eslesme = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(saat.trim());
+    // İki kutudaki değerler "08:30" biçiminde birleştirilir (dakika tek haneliyse başına 0 eklenir).
+    const eslesme = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(`${saatKutu}:${dakikaKutu.padStart(2, '0')}`);
     if (baslik.trim().length < 2 || !icerik.trim()) return setFormHatasi('Başlık (en az 2 karakter) ve içerik girin.');
     if (secilenGunler.length === 0) return setFormHatasi('En az bir gün seçin.');
-    if (!eslesme) return setFormHatasi('Saati 08:30 biçiminde girin.');
+    if (!eslesme) return setFormHatasi('Saati 0–23, dakikayı 0–59 arasında girin.');
 
     setFormHatasi('');
     setEkleniyor(true);
@@ -145,7 +149,7 @@ export default function TekrarlananDuyurularEkrani() {
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.aciklama}>
+      <Text style={[yazilar.aciklama, styles.aciklama]}>
         Seçtiğiniz gün ve saatte duyuru kendiliğinden yayınlanır ve herkese bildirim gider (Türkiye saati).
       </Text>
 
@@ -160,31 +164,48 @@ export default function TekrarlananDuyurularEkrani() {
         placeholder="Örn. Çöpler akşam 20.00'de alınacak."
       />
 
-      <Text style={styles.etiket}>Günler</Text>
+      <Text style={[yazilar.etiket, styles.etiket]}>GÜNLER</Text>
+      {/* 7 gün tek satırda, eşit genişlikte (flex: 1) */}
       <View style={styles.gunler}>
         {GUNLER.map((g) => {
           const secili = secilenGunler.includes(g.deger);
           return (
             // Gün düğmesi: basınca gunDegistir çalışır, gün seçilir veya seçimden çıkarılır (seçiliyse dolu renkli).
-            <SecimDugmesi key={g.deger} yazi={g.kisa} secili={secili} coklu onPress={() => gunDegistir(g.deger)} />
+            <SecimDugmesi key={g.deger} yazi={g.kisa} secili={secili} coklu style={styles.gun} onPress={() => gunDegistir(g.deger)} />
           );
         })}
       </View>
 
-      <FormAlani
-        etiket="Saat"
-        value={saat}
-        onChangeText={setSaat}
-        maxLength={5}
-        keyboardType="numbers-and-punctuation"
-        placeholder="08:30"
-      />
+      {/* Saat elle yazılır: iki kutu (saat : dakika), sadece rakam, en fazla 2 hane */}
+      <Text style={[yazilar.etiket, styles.etiket]}>SAAT</Text>
+      <View style={styles.saatSatir}>
+        <TextInput
+          style={styles.saatKutu}
+          value={saatKutu}
+          onChangeText={(m) => setSaatKutu(m.replace(/\D/g, ''))}
+          keyboardType="number-pad"
+          maxLength={2}
+          selectTextOnFocus
+          accessibilityLabel="Saat"
+        />
+        <Text style={styles.ikiNokta}>:</Text>
+        <TextInput
+          style={styles.saatKutu}
+          value={dakikaKutu}
+          onChangeText={(m) => setDakikaKutu(m.replace(/\D/g, ''))}
+          keyboardType="number-pad"
+          maxLength={2}
+          selectTextOnFocus
+          accessibilityLabel="Dakika"
+        />
+        <Text style={[yazilar.aciklama, styles.saatNot]}>{'saat : dakika\nTürkiye saati'}</Text>
+      </View>
 
       {formHatasi !== '' && <HataMesaji mesaj={formHatasi} />}
       {/* "Ekle" butonu: basınca ekle çalışır ve tekrarlayan duyuru backend'e kaydedilir */}
-      <Buton baslik="Ekle" onPress={ekle} yukleniyor={ekleniyor} />
+      <Buton baslik="Ekle" ikon="ekle" onPress={ekle} yukleniyor={ekleniyor} />
 
-      <Text style={styles.listeBaslik}>Tekrarlayan duyurular</Text>
+      <Text style={[yazilar.etiket, styles.listeBaslik]}>KAYITLI</Text>
       {/* Liste hatasında "Tekrar dene" butonu yukle'yi yeniden çalıştırır */}
       {listeHatasi !== '' && <HataMesaji mesaj={listeHatasi} tekrarDene={yukle} />}
       {liste === null && listeHatasi === '' && <ActivityIndicator color={renkler.birincil} />}
@@ -192,9 +213,12 @@ export default function TekrarlananDuyurularEkrani() {
       {liste?.map((t) => (
         <View key={t.id} style={styles.kart}>
           <View style={styles.kartUst}>
-            <Text style={styles.zaman}>
-              {gunMetni(t.gunler)} · {saatMetni(t.saat, t.dakika)}
-            </Text>
+            <View style={styles.zamanSatir}>
+              <Ikon ad="tekrar" boyut={16} renk={renkler.birincil} />
+              <Text style={styles.zaman}>
+                {gunMetni(t.gunler)} · {saatMetni(t.saat, t.dakika)}
+              </Text>
+            </View>
             {/* "Sil" düğmesi: basınca silOnayi çalışır (önce onay sorulur) */}
             <MetinButonu baslik="Sil" tehlike ortada={false} onPress={() => silOnayi(t)} />
           </View>
@@ -215,47 +239,76 @@ const styles = StyleSheet.create({
     backgroundColor: renkler.arkaPlan,
   },
   icerik: {
-    padding: 24,
+    padding: 18,
     gap: 4,
   },
   aciklama: {
-    marginBottom: 20,
-    fontSize: 15,
-    lineHeight: 22,
-    color: renkler.soluk,
+    marginBottom: 16,
   },
   uzunAlan: {
     minHeight: 100,
     textAlignVertical: 'top', // Android'de yazı kutunun üstünden başlasın
   },
   etiket: {
-    marginBottom: 6,
-    fontSize: 14,
-    fontWeight: '600',
-    color: renkler.yazi,
+    marginBottom: 7,
   },
   gunler: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 16,
+  },
+  // Gün düğmesi: 7 düğme satırı eşit paylaşır (minWidth ve yan boşluk sıfırlanır ki dar ekranda sığsın)
+  gun: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 0,
+  },
+  saatSatir: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     marginBottom: 16,
   },
-  listeBaslik: {
-    marginTop: 24,
-    marginBottom: 8,
-    fontSize: 18,
-    fontWeight: '700',
+  saatKutu: {
+    width: 72,
+    height: 52,
+    borderRadius: kose,
+    borderWidth: 1,
+    borderColor: renkler.kenarlik,
+    backgroundColor: renkler.kart,
+    textAlign: 'center',
+    fontFamily: yaziTipi.mono,
+    fontSize: 22,
+    fontWeight: '600',
     color: renkler.yazi,
   },
+  ikiNokta: {
+    fontFamily: yaziTipi.mono,
+    fontSize: 22,
+    fontWeight: '600',
+    color: renkler.soluk,
+  },
+  saatNot: {
+    marginLeft: 6,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  listeBaslik: {
+    marginTop: 20,
+    marginBottom: 8,
+  },
   bos: {
+    fontFamily: yaziTipi.metin,
     fontSize: 15,
     color: renkler.soluk,
   },
   kart: {
     marginBottom: 12,
     padding: 16,
-    gap: 4,
-    borderRadius: 16,
+    gap: 6,
+    borderRadius: kose,
+    borderWidth: 1,
+    borderColor: renkler.kenarlik,
     backgroundColor: renkler.kart,
   },
   kartUst: {
@@ -263,23 +316,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  zamanSatir: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   zaman: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontFamily: yaziTipi.mono,
+    fontSize: 13.5,
+    fontWeight: '600',
     color: renkler.birincil,
   },
   kartBaslik: {
+    fontFamily: yaziTipi.metin,
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '600',
     color: renkler.yazi,
   },
   kartMetin: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: renkler.yazi,
+    fontFamily: yaziTipi.metin,
+    fontSize: 14,
+    lineHeight: 20,
+    color: renkler.soluk,
   },
   son: {
+    fontFamily: yaziTipi.metin,
     fontSize: 13,
-    color: renkler.soluk,
+    color: renkler.sonuk,
   },
 });

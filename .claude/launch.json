@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tasarim-onizleme",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tasarim-onizleme/sunucu.js"],
+      "port": 5180
+    }
+  ]
+}

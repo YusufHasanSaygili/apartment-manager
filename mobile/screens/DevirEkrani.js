@@ -2,14 +2,50 @@
 // Önce yeni yöneticinin dairesi seçilir (örn. "B12 · Ahmet"). Yöneticinin kayıtlı bir dairesi yoksa (siteyi kuran
 // yönetici) devirden sonra oturacağı boş daire de seçilir. Devirden sonra ekranlar kendiliğinden sakin ekranlarına geçer.
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
 import HataMesaji from '../components/HataMesaji';
-// SecimDugmesi: seçilebilir daire düğmesi (ortak component); listeden yalnız biri seçilir.
-import SecimDugmesi from '../components/SecimDugmesi';
-import { renkler } from '../tema';
+import { karistir, kose, renkler, yaziTipi, yazilar } from '../tema';
+
+// Daire adına Türkçe yönelme eki: "A3" → "A3'e", "B6" → "B6'ya", "A10" → "A10'a" (sayının okunuşuna göre).
+const BIRLER = ["'a", "'e", "'ye", "'e", "'e", "'e", "'ya", "'ye", "'e", "'a"];
+const ONLAR = ['', "'a", "'ye", "'a", "'a", "'ye", "'a", "'e", "'e", "'a"];
+const yonelme = (ad) => {
+  const sayi = Number(ad.replace(/\D/g, ''));
+  return ad + (sayi % 10 === 0 && sayi > 0 ? ONLAR[(sayi / 10) % 10] : BIRLER[sayi % 10]);
+};
+
+// Seçim hücresi: eşit genişlikte kutu. renk: seçiliyken kullanılan durum rengi (yeşil = yeni yönetici gelir,
+// kırmızı = sizin gideceğiniz daire). rozet: (isteğe bağlı) soldaki daire etiketi.
+function Hucre({ yazi, rozet, secili, renk, onPress }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: secili }}
+      style={({ pressed }) => [
+        styles.hucre,
+        rozet && styles.hucreKisi,
+        secili && { backgroundColor: karistir(renk, 0.14), borderColor: karistir(renk, 0.6) },
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      {rozet ? (
+        <View style={[styles.rozet, secili && { backgroundColor: renk }]}>
+          <Text style={[styles.rozetYazi, secili && { color: renkler.arkaPlan }]}>{rozet}</Text>
+        </View>
+      ) : null}
+      <Text style={[styles.hucreYazi, secili && { color: renk }]} numberOfLines={1}>
+        {yazi}
+      </Text>
+    </Pressable>
+  );
+}
+
+// Elemanları n'li satırlara böler; son satır boş yer tutucularla tamamlanır ki kutular hizalı kalsın.
+const satirla = (liste, n) => Array.from({ length: Math.ceil(liste.length / n) }, (_, i) => liste.slice(i * n, i * n + n));
 
 export default function DevirEkrani() {
   // oturumuYenile: devirden sonra rolü sunucudan yeniden çeker; App.js sakin ekranlarına geçer.
@@ -98,41 +134,76 @@ export default function DevirEkrani() {
     );
   }
 
+  // Butonun yazısı ne olacağını söyler: "A3'e devret, A4'e geç"
+  const hedefDaire = secenekler.kendiDairem ?? kendiDaire;
+  const butonYazisi = yeniYonetici && hedefDaire ? `${yonelme(yeniYonetici.ad)} devret, ${yonelme(hedefDaire.ad)} geç` : 'Yöneticiliği devret';
+
   return (
     <ScrollView style={styles.dis} contentContainerStyle={styles.icerik}>
-      <Text style={styles.aciklama}>
+      <Text style={yazilar.aciklama}>
         Seçtiğiniz dairenin sakini yönetici olur; siz sakin olursunuz. Daireler, aidat geçmişi ve duyurular olduğu gibi kalır.
       </Text>
 
-      <Text style={styles.baslik}>1. Yeni yönetici</Text>
+      <View style={styles.bolum}>
+        <View style={styles.adimNo}>
+          <Text style={styles.adimNoYazi}>1</Text>
+        </View>
+        <Text style={styles.baslik}>Yeni yönetici</Text>
+      </View>
       {secenekler.adaylar.length === 0 ? (
         <Text style={styles.bos}>Sitede henüz kayıtlı sakin yok. Yöneticilik bir sakine devredilebilir.</Text>
       ) : (
-        <View style={styles.liste}>
-          {/* Aday düğmeleri: basınca setYeniYonetici çalışır, o dairenin sakini yeni yönetici olarak seçilir */}
-          {secenekler.adaylar.map((a) => (
-            <SecimDugmesi
-              key={a.daireId}
-              yazi={`${a.ad} · ${a.sakinAdi}`}
-              secili={yeniYonetici?.daireId === a.daireId}
-              onPress={() => setYeniYonetici(a)}
-            />
-          ))}
-        </View>
+        // Adaylar 2 eşit sütunda; seçilen yeşil (yönetici olarak gelecek kişi).
+        // Aday kutusu: basınca setYeniYonetici çalışır, o dairenin sakini yeni yönetici olarak seçilir.
+        satirla(secenekler.adaylar, 2).map((satir, i) => (
+          <View key={i} style={styles.satir}>
+            {[0, 1].map((j) =>
+              satir[j] ? (
+                <Hucre
+                  key={satir[j].daireId}
+                  rozet={satir[j].ad}
+                  yazi={satir[j].sakinAdi}
+                  renk={renkler.basarili}
+                  secili={yeniYonetici?.daireId === satir[j].daireId}
+                  onPress={() => setYeniYonetici(satir[j])}
+                />
+              ) : (
+                <View key={j} style={[styles.hucre, styles.hucreKisi, styles.yerTutucu]} />
+              ),
+            )}
+          </View>
+        ))
       )}
 
-      <Text style={styles.baslik}>2. Sizin daireniz</Text>
+      <View style={styles.bolum}>
+        <View style={styles.adimNo}>
+          <Text style={styles.adimNoYazi}>2</Text>
+        </View>
+        <Text style={styles.baslik}>Sizin daireniz</Text>
+      </View>
       {secenekler.kendiDairem ? (
-        <Text style={styles.bilgi}>Devirden sonra {secenekler.kendiDairem.ad} dairesinin sakini olacaksınız.</Text>
+        <Text style={yazilar.aciklama}>Devirden sonra {secenekler.kendiDairem.ad} dairesinin sakini olacaksınız.</Text>
       ) : (
         <>
-          <Text style={styles.bilgi}>Devirden sonra oturacağınız daireyi seçin (sadece boş daireler):</Text>
-          <View style={styles.liste}>
-            {/* Boş daire düğmeleri: basınca setKendiDaire çalışır, yönetici devirden sonra oturacağı daireyi seçer */}
-            {secenekler.bosDaireler.map((d) => (
-              <SecimDugmesi key={d.id} yazi={d.ad} secili={kendiDaire?.id === d.id} onPress={() => setKendiDaire(d)} />
-            ))}
-          </View>
+          <Text style={yazilar.aciklama}>Devirden sonra oturacağınız boş daire. Seçtiğiniz daire kırmızı (siz gidiyorsunuz).</Text>
+          {/* Boş daireler 5 eşit sütunda. Boş daire kutusu: basınca setKendiDaire çalışır */}
+          {satirla(secenekler.bosDaireler, 5).map((satir, i) => (
+            <View key={i} style={styles.satir}>
+              {[0, 1, 2, 3, 4].map((j) =>
+                satir[j] ? (
+                  <Hucre
+                    key={satir[j].id}
+                    yazi={satir[j].ad}
+                    renk={renkler.hata}
+                    secili={kendiDaire?.id === satir[j].id}
+                    onPress={() => setKendiDaire(satir[j])}
+                  />
+                ) : (
+                  <View key={j} style={[styles.hucre, styles.yerTutucu]} />
+                ),
+              )}
+            </View>
+          ))}
           {/* Boş daire yoksa ne yapılacağı açıklanır (yoksa liste boş görünür ve kullanıcı takılı kalır) */}
           {secenekler.bosDaireler.length === 0 && (
             <Text style={styles.bos}>
@@ -142,10 +213,11 @@ export default function DevirEkrani() {
         </>
       )}
 
-      {/* "Yöneticiliği devret" butonu: iki seçim de yapılınca açılır; basınca devretOnayi çalışır (önce onay sorulur) */}
+      {/* Devret butonu: iki seçim de yapılınca devretOnayi çalışır (önce onay sorulur); eksikse uyarı çıkar */}
       <View style={styles.alt}>
         <Buton
-          baslik="Yöneticiliği devret"
+          baslik={butonYazisi}
+          ikon="devret"
           onPress={hazir ? devretOnayi : () => Alert.alert('Seçim eksik', 'Önce yeni yöneticiyi ve dairenizi seçin.')}
           yukleniyor={devrediliyor}
         />
@@ -160,8 +232,8 @@ const styles = StyleSheet.create({
     backgroundColor: renkler.arkaPlan,
   },
   icerik: {
-    padding: 24,
-    gap: 12,
+    padding: 18,
+    gap: 8,
   },
   orta: {
     flex: 1,
@@ -169,30 +241,85 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: renkler.arkaPlan,
   },
-  aciklama: {
-    fontSize: 15,
-    lineHeight: 22,
+  bolum: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+  },
+  adimNo: {
+    width: 26,
+    height: 26,
+    borderRadius: kose,
+    backgroundColor: renkler.yuzey3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adimNoYazi: {
+    fontFamily: yaziTipi.mono,
+    fontSize: 12.5,
+    fontWeight: '600',
     color: renkler.soluk,
   },
   baslik: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '700',
+    fontFamily: yaziTipi.metin,
+    fontSize: 16,
+    fontWeight: '600',
     color: renkler.yazi,
   },
-  bilgi: {
-    fontSize: 15,
-    lineHeight: 22,
+  satir: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  // Yer tutucu: hücreyle aynı kutu ama görünmez; son satırdaki tek kutu genişleyip hizayı bozmasın diye
+  yerTutucu: {
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+  },
+  // flexBasis 0: yazı uzunluğundan bağımsız, satırdaki bütün kutular eşit genişlikte
+  hucre: {
+    flex: 1,
+    flexBasis: 0,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 6,
+    borderRadius: kose,
+    borderWidth: 1,
+    borderColor: renkler.kenarlik,
+    backgroundColor: renkler.kart,
+  },
+  hucreKisi: {
+    justifyContent: 'flex-start',
+    paddingHorizontal: 10,
+    minHeight: 52,
+  },
+  hucreYazi: {
+    flexShrink: 1,
+    fontFamily: yaziTipi.metin,
+    fontSize: 14,
+    fontWeight: '600',
+    color: renkler.yazi,
+  },
+  rozet: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: kose,
+    backgroundColor: renkler.yuzey3,
+  },
+  rozetYazi: {
+    fontFamily: yaziTipi.mono,
+    fontSize: 12.5,
+    fontWeight: '600',
     color: renkler.yazi,
   },
   bos: {
-    fontSize: 15,
+    fontFamily: yaziTipi.metin,
+    fontSize: 14,
+    lineHeight: 20,
     color: renkler.soluk,
-  },
-  liste: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
   },
   alt: {
     marginTop: 16,

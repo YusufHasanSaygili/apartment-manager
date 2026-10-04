@@ -1,14 +1,17 @@
 // Aidat tutarı ekranı: yönetici sitenin aylık aidat tutarını belirler veya değiştirir.
 // Bu tutar sakinlerin bildirim formunda hazır gelir (sakin isterse değiştirebilir).
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import api from '../services/api';
 import Buton from '../components/Buton';
-import FormAlani from '../components/FormAlani';
 import HataMesaji from '../components/HataMesaji';
-import { tutarMetni, tutarOku, tutarTemizle } from '../bicim';
-import { renkler } from '../tema';
+import { paraBicimi, tutarMetni, tutarOku, tutarTemizle } from '../bicim';
+import SecimDugmesi from '../components/SecimDugmesi';
+import { kose, renkler, yaziTipi, yazilar } from '../tema';
+
+// Hazır tutarlar: dokununca kutuya yazılır (yine de elle başka tutar girilebilir)
+const HAZIR = [1500, 5000, 10000];
 
 // route.params.aidatTutari: mevcut tutar (yönetici ana ekranından gelir; yoksa kutu boş başlar).
 export default function AidatTutariEkrani({ route, navigation }) {
@@ -41,6 +44,8 @@ export default function AidatTutariEkrani({ route, navigation }) {
     }
   };
 
+  const sayi = tutarOku(tutar);
+
   return (
     // KeyboardAwareScrollView: klavye açılınca alan ve buton klavyenin altında kalmaz.
     <KeyboardAwareScrollView
@@ -49,19 +54,30 @@ export default function AidatTutariEkrani({ route, navigation }) {
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.aciklama}>
-        Bu tutar sakinlerin aidat bildirimi formunda hazır gelir. Sakin farklı bir tutar ödediyse
-        (örn. 2 aylık) kendisi değiştirebilir.
-      </Text>
+      <Text style={yazilar.aciklama}>Sakinler aidat bildirimi gönderirken bu tutar hazır gelir.</Text>
 
-      {/* Tutar kutusu: sadece rakam ve virgül yazılabilir, örn. 750 veya 750,50 */}
-      <FormAlani
-        etiket="Aylık aidat tutarı (TL)"
-        value={tutar}
-        onChangeText={(metin) => setTutar(tutarTemizle(metin))}
-        keyboardType="decimal-pad"
-        maxLength={8}
-      />
+      {/* Büyük tutar kutusu: ortada, monospace; elle yazılır (sadece rakam ve virgül, örn. 750 veya 750,50) */}
+      <View style={styles.tutarSatir}>
+        <Text style={styles.tl}>₺</Text>
+        <TextInput
+          style={styles.tutar}
+          value={tutar}
+          onChangeText={(metin) => setTutar(tutarTemizle(metin))}
+          keyboardType="decimal-pad"
+          maxLength={8}
+          placeholder="0"
+          placeholderTextColor={renkler.sonuk}
+          selectionColor={renkler.birincil}
+          accessibilityLabel="Aylık aidat tutarı (TL)"
+        />
+      </View>
+
+      {/* Hazır tutar düğmeleri: basınca o tutar kutuya yazılır; kutudaki tutarla aynıysa seçili görünür */}
+      <View style={styles.hazirlar}>
+        {HAZIR.map((t) => (
+          <SecimDugmesi key={t} yazi={paraBicimi(t).replace(',00', '')} secili={sayi === t} style={styles.hazir} onPress={() => setTutar(String(t))} />
+        ))}
+      </View>
 
       {/* Hata varsa ortak hata kutusu gösterilir */}
       {hata !== '' && <HataMesaji mesaj={hata} />}
@@ -78,13 +94,41 @@ const styles = StyleSheet.create({
     backgroundColor: renkler.arkaPlan,
   },
   icerik: {
-    padding: 24,
-    gap: 4,
+    padding: 18,
+    gap: 14,
   },
-  aciklama: {
-    marginBottom: 20,
-    fontSize: 15,
-    lineHeight: 22,
+  tutarSatir: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 14,
+    borderRadius: kose,
+    borderWidth: 1,
+    borderColor: renkler.kenarlik,
+    backgroundColor: renkler.kart,
+  },
+  tl: {
+    fontFamily: yaziTipi.mono,
+    fontSize: 28,
     color: renkler.soluk,
+  },
+  tutar: {
+    minWidth: 120,
+    padding: 0,
+    textAlign: 'center',
+    fontFamily: yaziTipi.mono,
+    fontSize: 52,
+    fontWeight: '600',
+    letterSpacing: -1.5,
+    color: renkler.yazi,
+  },
+  hazirlar: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  hazir: {
+    flex: 1,
+    flexBasis: 0,
   },
 });

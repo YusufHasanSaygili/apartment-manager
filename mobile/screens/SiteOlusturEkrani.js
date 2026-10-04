@@ -8,7 +8,7 @@ import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
 import FormAlani from '../components/FormAlani';
 import HataMesaji from '../components/HataMesaji';
-import { renkler } from '../tema';
+import { renkler, yaziTipi } from '../tema';
 
 export default function SiteOlusturEkrani() {
   // useState: formdaki 4 alanın değerleri. Kullanıcı yazdıkça güncellenir.
@@ -109,6 +109,7 @@ const styles = StyleSheet.create({
   },
   aciklama: {
     marginBottom: 20,
+    fontFamily: yaziTipi.metin,
     fontSize: 15,
     lineHeight: 22,
     color: renkler.soluk,

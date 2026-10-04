@@ -8,7 +8,7 @@ import Buton from '../components/Buton';
 import FormAlani from '../components/FormAlani';
 import HataMesaji from '../components/HataMesaji';
 import { AY_ADLARI, tutarMetni, tutarOku, tutarTemizle } from '../bicim';
-import { renkler } from '../tema';
+import { kose, renkler, yaziTipi, yazilar } from '../tema';
 
 // Bu ay ve önceki 11 ay: [{ ay, yil }, ...] (en yeni başta). Backend de sadece bu aralığı kabul eder.
 function son12Ay() {
@@ -19,19 +19,25 @@ function son12Ay() {
   });
 }
 
-// Seçenek düğmesi: ay ve ödeme yöntemi seçimlerinde kullanılır; seçiliyse dolu renkli görünür.
-function Secenek({ yazi, secili, onPress }) {
+// Seçenek kutusu: ay ve ödeme yöntemi seçimlerinde kullanılır. Satırdaki kutular eşit genişlikte (hizalı);
+// seçiliyse koyu altın zemin + altın çerçeve. alt: (isteğe bağlı) altında küçük yazı (örn. yıl).
+function Secenek({ yazi, alt, secili, onPress }) {
   return (
     <Pressable
       style={({ pressed }) => [styles.secenek, secili && styles.secili, pressed && styles.basili]}
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected: secili }}
+      accessibilityLabel={alt ? `${yazi} ${alt}` : yazi}
     >
       <Text style={[styles.secenekYazi, secili && styles.seciliYazi]}>{yazi}</Text>
+      {alt ? <Text style={[styles.secenekAlt, secili && styles.seciliYazi]}>{alt}</Text> : null}
     </Pressable>
   );
 }
+
+// 12 ayı 3'lü satırlara böler (4 satır × 3 eşit kutu)
+const satirla = (liste) => Array.from({ length: Math.ceil(liste.length / 3) }, (_, i) => liste.slice(i * 3, i * 3 + 3));
 
 // route.params.aidatTutari: yöneticinin belirlediği aylık tutar (sakin ana ekranından gelir).
 export default function AidatBildirEkrani({ route, navigation }) {
@@ -96,16 +102,21 @@ export default function AidatBildirEkrani({ route, navigation }) {
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.baslik}>Hangi ayın aidatı?</Text>
-      <View style={styles.izgara}>
-        {/* Ay düğmeleri: basınca o ay seçilir (son 12 ay) */}
-        {aylar.map((a) => (
-          <Secenek
-            key={`${a.yil}-${a.ay}`}
-            yazi={`${AY_ADLARI[a.ay - 1].slice(0, 3)} ${a.yil}`}
-            secili={a.ay === secilenAy.ay && a.yil === secilenAy.yil}
-            onPress={() => setSecilenAy(a)}
-          />
+      <View style={styles.grup}>
+        <Text style={yazilar.etiket}>HANGİ AYIN AİDATI?</Text>
+        {/* Ay kutuları: 3 eşit sütun; basınca o ay seçilir (bu ay ve önceki 11 ay) */}
+        {satirla(aylar).map((satir, i) => (
+          <View key={i} style={styles.satir}>
+            {satir.map((a) => (
+              <Secenek
+                key={`${a.yil}-${a.ay}`}
+                yazi={AY_ADLARI[a.ay - 1].slice(0, 3)}
+                alt={String(a.yil)}
+                secili={a.ay === secilenAy.ay && a.yil === secilenAy.yil}
+                onPress={() => setSecilenAy(a)}
+              />
+            ))}
+          </View>
         ))}
       </View>
 
@@ -116,13 +127,16 @@ export default function AidatBildirEkrani({ route, navigation }) {
         onChangeText={(metin) => setTutar(tutarTemizle(metin))}
         keyboardType="decimal-pad"
         maxLength={8}
+        style={styles.buyukAlan}
       />
 
-      <Text style={styles.baslik}>Ödeme yöntemi</Text>
-      <View style={styles.satir}>
-        {/* Ödeme yöntemi düğmeleri: basınca o yöntem seçilir */}
-        <Secenek yazi="Banka havalesi" secili={odemeYontemi === 'banka'} onPress={() => setOdemeYontemi('banka')} />
-        <Secenek yazi="Elden" secili={odemeYontemi === 'elden'} onPress={() => setOdemeYontemi('elden')} />
+      <View style={styles.grup}>
+        <Text style={yazilar.etiket}>ÖDEME YÖNTEMİ</Text>
+        {/* Ödeme yöntemi kutuları: 2 eşit sütun; basınca o yöntem seçilir */}
+        <View style={styles.satir}>
+          <Secenek yazi="Banka havalesi" secili={odemeYontemi === 'banka'} onPress={() => setOdemeYontemi('banka')} />
+          <Secenek yazi="Elden" secili={odemeYontemi === 'elden'} onPress={() => setOdemeYontemi('elden')} />
+        </View>
       </View>
 
       <FormAlani
@@ -132,13 +146,14 @@ export default function AidatBildirEkrani({ route, navigation }) {
         placeholder="Örn. Ziraat'ten 1 Ekim'de attım"
         maxLength={200}
         multiline
+        style={styles.buyukAlan}
       />
 
       {/* Hata varsa ortak hata kutusu gösterilir */}
       {hata !== '' && <HataMesaji mesaj={hata} />}
 
       {/* "Bildirimi gönder" butonu: basınca gonder çalışır ve bildirim backend'e gönderilir */}
-      <Buton baslik="Bildirimi gönder" onPress={gonder} yukleniyor={yukleniyor} />
+      <Buton baslik="Bildirimi gönder" ikon="gonder" onPress={gonder} yukleniyor={yukleniyor} />
     </KeyboardAwareScrollView>
   );
 }
@@ -148,49 +163,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: renkler.arkaPlan,
   },
+  // Ferah düzen: bölümler arası geniş boşluk, büyük kutular (ekranın altında boşluk kalmasın)
   icerik: {
-    padding: 24,
-    gap: 12,
+    padding: 18,
+    paddingTop: 14,
+    gap: 14,
   },
-  baslik: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: renkler.yazi,
-  },
-  // flexWrap: ay düğmeleri yan yana dizilir, satır dolunca alt satıra geçer.
-  izgara: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
+  grup: {
+    gap: 10,
   },
   satir: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
+    gap: 10,
   },
+  // flexBasis 0: yazı uzunluğundan bağımsız, satırdaki kutular eşit genişlikte
   secenek: {
-    minHeight: 44,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    flex: 1,
+    flexBasis: 0,
+    minHeight: 60,
+    paddingHorizontal: 6,
+    borderRadius: kose,
     borderWidth: 1,
     borderColor: renkler.kenarlik,
+    alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: renkler.kart,
   },
   secili: {
     borderColor: renkler.birincil,
-    backgroundColor: renkler.birincil,
+    backgroundColor: renkler.birincilZemin,
   },
   basili: {
     opacity: 0.7,
   },
   secenekYazi: {
-    fontSize: 15,
+    fontFamily: yaziTipi.metin,
+    fontSize: 15.5,
+    fontWeight: '600',
     color: renkler.yazi,
   },
+  secenekAlt: {
+    fontFamily: yaziTipi.mono,
+    fontSize: 10.5,
+    color: renkler.soluk,
+  },
   seciliYazi: {
-    color: renkler.birincilUzeri,
-    fontWeight: '600',
+    color: renkler.birincil,
+  },
+  buyukAlan: {
+    minHeight: 58,
   },
 });

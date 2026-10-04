@@ -12,8 +12,9 @@ import api from '../services/api';
 import { useSoketOlayi } from '../services/soket';
 import { acikSohbetAyarla } from '../services/bildirim';
 import HataMesaji from '../components/HataMesaji';
-import { tarihBicimi } from '../bicim';
-import { renkler } from '../tema';
+import { gunEtiketi, saatBicimi } from '../bicim';
+import Ikon from '../components/Ikon';
+import { kose, renkler, yaziTipi } from '../tema';
 
 // Mesaj kutusuna yazılabilecek en fazla karakter (backend'deki sınırla aynı).
 const EN_FAZLA_KARAKTER = 1000;
@@ -204,24 +205,37 @@ export default function SohbetEkrani({ route }) {
         ListEmptyComponent={
           mesajlar && <Text style={styles.bos}>Henüz mesaj yok. İlk mesajı siz yazın.</Text>
         }
-        renderItem={({ item: m }) => (
-          // Baloncuk: benim mesajım sağda ve renkli, karşı tarafınki solda ve beyaz.
-          <View style={[styles.balon, m.benden ? styles.benim : styles.onun]}>
-            <Text style={[styles.mesaj, m.benden && styles.benimYazi]}>{m.icerik}</Text>
-            {/* Saat; benim mesajımsa yanında ✓ (iletildi) veya renkli ✓✓ (görüldü) */}
-            <Text style={[styles.saat, m.benden && styles.benimSaat]}>
-              {tarihBicimi(m.tarih)}
-              {m.benden && (
-                <Text
-                  style={m.okundu && styles.goruldu}
-                  accessibilityLabel={m.okundu ? 'Görüldü' : 'İletildi'}
-                >
-                  {m.okundu ? '  ✓✓' : '  ✓'}
-                </Text>
+        renderItem={({ item: m, index }) => {
+          // Gün ayıracı: bu mesaj kendi gününün ilk (en eski) mesajıysa üstünde "Bugün / Dün / 2 Ekim 2026" çıkar.
+          // Liste yeniden eskiye sıralı olduğu için bir sonraki eleman (index + 1) bir önceki mesajdır.
+          const onceki = mesajlar[index + 1];
+          const yeniGun = !onceki || new Date(onceki.tarih).toDateString() !== new Date(m.tarih).toDateString();
+          return (
+            <View>
+              {yeniGun && (
+                <View style={styles.gunAyrac}>
+                  <Text style={styles.gunYazi}>{gunEtiketi(m.tarih).toLocaleUpperCase('tr-TR')}</Text>
+                </View>
               )}
-            </Text>
-          </View>
-        )}
+              {/* Baloncuk: benim mesajım sağda ve koyu zümrüt, karşı tarafınki solda ve koyu gri. */}
+              <View style={[styles.balon, m.benden ? styles.benim : styles.onun]}>
+                <Text style={[styles.mesaj, m.benden && styles.benimYazi]}>{m.icerik}</Text>
+                {/* Sadece saat (gün yukarıdaki ayıraçta); benim mesajımsa yanında ✓ (iletildi) veya altın ✓✓ (görüldü) */}
+                <Text style={[styles.saat, m.benden && styles.benimSaat]}>
+                  {saatBicimi(m.tarih)}
+                  {m.benden && (
+                    <Text
+                      style={m.okundu && styles.goruldu}
+                      accessibilityLabel={m.okundu ? 'Görüldü' : 'İletildi'}
+                    >
+                      {m.okundu ? '  ✓✓' : '  ✓'}
+                    </Text>
+                  )}
+                </Text>
+              </View>
+            </View>
+          );
+        }}
       />
 
       {/* Gönderim hatası: yazılan metin silinmediği için kullanıcı tekrar "Gönder"e basarak yeniden deneyebilir */}
@@ -234,7 +248,7 @@ export default function SohbetEkrani({ route }) {
           value={metin}
           onChangeText={setMetin}
           placeholder="Mesaj yazın"
-          placeholderTextColor={renkler.soluk}
+          placeholderTextColor={renkler.sonuk}
           multiline
           maxLength={EN_FAZLA_KARAKTER}
           accessibilityLabel="Mesaj"
@@ -245,12 +259,14 @@ export default function SohbetEkrani({ route }) {
           onPress={gonder}
           disabled={!gonderilebilir}
           accessibilityRole="button"
+          accessibilityLabel="Gönder"
           accessibilityState={{ disabled: !gonderilebilir, busy: gonderiliyor }}
         >
           {gonderiliyor ? (
             <ActivityIndicator color={renkler.birincilUzeri} />
           ) : (
-            <Text style={styles.gonderYazi}>Gönder</Text>
+            // Kağıt uçak ikonu: yazı yerine; ekran okuyucu için butonun adı accessibilityLabel'da
+            <Ikon ad="gonder" boyut={24} renk={renkler.birincilUzeri} arka={renkler.birincil} />
           )}
         </Pressable>
       </View>
@@ -276,51 +292,67 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 8,
   },
+  // Gün ayıracı: ortada küçük köşeli etiket, monospace büyük harf
+  gunAyrac: {
+    alignSelf: 'center',
+    marginVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: kose,
+    backgroundColor: renkler.kart,
+  },
+  gunYazi: {
+    fontFamily: yaziTipi.mono,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    color: renkler.soluk,
+  },
   bos: {
     textAlign: 'center',
+    fontFamily: yaziTipi.metin,
     fontSize: 15,
     color: renkler.soluk,
   },
   balon: {
     maxWidth: '80%',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    borderRadius: kose,
     gap: 2,
   },
   benim: {
     alignSelf: 'flex-end',
-    backgroundColor: renkler.birincil,
-    borderBottomRightRadius: 4,
+    backgroundColor: renkler.balon, // koyu zümrüt: göz yormaz, altın sadece okundu tikinde
   },
   onun: {
     alignSelf: 'flex-start',
-    backgroundColor: renkler.kart,
-    borderBottomLeftRadius: 4,
+    backgroundColor: renkler.yuzey2,
   },
   mesaj: {
+    fontFamily: yaziTipi.metin,
     fontSize: 16,
     lineHeight: 22,
     color: renkler.yazi,
   },
   benimYazi: {
-    color: renkler.birincilUzeri,
+    color: renkler.balonYazi,
   },
   saat: {
     alignSelf: 'flex-end',
+    fontFamily: yaziTipi.mono,
     fontSize: 11,
     color: renkler.soluk,
   },
   goruldu: {
-    fontWeight: '700',
-    color: '#7DD3FC', // görüldü: açık mavi (WhatsApp'taki mavi tik gibi), iletildi'den ayırt edilsin diye
+    color: renkler.birincil, // görüldü: altın tik, iletildi (soluk) tikinden ayırt edilsin diye
   },
   benimSaat: {
-    color: '#CCFBF1', // birincil renk üstünde okunaklı açık ton
+    color: renkler.soluk, // koyu zümrüt balon üstünde okunaklı soluk ton
   },
   gonderimHatasi: {
     paddingHorizontal: 16,
     paddingVertical: 6,
+    fontFamily: yaziTipi.metin,
     fontSize: 14,
     color: renkler.hata,
     backgroundColor: renkler.kart,
@@ -330,39 +362,33 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 8,
     paddingHorizontal: 12,
-    paddingTop: 8,
-    backgroundColor: renkler.kart,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 10,
+    backgroundColor: renkler.arkaPlan,
+    borderTopWidth: 1,
     borderTopColor: renkler.kenarlik,
   },
   kutu: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 50,
     maxHeight: 120,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: renkler.kenarlik,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: kose,
+    fontFamily: yaziTipi.metin,
     fontSize: 16,
     color: renkler.yazi,
-    backgroundColor: renkler.arkaPlan,
+    backgroundColor: renkler.yuzey2,
   },
+  // Gönder: kare altın buton (köşeli tasarım), içinde kağıt uçak ikonu
   gonder: {
-    height: 44,
-    minWidth: 80,
-    paddingHorizontal: 16,
-    borderRadius: 22,
+    width: 50,
+    height: 50,
+    borderRadius: kose,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: renkler.birincil,
   },
   soluk: {
     opacity: 0.5,
-  },
-  gonderYazi: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: renkler.birincilUzeri,
   },
 });

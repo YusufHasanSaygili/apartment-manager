@@ -8,7 +8,7 @@ import api from '../services/api';
 import Buton from '../components/Buton';
 import FormAlani from '../components/FormAlani';
 import HataMesaji from '../components/HataMesaji';
-import { renkler } from '../tema';
+import { renkler, yazilar } from '../tema';
 
 // route.params.duyuru: düzenlenecek duyuru (listeden dokunulduysa). Yoksa yeni duyuru yazılır.
 export default function DuyuruYazEkrani({ route, navigation }) {
@@ -77,12 +77,14 @@ export default function DuyuruYazEkrani({ route, navigation }) {
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.aciklama}>Duyuru sitedeki herkesin duyurular listesinde görünür.</Text>
+      <Text style={[yazilar.aciklama, styles.aciklama]}>Duyuru sitedeki herkesin duyurular listesinde görünür.</Text>
 
-      <FormAlani etiket="Başlık" value={baslik} onChangeText={setBaslik} maxLength={80} placeholder="Örn. Bugün çöp günü" />
+      {/* sayac: yazılan karakter sayısı / en fazla (backend de aynı sınırları kontrol eder) */}
+      <FormAlani etiket="Başlık" sayac={`${baslik.length} / 80`} value={baslik} onChangeText={setBaslik} maxLength={80} placeholder="Örn. Bugün çöp günü" />
       {/* multiline: içerik birden fazla satır olabilir */}
       <FormAlani
         etiket="İçerik"
+        sayac={`${icerik.length} / 1000`}
         value={icerik}
         onChangeText={setIcerik}
         maxLength={1000}
@@ -100,7 +102,7 @@ export default function DuyuruYazEkrani({ route, navigation }) {
       {/* "Duyuruyu sil" butonu: sadece düzenlemede görünür; basınca silOnayi çalışır (önce onay sorulur) */}
       {duzenlenen && (
         <View style={styles.sil}>
-          <Buton baslik="Duyuruyu sil" tur="ikincil" onPress={silOnayi} yukleniyor={yukleniyor} />
+          <Buton baslik="Duyuruyu sil" ikon="cop" tur="tehlikeCerceve" onPress={silOnayi} yukleniyor={yukleniyor} />
         </View>
       )}
     </KeyboardAwareScrollView>
@@ -113,14 +115,11 @@ const styles = StyleSheet.create({
     backgroundColor: renkler.arkaPlan,
   },
   icerik: {
-    padding: 24,
+    padding: 18,
     gap: 4,
   },
   aciklama: {
-    marginBottom: 20,
-    fontSize: 15,
-    lineHeight: 22,
-    color: renkler.soluk,
+    marginBottom: 16,
   },
   sil: {
     marginTop: 12,

@@ -1,53 +1,69 @@
 // Kurulum ekranı: yönetici bina sayısını ve her binadaki daire sayısını girer.
-// Sistem daireleri A1, A2... B1, B2... diye otomatik oluşturur ve her birine davet kodu verir.
+// Sayılar −/+ düğmeleriyle veya ortadaki kutuya yazarak değiştirilir. Altta oluşacak dairelerin önizlemesi
+// (A1–A6, B1–B6...) canlı olarak görünür. Sistem daireleri otomatik oluşturur ve her birine davet kodu verir.
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import api from '../services/api';
 import Buton from '../components/Buton';
 import HataMesaji from '../components/HataMesaji';
-import { renkler } from '../tema';
+import { BinaKarti } from '../components/Durum';
+import { kose, renkler, yaziTipi, yazilar } from '../tema';
 
 // Bina adları için kullanılan harfler (en fazla 26 bina).
 const HARFLER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-// Tek satırlık sayı alanı: solda etiket, sağda en fazla 2 haneli küçük kutu.
-// Sadece rakam kabul eder: yazılan metindeki rakam olmayan karakterler silinir.
-function SayiAlani({ etiket, deger, degistir }) {
+// Sayı satırı: solda etiket ve sınır bilgisi, sağda − kutu + adımlayıcı.
+// −/+ değeri 1 azaltır/artırır (en az 1, en fazla enFazla); ortadaki kutuya elle de yazılabilir (sadece rakam).
+function SayiAlani({ etiket, alt, deger, degistir, enFazla }) {
+  const sayi = Number(deger) || 0;
+  // −/+ basınca çalışır: yeni değer 1 ile enFazla arasında tutulur
+  const adim = (fark) => degistir(String(Math.min(enFazla, Math.max(1, sayi + fark))));
   return (
     <View style={styles.satir}>
-      <Text style={styles.etiket}>{etiket}</Text>
-      <TextInput
-        style={styles.kutu}
-        value={deger}
-        onChangeText={(metin) => degistir(metin.replace(/\D/g, ''))}
-        keyboardType="number-pad"
-        maxLength={2}
-        accessibilityLabel={etiket}
-      />
+      <View style={styles.satirMetin}>
+        <Text style={styles.etiket}>{etiket}</Text>
+        <Text style={styles.alt}>{alt}</Text>
+      </View>
+      <View style={styles.adimlayici}>
+        {/* "−" düğmesi: basınca değer 1 azalır */}
+        <Pressable style={({ pressed }) => [styles.adimDugme, pressed && styles.basili]} onPress={() => adim(-1)} accessibilityRole="button" accessibilityLabel={`${etiket} azalt`}>
+          <Text style={styles.adimYazi}>−</Text>
+        </Pressable>
+        <TextInput
+          style={styles.kutu}
+          value={deger}
+          onChangeText={(metin) => degistir(metin.replace(/\D/g, ''))}
+          keyboardType="number-pad"
+          maxLength={2}
+          selectTextOnFocus
+          accessibilityLabel={etiket}
+        />
+        {/* "+" düğmesi (zümrüt): basınca değer 1 artar */}
+        <Pressable style={({ pressed }) => [styles.adimDugme, styles.arti, pressed && styles.basili]} onPress={() => adim(1)} accessibilityRole="button" accessibilityLabel={`${etiket} artır`}>
+          <Text style={[styles.adimYazi, { color: renkler.zumrutUzeri }]}>+</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 // navigation: kurulum bitince ana ekrana geri dönmek için kullanılır.
 export default function KurulumEkrani({ navigation }) {
-  // useState: iki kutudaki değerler (metin olarak tutulur, gönderirken sayıya çevrilir).
-  const [binaSayisi, setBinaSayisi] = useState('');
-  const [daireSayisi, setDaireSayisi] = useState('');
-
+  // useState: iki kutudaki değerler (metin olarak tutulur, gönderirken sayıya çevrilir). Örnek değerlerle başlar.
+  const [binaSayisi, setBinaSayisi] = useState('2');
+  const [daireSayisi, setDaireSayisi] = useState('6');
   // useState: istek sürerken true; butonda dönen simge çıkar, kurulum iki kez gönderilmez.
   const [yukleniyor, setYukleniyor] = useState(false);
-
-  // useState: hata olursa gösterilecek mesaj.
+  // useState: geçersiz giriş veya sunucu hatasında gösterilecek mesaj.
   const [hata, setHata] = useState('');
 
   const bina = Number(binaSayisi);
   const daire = Number(daireSayisi);
-  // İki değer de geçerliyse kullanıcıya ne oluşacağı önceden gösterilir (örn. "A1 – C12").
-  const gecerli = bina >= 1 && bina <= 26 && daire >= 1;
+  const gecerli = bina >= 1 && bina <= 26 && daire >= 1 && daire <= 99;
   const sonBina = HARFLER[bina - 1];
 
-  // Kurulum geri alınamaz; bu yüzden önce özet gösterilip onay istenir.
+  // "Daireleri oluştur"a basınca çalışır: sayıları kontrol eder, sonra işlem geri alınamaz olduğu için onay sorar.
   const onayIste = () => {
     if (!binaSayisi || !daireSayisi) {
       setHata('Bina sayısını ve her binadaki daire sayısını girin.');
@@ -68,56 +84,60 @@ export default function KurulumEkrani({ navigation }) {
       [
         { text: 'Vazgeç', style: 'cancel' },
         { text: 'Oluştur', onPress: kurulumYap },
-      ]
+      ],
     );
   };
 
-  // Onay penceresinde "Oluştur" seçilince çalışır: kurulumu backend'e gönderir.
+  // API isteği: POST /api/kurulum ile bina ve daire sayısını gönderir; daireler ve davet kodları sunucuda oluşur.
+  // Başarılıysa ana ekrana dönülür (orada kurulum tamamlanmış görünür).
   const kurulumYap = async () => {
     setYukleniyor(true);
     try {
-      // API isteği: iki sayıyı POST /api/kurulum adresine gönderir. Backend siteyi token'dan
-      // bulur; binaları, daireleri ve davet kodlarını oluşturur.
       await api.post('/kurulum', { binaSayisi: bina, daireSayisi: daire });
-      // Ana ekrana dönülür; ana ekran açılınca özeti yeniden çeker.
       navigation.goBack();
     } catch (e) {
-      // e.message: ortak API servisinin hazırladığı Türkçe hata mesajı (örn. "kurulum zaten yapılmış").
-      // yukleniyor sadece hatada kapatılır; başarıda ekran zaten kapanıyor.
       setHata(e.message);
       setYukleniyor(false);
     }
   };
 
+  // Önizleme: en fazla 3 bina ve her binada en fazla 12 daire gösterilir (fazlası "+N" ile belirtilir)
+  const onizleme = gecerli
+    ? Array.from({ length: Math.min(bina, 3) }, (_, b) => ({
+        ad: HARFLER[b],
+        daireler: Array.from({ length: Math.min(daire, 12) }, (_, d) => ({ id: `${b}-${d}`, ad: `${HARFLER[b]}${d + 1}`, durum: 'bosDaire' })),
+      }))
+    : [];
+
   return (
-    // KeyboardAwareScrollView: klavye açılınca alanlar ve buton klavyenin altında kalmaz.
-    <KeyboardAwareScrollView
-      style={styles.dis}
-      contentContainerStyle={styles.icerik}
-      bottomOffset={100}
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text style={styles.aciklama}>
-        Binalar A, B, C... diye, daireler A1, A2... diye otomatik adlandırılır. Her daireye sakinlerin
-        katılması için 6 haneli bir davet kodu verilir.
-      </Text>
+    // KeyboardAwareScrollView: klavye açılınca kutular ve buton klavyenin altında kalmaz.
+    <KeyboardAwareScrollView style={styles.dis} contentContainerStyle={styles.icerik} bottomOffset={100} keyboardShouldPersistTaps="handled">
+      <Text style={yazilar.aciklama}>Binalar A, B, C… diye, daireler A1, A2… diye otomatik adlandırılır.</Text>
 
-      <SayiAlani etiket="Bina sayısı" deger={binaSayisi} degistir={setBinaSayisi} />
-      <SayiAlani etiket="Her binada kaç daire var" deger={daireSayisi} degistir={setDaireSayisi} />
+      <SayiAlani etiket="Bina sayısı" alt="En fazla 26 (A–Z)" deger={binaSayisi} degistir={setBinaSayisi} enFazla={26} />
+      <SayiAlani etiket="Her binadaki daire" alt="En fazla 99" deger={daireSayisi} degistir={setDaireSayisi} enFazla={99} />
 
-      {/* İki sayı da geçerliyse oluşacak dairelerin özeti canlı olarak gösterilir */}
+      {/* İki sayı da geçerliyse oluşacak daireler canlı olarak önizlenir */}
       {gecerli && (
-        <Text style={styles.ozet}>
-          Toplam {bina * daire} daire: A1 – {sonBina}
-          {daire}
-        </Text>
+        <View style={styles.kart}>
+          <View style={styles.kartUst}>
+            <Text style={yazilar.etiket}>ÖNİZLEME</Text>
+            <Text style={styles.alt}>
+              {bina * daire} daire · {bina * daire} davet kodu
+            </Text>
+          </View>
+          {onizleme.map((b) => (
+            <BinaKarti key={b.ad} ad={b.ad} daireler={b.daireler} ikonsuz kucuk sutun={6} cercevesiz />
+          ))}
+          {(bina > 3 || daire > 12) && <Text style={styles.alt}>… A1 – {sonBina}{daire} arası tüm daireler oluşturulur.</Text>}
+        </View>
       )}
 
       {/* Hata varsa ortak hata kutusu gösterilir */}
       {hata !== '' && <HataMesaji mesaj={hata} />}
 
       {/* "Daireleri oluştur" butonu: basınca onayIste çalışır; onaylanırsa kurulumYap backend'e gönderir */}
-      <Buton baslik="Daireleri oluştur" onPress={onayIste} yukleniyor={yukleniyor} />
+      <Buton baslik="Daireleri oluştur" ikon="kurulum" onPress={onayIste} yukleniyor={yukleniyor} />
     </KeyboardAwareScrollView>
   );
 }
@@ -128,45 +148,83 @@ const styles = StyleSheet.create({
     backgroundColor: renkler.arkaPlan,
   },
   icerik: {
-    padding: 24,
-    gap: 16,
+    padding: 18,
+    gap: 12,
   },
-  aciklama: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: renkler.soluk,
-  },
-  // Etiket solda, kutu sağda: aynı satırda.
   satir: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
+    gap: 10,
+    paddingVertical: 12,
+    paddingLeft: 16,
+    paddingRight: 12,
+    borderRadius: kose,
+    borderWidth: 1,
+    borderColor: renkler.kenarlik,
     backgroundColor: renkler.kart,
   },
-  etiket: {
+  satirMetin: {
     flex: 1,
-    fontSize: 16,
+  },
+  etiket: {
+    fontFamily: yaziTipi.metin,
+    fontSize: 15,
     fontWeight: '600',
     color: renkler.yazi,
   },
-  // 2 haneye yetecek kadar dar, ortalanmış büyük rakamlı kutu.
-  kutu: {
-    width: 72,
-    minHeight: 50,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: renkler.kenarlik,
-    textAlign: 'center',
+  alt: {
+    fontFamily: yaziTipi.metin,
+    fontSize: 12,
+    color: renkler.soluk,
+  },
+  adimlayici: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    padding: 4,
+    borderRadius: kose,
+    backgroundColor: renkler.yuzey2,
+  },
+  adimDugme: {
+    width: 38,
+    height: 38,
+    borderRadius: kose,
+    backgroundColor: renkler.yuzey3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arti: {
+    backgroundColor: renkler.zumrutDolgu,
+  },
+  basili: {
+    opacity: 0.7,
+  },
+  adimYazi: {
+    fontFamily: yaziTipi.metin,
     fontSize: 20,
     fontWeight: '600',
     color: renkler.yazi,
   },
-  ozet: {
-    fontSize: 16,
-    fontWeight: '600',
+  kutu: {
+    width: 40,
+    padding: 0,
     textAlign: 'center',
-    color: renkler.birincil,
+    fontFamily: yaziTipi.mono,
+    fontSize: 18,
+    fontWeight: '600',
+    color: renkler.yazi,
+  },
+  kart: {
+    padding: 16,
+    gap: 12,
+    borderRadius: kose,
+    borderWidth: 1,
+    borderColor: renkler.kenarlik,
+    backgroundColor: renkler.kart,
+  },
+  kartUst: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 });

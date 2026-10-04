@@ -10,8 +10,9 @@ import { useOturum } from '../services/OturumContext';
 import Buton from '../components/Buton';
 import MetinButonu from '../components/MetinButonu';
 import FormAlani from '../components/FormAlani';
+import KodAlani from '../components/KodAlani';
 import HataMesaji from '../components/HataMesaji';
-import { renkler } from '../tema';
+import { renkler, yaziTipi } from '../tema';
 
 export default function SifremiUnuttumEkrani({ route }) {
   // oturumAc: şifre değişince sunucudan gelen token ile oturumu açar; App.js ana ekrana geçer.
@@ -92,14 +93,8 @@ export default function SifremiUnuttumEkrani({ route }) {
       ) : (
         <>
           {bilgi !== '' && <Text style={styles.bilgi}>{bilgi}</Text>}
-          <FormAlani
-            etiket="E-postanıza gelen kod"
-            value={kod}
-            onChangeText={setKod}
-            keyboardType="number-pad"
-            maxLength={6}
-            autoComplete="one-time-code"
-          />
+          {/* Kod alanı: e-postadaki 6 haneli kod kutulara yazılır; telefon kodu önerirse otomatik doldurulur */}
+          <KodAlani etiket="E-postanıza gelen kod" value={kod} onChangeText={setKod} autoComplete="one-time-code" />
           <FormAlani
             etiket="Yeni şifre (en az 8 karakter)"
             value={yeniSifre}
@@ -144,12 +139,14 @@ const styles = StyleSheet.create({
   },
   aciklama: {
     marginBottom: 20,
+    fontFamily: yaziTipi.metin,
     fontSize: 15,
     lineHeight: 22,
     color: renkler.soluk,
   },
   bilgi: {
     marginBottom: 16,
+    fontFamily: yaziTipi.metin,
     fontSize: 15,
     lineHeight: 22,
     color: renkler.basarili,

@@ -1,144 +1,211 @@
-// Sakin ana ekranı: davet koduyla katılan sakin giriş yapınca bu ekranı görür.
-// Site ve daire bilgisini, "Aidat bildirimi gönder" butonunu ve gönderdiği son 2 bildirimi
-// (durumlarıyla) gösterir; tüm aylar "Aidat takvimim" ekranındadır. "Duyurular" butonuyla sitenin
-// duyuru listesine, "Yöneticiye mesaj" butonuyla yöneticiyle sohbete geçilir.
+// Sakin ana ekranı: sakin giriş yapınca açılan ekran.
+// Üstte site adı ve daire kartı (daire adı + bu ayın aidat durumu), altında 2'li ızgarada (bento) işlemler:
+// aidat bildirimi gönder (altın, geniş), aidat takvimim (mini takvimli, uzun), duyurular ve yöneticiye mesaj.
+// Altta sakinin son aidat bildirimleri ve en altta hesap kartı (çıkış, hesap silme).
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../services/api';
 import { useOturum } from '../services/OturumContext';
-import Buton from '../components/Buton';
-import MetinButonu from '../components/MetinButonu';
-import CikisButonu from '../components/CikisButonu';
 import HataMesaji from '../components/HataMesaji';
-import { ayAdi, paraBicimi } from '../bicim';
-import { renkler } from '../tema';
+import HesapKarti from '../components/HesapKarti';
+import Kutu from '../components/Kutu';
+import { DURUMLAR, DurumRozeti } from '../components/Durum';
+import { AY_ADLARI, ayAdi, goreliGun, paraBicimi } from '../bicim';
+import { karistir, kose, renkler, yaziTipi, yazilar } from '../tema';
 
-// Bildirim durumlarının ekranda görünen adı ve rengi.
-const DURUMLAR = {
-  bekliyor: { yazi: 'Onay bekliyor', renk: renkler.uyari },
-  onaylandi: { yazi: 'Ödendi', renk: renkler.basarili },
-  reddedildi: { yazi: 'Reddedildi', renk: renkler.hata },
+// Bildirim durumu → rozetin rengi (Durum.js'teki durum) ve yazısı
+const BILDIRIM = {
+  bekliyor: { durum: 'bekliyor', yazi: 'Onay bekliyor' },
+  onaylandi: { durum: 'odendi', yazi: 'Ödendi' },
+  reddedildi: { durum: 'odenmedi', yazi: 'Reddedildi' },
 };
-
-// Ödeme yöntemlerinin ekranda görünen adı. (Yöneticinin elle işaretlediği kayıtlar bu listeye
-// gelmez; onlar "Aidat takvimim" ekranında "Yönetici işaretledi" olarak görünür.)
 const YONTEMLER = { banka: 'Banka havalesi', elden: 'Elden' };
+// Mini takvimdeki ay baş harfleri (Ocak … Aralık)
+const BAS_HARF = ['O', 'Ş', 'M', 'N', 'M', 'H', 'T', 'A', 'E', 'E', 'K', 'A'];
 
-// navigation: aidat bildirimi ve aidat takvimi ekranlarını açmak için kullanılır.
+// navigation: aidat bildirimi, takvim, duyurular, sohbet ve hesap silme ekranlarına geçmek için kullanılır.
 export default function SakinAnaEkrani({ navigation }) {
-  // Oturumdaki kullanıcı, site ve daire bilgisi (giriş/katılma sırasında sunucudan geldi).
-  // App.js bu ekranı sadece rolü 'sakin' olan oturumlarda gösterir.
   const { oturum } = useOturum();
-
-  // useState: sunucudan gelen { aidatTutari, bildirimler }. null → henüz yüklenmedi.
+  // useState: ekranın verisi { benim, aylar, yonetici, yeniDuyuru }. null → henüz yüklenmedi.
   const [veri, setVeri] = useState(null);
-  // useState: liste yüklenemezse gösterilecek hata mesajı.
+  // useState: veri yüklenemezse gösterilecek hata mesajı.
   const [hata, setHata] = useState('');
 
-  // API isteği: GET /api/aidatlar/benim ile sitenin aidat tutarını ve kendi dairemin son 2 bildirimini çeker.
+  const simdi = new Date();
+  const ay = simdi.getMonth() + 1;
+  const yil = simdi.getFullYear();
+
+  // API istekleri (aynı anda): GET /api/aidatlar/benim (son bildirimler, aidat tutarı), GET /api/aidatlar/takvim
+  // (bu yılın ayları: bu ayın durumu ve mini takvim), GET /api/mesajlar/sohbetler (yöneticinin adı, okunmamış mesaj),
+  // GET /api/duyurular (bugün gelen duyuru sayısı).
+  // useCallback: yukle her çizimde yeniden oluşturulmaz; useFocusEffect ona bağlı olduğu için gereksiz istek atılmaz.
   const yukle = useCallback(async () => {
     setHata('');
     try {
-      const { data } = await api.get('/aidatlar/benim');
-      setVeri(data);
+      const [benim, takvim, sohbetler, duyurular] = await Promise.all([
+        api.get('/aidatlar/benim'),
+        api.get('/aidatlar/takvim', { params: { yil } }),
+        api.get('/mesajlar/sohbetler'),
+        api.get('/duyurular'),
+      ]);
+      setVeri({
+        benim: benim.data,
+        aylar: takvim.data.aylar,
+        yonetici: sohbetler.data[0] ?? null,
+        yeniDuyuru: duyurular.data.filter((d) => goreliGun(d.tarih) === 'Bugün').length,
+      });
     } catch (e) {
       setHata(e.message);
     }
-  }, []);
+  }, [yil]);
 
-  // useFocusEffect: ekran her öne geldiğinde çalışır; bildirim gönderip geri dönünce
-  // yeni bildirim listede kendiliğinden görünür.
+  // useFocusEffect: ekran her öne geldiğinde veri yenilenir; bildirim gönderip veya mesaj okuyup dönünce güncel olur.
   useFocusEffect(
     useCallback(() => {
       yukle();
-    }, [yukle])
+    }, [yukle]),
   );
 
-  // Listenin üst kısmı: karşılama, daire bilgisi, bildirim butonu ve liste başlığı.
-  const ust = (
-    <View style={styles.ust}>
-      <Text style={styles.selam}>Hoş geldin, {oturum.kullanici.ad}</Text>
-      <Text style={styles.site}>{oturum.site.ad}</Text>
-
-      <View style={styles.kart}>
-        <Text style={styles.kartEtiket}>Daireniz</Text>
-        {/* daire normalde hep doludur; sunucu dairenin/binanın kaydını bulamazsa null gelir, o durumda çizgi gösterilir */}
-        <Text style={styles.daire}>{oturum.daire?.ad ?? '—'}</Text>
-      </View>
-
-      {/* "Aidat bildirimi gönder" butonu: basınca AidatBildir ekranı açılır; yöneticinin
-          belirlediği tutar da gönderilir ki formda hazır gelsin */}
-      <Buton
-        baslik="Aidat bildirimi gönder"
-        onPress={() => navigation.navigate('AidatBildir', { aidatTutari: veri?.aidatTutari })}
-      />
-      {/* "Aidat takvimim" butonu: basınca AidatTakvimi ekranı açılır (sakin kendi dairesinin takvimini görür) */}
-      <Buton baslik="Aidat takvimim" tur="ikincil" onPress={() => navigation.navigate('AidatTakvimi')} />
-      {/* "Duyurular" butonu: basınca sitenin duyuru listesi açılır */}
-      <Buton baslik="Duyurular" tur="ikincil" onPress={() => navigation.navigate('Duyurular')} />
-      {/* "Yöneticiye mesaj" butonu: basınca Sohbet ekranı açılır; sakin sadece sitenin yöneticisiyle yazışabilir */}
-      <Buton baslik="Yöneticiye mesaj" tur="ikincil" onPress={() => navigation.navigate('Sohbet')} />
-
-      <Text style={styles.listeBaslik}>Son bildirimlerim</Text>
-      <Text style={styles.bos}>Tüm aylar için "Aidat takvimim" ekranına bakın.</Text>
-      {hata !== '' && <HataMesaji mesaj={hata} tekrarDene={yukle} />}
-      {veri === null && hata === '' && <ActivityIndicator color={renkler.birincil} />}
-    </View>
-  );
+  // Takvimdeki durumu ekrana çevirir: gelecek ayların "ödenmedi"si "henüz gelmedi", katılmadan önceki aylar "once"
+  const ayDurumu = (a) => (a.durum === 'odenmedi' && a.ay > ay ? 'gelecek' : a.durum === 'bos' ? 'once' : a.durum);
+  const buAy = veri ? ayDurumu(veri.aylar[ay - 1]) : null;
+  const buAyYazi = { odendi: 'Ödendi', bekliyor: 'Onay bekliyor', odenmedi: 'Ödenmedi', once: 'Henüz katılmadınız' }[buAy];
 
   return (
-    // Ekran iki parça: üstte kayan liste (flex: 1 ile kalan alanı kaplar), altta sabit çıkış butonu.
-    // Böylece çıkış butonu kaydırmaya gerek kalmadan her zaman görünür.
-    <View style={styles.dis}>
-      {/* FlatList: son bildirimleri listeler; üst kısım (karşılama, butonlar) listenin başına eklenir.
-          keyExtractor: her bildirimin benzersiz anahtarı (id).
-          ListEmptyComponent "veri &&" ile yazıldı: "Henüz bildirim yok" yazısı yüklenirken değil, veri gelince çıkar.
-          renderItem: listedeki her bildirim için bir satır çizer (ay, tutar, yöntem, durum etiketi). */}
-      <FlatList
-        style={styles.liste}
-        contentContainerStyle={styles.icerik}
-        data={veri?.bildirimler ?? []}
-        keyExtractor={(b) => b.id}
-        ListHeaderComponent={ust}
-        ListEmptyComponent={veri && <Text style={styles.bos}>Henüz bildirim göndermediniz.</Text>}
-        renderItem={({ item: b }) => {
-          const durum = DURUMLAR[b.durum];
-          const reddedildi = b.durum === 'reddedildi';
-          return (
-            // Sadece reddedilen bildirime dokunulabilir: basınca AidatBildir ekranı o ay seçili açılır,
-            // sakin aynı ay için yeniden bildirim gönderir. Diğer bildirimler dokunmaya kapalıdır (disabled).
-            <Pressable
-              style={({ pressed }) => [styles.bildirim, pressed && styles.basili]}
-              disabled={!reddedildi}
-              onPress={() =>
-                navigation.navigate('AidatBildir', { aidatTutari: veri?.aidatTutari, ay: b.ay, yil: b.yil })
-              }
-              accessibilityRole={reddedildi ? 'button' : undefined}
-              accessibilityHint={reddedildi ? 'Bu ay için yeniden bildirim gönderir' : undefined}
-            >
-              <View style={styles.bildirimSol}>
-                <Text style={styles.bildirimAy}>{ayAdi(b.ay, b.yil)}</Text>
-                <Text style={styles.bildirimDetay}>
-                  {paraBicimi(b.tutar)} · {YONTEMLER[b.odemeYontemi]}
-                </Text>
-                {b.aciklama !== '' && <Text style={styles.bildirimDetay}>{b.aciklama}</Text>}
-                {reddedildi && <Text style={styles.tekrar}>Tekrar göndermek için dokunun ›</Text>}
-              </View>
-              {/* Durum etiketi: rengi duruma göre (sarı = bekliyor, yeşil = ödendi, kırmızı = reddedildi) */}
-              <Text style={[styles.durum, { color: durum.renk, borderColor: durum.renk }]}>{durum.yazi}</Text>
-            </Pressable>
-          );
-        }}
-      />
-
-      {/* Sabit alt kısım: çıkış butonu (basınca onay sorulur) */}
-      <View style={styles.alt}>
-        <CikisButonu />
-        {/* "Hesabımı sil" bağlantısı: basınca HesapSil ekranı açılır (geri alınamaz işlem; orada şifre ve onay istenir).
-            Kırmızı ve küçük yazı: ana işlem olmadığı, yanlışlıkla basılmaması için göze batmayan bir bağlantı. */}
-        <MetinButonu baslik="Hesabımı sil" tehlike onPress={() => navigation.navigate('HesapSil')} />
+    // ScrollView: içerik ekrana sığmazsa sayfa kaydırılır.
+    <ScrollView style={styles.dis} contentContainerStyle={styles.icerik}>
+      <View style={styles.selamBlok}>
+        <Text style={styles.selam}>Hoş geldin, {oturum.kullanici.ad}</Text>
+        <Text style={styles.siteAd}>{oturum.site.ad}</Text>
       </View>
+
+      {/* Daire kartı: solda daire adı (büyük, mono), sağda bu ayın aidat durumu ("EKİM" zümrüt renkte) */}
+      <View style={styles.kart}>
+        <View style={styles.daireKart}>
+          <View>
+            <Text style={yazilar.etiket}>DAİRENİZ</Text>
+            {/* daire normalde hep doludur; sunucu dairenin kaydını bulamazsa null gelir, o durumda çizgi gösterilir */}
+            <Text style={styles.daireBuyuk}>{oturum.daire?.ad ?? '—'}</Text>
+          </View>
+          {buAy && buAyYazi && (
+            <View style={styles.buAy}>
+              <Text style={yazilar.etiket}>
+                <Text style={{ color: renkler.zumrut }}>{AY_ADLARI[ay - 1].toLocaleUpperCase('tr-TR')}</Text> AİDATI
+              </Text>
+              <DurumRozeti durum={buAy === 'once' ? 'gelecek' : buAy} yazi={buAyYazi} />
+            </View>
+          )}
+        </View>
+      </View>
+
+      {hata !== '' ? (
+        // Hata olursa "Tekrar dene" ile yukle yeniden çalışır
+        <HataMesaji mesaj={hata} tekrarDene={yukle} />
+      ) : veri === null ? (
+        <ActivityIndicator color={renkler.birincil} style={styles.yukleniyor} />
+      ) : (
+        <>
+          {/* "Aidat bildirimi gönder": geniş altın kutu; basınca AidatBildir açılır, yöneticinin belirlediği tutar
+              da gönderilir ki formda hazır gelsin */}
+          <Kutu
+            genis
+            vurgulu
+            ikon="aidatGonder"
+            baslik="Aidat bildirimi gönder"
+            alt="Ödediğinizi yöneticiye bildirin"
+            onPress={() => navigation.navigate('AidatBildir', { aidatTutari: veri.benim.aidatTutari })}
+          />
+          <View style={styles.satir}>
+            <View style={styles.sutun}>
+              {/* "Aidat takvimim" (uzun, mini takvimli): basınca AidatTakvimi açılır (sakinin kendi dairesi) */}
+              <Kutu ikon="takvim" baslik="Aidat takvimim" alt={String(yil)} onPress={() => navigation.navigate('AidatTakvimi')}>
+                <MiniTakvim aylar={veri.aylar.map(ayDurumu)} buAy={ay} />
+              </Kutu>
+            </View>
+            <View style={styles.sutun}>
+              {/* "Duyurular": basınca duyuru listesi açılır; rozet bugün gelen duyuru sayısı */}
+              <Kutu
+                ikon="duyuru"
+                baslik="Duyurular"
+                alt={veri.yeniDuyuru > 0 ? `${veri.yeniDuyuru} yeni duyuru` : 'Sitenin duyuruları'}
+                rozet={veri.yeniDuyuru > 0 ? String(veri.yeniDuyuru) : null}
+                onPress={() => navigation.navigate('Duyurular')}
+              />
+              {/* "Yöneticiye mesaj gönder": basınca Sohbet açılır; sakin sadece sitenin yöneticisiyle yazışabilir */}
+              <Kutu
+                ikon="mesaj"
+                baslik="Yöneticiye mesaj gönder"
+                alt={veri.yonetici?.ad ?? 'Site yöneticisi'}
+                rozet={veri.yonetici?.okunmamis > 0 ? String(veri.yonetici.okunmamis) : null}
+                onPress={() => navigation.navigate('Sohbet', { baslik: veri.yonetici ? `${veri.yonetici.ad} · Yönetici` : undefined })}
+              />
+            </View>
+          </View>
+
+          <Text style={[yazilar.etiket, styles.bolum]}>SON BİLDİRİMLERİM</Text>
+          {veri.benim.bildirimler.length === 0 && <Text style={yazilar.aciklama}>Henüz bildirim göndermediniz.</Text>}
+          {veri.benim.bildirimler.map((b) => {
+            const d = BILDIRIM[b.durum];
+            const reddedildi = b.durum === 'reddedildi';
+            return (
+              // Reddedilen bildirime basınca o ay için formu yeniden açar (ay ve yıl hazır gelir); diğerleri basılamaz.
+              <Pressable
+                key={b.id}
+                style={({ pressed }) => [styles.kart, styles.bildirim, pressed && styles.basili]}
+                disabled={!reddedildi}
+                onPress={() => navigation.navigate('AidatBildir', { aidatTutari: veri.benim.aidatTutari, ay: b.ay, yil: b.yil })}
+                accessibilityRole={reddedildi ? 'button' : undefined}
+                accessibilityHint={reddedildi ? 'Bu ay için yeniden bildirim gönderir' : undefined}
+              >
+                <View style={styles.bildirimUst}>
+                  <Text style={styles.bildirimAy}>{ayAdi(b.ay, b.yil)}</Text>
+                  <DurumRozeti durum={d.durum} yazi={d.yazi} />
+                </View>
+                <Text style={styles.soluk}>
+                  {paraBicimi(b.tutar)} · {YONTEMLER[b.odemeYontemi]}
+                  {b.aciklama !== '' ? ` · “${b.aciklama}”` : ''}
+                </Text>
+                {reddedildi && <Text style={styles.tekrar}>Tekrar göndermek için dokunun ›</Text>}
+              </Pressable>
+            );
+          })}
+        </>
+      )}
+
+      {/* Hesap kartı: Çıkış yap ve Hesabımı sil */}
+      <HesapKarti navigation={navigation} rol={`Sakin${oturum.daire ? ` · ${oturum.daire.ad}` : ''}`} />
+    </ScrollView>
+  );
+}
+
+// Mini takvim: yılın 12 ayı, 4 sütunlu küçük kutularda ay baş harfleriyle. Ödenen ay yeşil, bekleyen sarı halka,
+// ödenmeyen kırmızı; katılmadan önceki aylar soluk.
+function MiniTakvim({ aylar, buAy }) {
+  return (
+    <View style={styles.mini}>
+      {[0, 1, 2].map((s) => (
+        <View key={s} style={styles.miniSatir}>
+          {aylar.slice(s * 4, s * 4 + 4).map((durum, i) => {
+            const no = s * 4 + i;
+            const renkli = ['odendi', 'bekliyor', 'odenmedi'].includes(durum);
+            const renk = DURUMLAR[durum].renk;
+            return (
+              <View
+                key={no}
+                style={[
+                  styles.miniKare,
+                  renkli && { backgroundColor: karistir(renk, 0.14), borderColor: renk, borderWidth: 1.5 },
+                  durum === 'once' && { opacity: 0.45 },
+                  no + 1 === buAy && !renkli && { borderColor: renkler.kenarlikGuclu },
+                ]}
+              >
+                <Text style={[styles.miniHarf, renkli && { color: renk }]}>{BAS_HARF[no]}</Text>
+              </View>
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 }
@@ -148,92 +215,119 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: renkler.arkaPlan,
   },
+  // paddingTop: üst çubuk olmadığı için durum çubuğunun altından başlar
   icerik: {
-    padding: 24,
-    gap: 10,
-  },
-  ust: {
+    paddingHorizontal: 18,
+    paddingTop: 56,
+    paddingBottom: 28,
     gap: 12,
+  },
+  yukleniyor: {
+    marginVertical: 40,
+  },
+  selamBlok: {
+    gap: 2,
     marginBottom: 4,
   },
   selam: {
-    fontSize: 16,
+    fontFamily: yaziTipi.metin,
+    fontSize: 14,
     color: renkler.soluk,
   },
-  site: {
-    fontSize: 28,
+  siteAd: {
+    fontFamily: yaziTipi.metin,
+    fontSize: 31,
     fontWeight: '700',
+    letterSpacing: -0.8,
     color: renkler.yazi,
   },
   kart: {
-    padding: 20,
-    borderRadius: 16,
+    padding: 16,
+    gap: 8,
+    borderRadius: kose,
+    borderWidth: 1,
+    borderColor: renkler.kenarlik,
     backgroundColor: renkler.kart,
   },
-  kartEtiket: {
-    fontSize: 15,
-    color: renkler.soluk,
+  daireKart: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    gap: 10,
   },
-  daire: {
-    marginTop: 4,
-    fontSize: 32,
-    fontWeight: '700',
-    color: renkler.birincil,
-  },
-  listeBaslik: {
-    marginTop: 12,
-    fontSize: 18,
-    fontWeight: '700',
+  daireBuyuk: {
+    marginTop: 6,
+    fontFamily: yaziTipi.mono,
+    fontSize: 50,
+    fontWeight: '600',
+    lineHeight: 54,
+    letterSpacing: -2,
     color: renkler.yazi,
   },
-  bos: {
-    fontSize: 15,
+  buAy: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  satir: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  sutun: {
+    flex: 1,
+    flexBasis: 0,
+    gap: 10,
+  },
+  mini: {
+    gap: 4,
+  },
+  miniSatir: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  miniKare: {
+    flex: 1,
+    flexBasis: 0,
+    aspectRatio: 1,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: renkler.kenarlik,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniHarf: {
+    fontFamily: yaziTipi.mono,
+    fontSize: 10,
     color: renkler.soluk,
   },
-  bildirim: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: renkler.kart,
+  bolum: {
+    marginTop: 6,
   },
-  bildirimSol: {
-    flex: 1,
-    gap: 2,
+  bildirim: {
+    gap: 6,
+  },
+  basili: {
+    opacity: 0.75,
+  },
+  bildirimUst: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   bildirimAy: {
+    fontFamily: yaziTipi.metin,
     fontSize: 16,
     fontWeight: '600',
     color: renkler.yazi,
   },
-  basili: {
-    opacity: 0.7,
-  },
-  tekrar: {
-    marginTop: 4,
-    fontSize: 14,
-    fontWeight: '600',
-    color: renkler.birincil,
-  },
-  bildirimDetay: {
-    fontSize: 14,
+  soluk: {
+    fontFamily: yaziTipi.metin,
+    fontSize: 13,
     color: renkler.soluk,
   },
-  durum: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
+  tekrar: {
+    fontFamily: yaziTipi.metin,
     fontSize: 13,
     fontWeight: '600',
-  },
-  liste: {
-    flex: 1,
-  },
-  alt: {
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 24,
+    color: renkler.birincil,
   },
 });
