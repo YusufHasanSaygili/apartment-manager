@@ -12,6 +12,7 @@ import Buton from '../components/Buton';
 import HataMesaji from '../components/HataMesaji';
 import { useYenileme } from '../components/Yenileme';
 import HesapKarti from '../components/HesapKarti';
+import SiteBasligi from '../components/SiteBasligi';
 import Kutu from '../components/Kutu';
 import Gosterge from '../components/Gosterge';
 import Ikon from '../components/Ikon';
@@ -113,10 +114,9 @@ export default function YoneticiAnaEkrani({ navigation }) {
   return (
     // ScrollView: içerik ekrana sığmazsa sayfa kaydırılır.
     <ScrollView style={styles.dis} contentContainerStyle={styles.icerik} refreshControl={yenileme}>
-      {/* Selamlama, site adı ve kısa özet (bina, daire, aidat) */}
+      {/* Selamlama, site adı (sağında logo, SiteBasligi, ImageBackground) ve kısa özet (bina, daire, aidat) */}
       <View style={styles.selamBlok}>
-        <Text style={styles.selam}>Hoş geldin, {oturum.kullanici.ad}</Text>
-        <Text style={styles.siteAd}>{oturum.site.ad}</Text>
+        <SiteBasligi selam={`Hoş geldin, ${oturum.kullanici.ad}`} ad={oturum.site.ad} />
         {ozet && (
           <Text style={[yazilar.etiket, styles.siteMeta]}>
             {ozet.binaSayisi === 0
@@ -317,20 +317,7 @@ const styles = StyleSheet.create({
     marginVertical: 40,
   },
   selamBlok: {
-    gap: 2,
     marginBottom: 4,
-  },
-  selam: {
-    fontFamily: yaziTipi.metin,
-    fontSize: 14,
-    color: renkler.soluk,
-  },
-  siteAd: {
-    fontFamily: yaziTipi.metin,
-    fontSize: 31,
-    fontWeight: '700',
-    letterSpacing: -0.8,
-    color: renkler.yazi,
   },
   siteMeta: {
     marginTop: 6,

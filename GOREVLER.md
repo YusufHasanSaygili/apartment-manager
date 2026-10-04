@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 7.5
+**Mevcut görev:** 7.6
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -153,7 +153,7 @@ Kurallar:
   4. Sakin ekranları
   - İlk tanım: renk paleti (tema.js), ikon ve semboller, buton boyutları, boşluklar ve yazı boyutları; ortak component'ler (Buton, FormAlani, HataMesaji) üzerinden tüm uygulamaya uygulanır. Ekran görüntülerinden (7.5) önce yapılır. İkon kütüphanesi gerekirse önce kullanıcıya sorulur.
 - [x] **7.4 Demo verisi:** Sunum için örnek site, daireler, aidatlar ve mesajlar oluşturan script
-- [ ] **7.5 Teslim hazırlığı:** README'nin son hali ve ekran görüntüleri, sunum akışı
+- [x] **7.5 Teslim hazırlığı:** README'nin son hali ve ekran görüntüleri, sunum akışı
 - [ ] **7.6 İndirilebilir APK:** Android Studio araçlarıyla yerelde release APK derlenir ve GitHub Releases'a yüklenir. Karar: APK, backend'i çalışan bilgisayarla aynı Wi-Fi'da kullanılır (ders online, sunum evden ekran paylaşımıyla yapılır); backend internete taşınmaz. APK yerel IP'ye `http` ile bağlanabilsin diye cleartext izni verilir.
 
 ## Opsiyonel (sadece kullanıcı isterse)

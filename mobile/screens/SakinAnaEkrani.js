@@ -10,6 +10,7 @@ import { useOturum } from '../services/OturumContext';
 import HataMesaji from '../components/HataMesaji';
 import { useYenileme } from '../components/Yenileme';
 import HesapKarti from '../components/HesapKarti';
+import SiteBasligi from '../components/SiteBasligi';
 import Kutu from '../components/Kutu';
 import { DURUMLAR, DurumRozeti } from '../components/Durum';
 import { AY_ADLARI, ayAdi, goreliGun, paraBicimi } from '../bicim';
@@ -79,9 +80,9 @@ export default function SakinAnaEkrani({ navigation }) {
   return (
     // ScrollView: içerik ekrana sığmazsa sayfa kaydırılır.
     <ScrollView style={styles.dis} contentContainerStyle={styles.icerik} refreshControl={yenileme}>
+      {/* Selamlama ve site adı, adın sağında logo (SiteBasligi, ImageBackground) */}
       <View style={styles.selamBlok}>
-        <Text style={styles.selam}>Hoş geldin, {oturum.kullanici.ad}</Text>
-        <Text style={styles.siteAd}>{oturum.site.ad}</Text>
+        <SiteBasligi selam={`Hoş geldin, ${oturum.kullanici.ad}`} ad={oturum.site.ad} />
       </View>
 
       {/* Daire kartı: solda daire adı (büyük, mono), sağda bu ayın aidat durumu ("EKİM" zümrüt renkte) */}
@@ -230,20 +231,7 @@ const styles = StyleSheet.create({
     marginVertical: 40,
   },
   selamBlok: {
-    gap: 2,
     marginBottom: 4,
-  },
-  selam: {
-    fontFamily: yaziTipi.metin,
-    fontSize: 14,
-    color: renkler.soluk,
-  },
-  siteAd: {
-    fontFamily: yaziTipi.metin,
-    fontSize: 31,
-    fontWeight: '700',
-    letterSpacing: -0.8,
-    color: renkler.yazi,
   },
   kart: {
     padding: 16,
