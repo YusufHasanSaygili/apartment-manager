@@ -66,7 +66,7 @@ Sunumda uygulamanın nasıl gösterileceği [SUNUM.md](SUNUM.md) dosyasındadır
 
 ## Hazır APK
 
-Android telefona doğrudan kurulabilen APK, GitHub'daki **Releases** sayfasındadır (`Apartmanim-v1.0.0.apk`).
+Android telefona doğrudan kurulabilen APK, GitHub'daki **Releases** sayfasındadır (en güncel sürüm: `Apartmanim-v1.0.1.apk`). Telefonlarda ve Android Studio emülatöründe çalışır.
 
 - APK, backend'e derlendiği bilgisayarın yerel IP adresiyle (`mobile/.env` içindeki `EXPO_PUBLIC_API_URL`) bağlanır.
   Bu yüzden sadece backend'in çalıştığı bilgisayarla **aynı Wi-Fi ağındaki** telefonlarda çalışır. Kendi
@@ -82,7 +82,7 @@ npx expo prebuild --platform android
 ```
 
 ```bash
-cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
+cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,x86_64
 ```
 
 Çıktı: `mobile/android/app/build/outputs/apk/release/app-release.apk`

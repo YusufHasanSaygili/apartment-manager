@@ -32,3 +32,6 @@ mobile/google-services.json
 
 # Tasarım önizleme sitesi (yerel çalışma aracı, ekran görüntüleri içerir)
 tasarim-onizleme/
+
+# Android Studio proje ayarları (her bilgisayarda farklı)
+.idea/
