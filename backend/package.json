@@ -1,5 +1,5 @@
 {
-  "name": "backend",
+  "name": "apartment-manager-backend",
   "version": "1.0.0",
   "description": "Apartmanım - Site Yönetim API sunucusu",
   "main": "server.js",

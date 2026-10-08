@@ -1,4 +1,6 @@
-# Apartmanım — Site Yönetim Uygulaması
+# apartment-manager
+
+**Apartmanım** — apartman ve site yönetim uygulaması.
 
 Apartman ve site yöneticileriyle sakinleri bir araya getiren mobil uygulama.
 Herkes kendi sitesini kurabilir; her sitenin verisi birbirinden tamamen ayrıdır.

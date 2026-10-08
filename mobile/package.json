@@ -1,5 +1,5 @@
 {
-  "name": "mobile",
+  "name": "apartment-manager-mobile",
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
