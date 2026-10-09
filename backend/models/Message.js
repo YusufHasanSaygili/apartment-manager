@@ -1,7 +1,7 @@
 // Mesaj modeli: yönetici ile sakin arasındaki birebir yazışmalar (WhatsApp benzeri düz metin).
 const mongoose = require('mongoose');
 
-const mesajSemasi = new mongoose.Schema(
+const messageSchema = new mongoose.Schema(
   {
     // Mesajın ait olduğu site: her sorgu bu alanla filtrelenir, başka sitenin mesajı görülemez.
     siteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Site', required: true },
@@ -19,6 +19,6 @@ const mesajSemasi = new mongoose.Schema(
 );
 
 // İki kişi arasındaki sohbeti tarihe göre hızlı getirmek için.
-mesajSemasi.index({ siteId: 1, gonderenId: 1, aliciId: 1, tarih: -1 });
+messageSchema.index({ siteId: 1, gonderenId: 1, aliciId: 1, tarih: -1 });
 
-module.exports = mongoose.model('Mesaj', mesajSemasi);
+module.exports = mongoose.model('Mesaj', messageSchema);

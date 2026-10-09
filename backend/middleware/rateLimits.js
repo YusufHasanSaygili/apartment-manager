@@ -3,7 +3,7 @@
 const { rateLimit } = require('express-rate-limit');
 
 // Genel sınır: bir IP 15 dakikada en fazla 300 istek atabilir; aşarsa 429 hatası alır.
-const genelSinir = rateLimit({
+const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 300,
   // Kalan hak bilgisini standart "RateLimit" başlığıyla gönderir, eski başlıkları kapatır.
@@ -15,7 +15,7 @@ const genelSinir = rateLimit({
 
 // Kayıt sınırı: bir IP 15 dakikada en fazla 10 hesap/site oluşturma denemesi yapabilir.
 // Botların toplu sahte hesap açmasını engeller; normal bir kullanıcı bu sınıra takılmaz.
-const kayitSiniri = rateLimit({
+const registerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
   standardHeaders: 'draft-8',
@@ -26,7 +26,7 @@ const kayitSiniri = rateLimit({
 // Giriş sınırı: bir IP 15 dakikada en fazla 10 HATALI giriş denemesi yapabilir.
 // Şifreyi deneme-yanılma ile bulmaya çalışan saldırıları yavaşlatır.
 // skipSuccessfulRequests: başarılı girişler sayılmaz, normal kullanıcı sınıra takılmaz.
-const girisSiniri = rateLimit({
+const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
   skipSuccessfulRequests: true,
@@ -37,7 +37,7 @@ const girisSiniri = rateLimit({
 
 // Davet kodu sınırı: bir IP 15 dakikada en fazla 10 HATALI kod deneyebilir.
 // 6 haneli kodların deneme-yanılma ile bulunmasını pratikte imkânsız hale getirir.
-const kodSiniri = rateLimit({
+const codeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
   skipSuccessfulRequests: true,
@@ -48,7 +48,7 @@ const kodSiniri = rateLimit({
 
 // E-posta sınırı: bir IP 15 dakikada en fazla 5 "şifre sıfırlama kodu gönder" isteği atabilir.
 // Uygulamanın başkalarının e-posta kutusunu kodla doldurmak (spam) için kullanılmasını engeller.
-const epostaSiniri = rateLimit({
+const emailLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 5,
   standardHeaders: 'draft-8',
@@ -56,4 +56,4 @@ const epostaSiniri = rateLimit({
   message: { mesaj: 'Çok fazla kod istendi. Lütfen 15 dakika sonra tekrar deneyin.' },
 });
 
-module.exports = { genelSinir, kayitSiniri, girisSiniri, kodSiniri, epostaSiniri };
+module.exports = { generalLimiter, registerLimiter, loginLimiter, codeLimiter, emailLimiter };

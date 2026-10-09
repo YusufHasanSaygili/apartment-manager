@@ -3,24 +3,24 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { z } = require('zod');
-const Daire = require('../models/Daire');
-const Kullanici = require('../models/Kullanici');
+const Flat = require('../models/Flat');
+const User = require('../models/User');
 const Site = require('../models/Site');
-const dogrula = require('../middleware/dogrula');
-const { girisGerekli, sadeceYonetici } = require('../middleware/kimlik');
-const { ApiHatasi } = require('../middleware/hataYonetimi');
-const { kullaniciyaGonder } = require('../soket');
-const { pushGonder } = require('../services/bildirim');
-// daireAdlari: daireId → "B12" eşlemesi (ortak yardımcı, services/daire.js).
-const { daireAdlari } = require('../services/daire');
+const validate = require('../middleware/validate');
+const { requireAuth, managerOnly } = require('../middleware/auth');
+const { ApiError } = require('../middleware/errorHandler');
+const { sendToUser } = require('../socket');
+const { sendPush } = require('../services/pushNotifications');
+// flatNames: flatId → "B12" eşlemesi (ortak yardımcı, services/flat.js).
+const { flatNames } = require('../services/flat');
 
 const router = express.Router();
 
 // Devir sadece sitenin YÖNETİCİSİ tarafından yapılabilir. siteId ve yöneticinin kimliği token'dan alınır.
-router.use(girisGerekli, sadeceYonetici);
+router.use(requireAuth, managerOnly);
 
 // "A2" "A10"dan önce gelsin diye sayısal (numeric) sıralama.
-const adaGore = (a, b) => a.ad.localeCompare(b.ad, 'tr', { numeric: true });
+const byName = (a, b) => a.ad.localeCompare(b.ad, 'tr', { numeric: true });
 
 // GET /api/devir/secenekler
 // Kim kullanabilir: yönetici. Devir ekranının ihtiyaç duyduğu listeleri döner:
@@ -30,35 +30,35 @@ const adaGore = (a, b) => a.ad.localeCompare(b.ad, 'tr', { numeric: true });
 //   kayıtlı olmayan daireler
 router.get('/secenekler', async (req, res) => {
   const { id, siteId } = req.kullanici;
-  const [adlar, kayitlilar, ben] = await Promise.all([
-    daireAdlari(siteId),
+  const [names, registered, me] = await Promise.all([
+    flatNames(siteId),
     // Bir daireye bağlı tüm hesaplar (sakinler ve dairesi olan yönetici): "boş daire" bulmak için.
-    Kullanici.find({ siteId, daireId: { $ne: null } }).select('ad rol daireId').lean(),
-    Kullanici.findById(id).select('daireId').lean(),
+    User.find({ siteId, daireId: { $ne: null } }).select('ad rol daireId').lean(),
+    User.findById(id).select('daireId').lean(),
   ]);
 
-  const adaylar = kayitlilar
+  const candidates = registered
     .filter((k) => k.rol === 'sakin')
-    .map((k) => ({ daireId: k.daireId, ad: adlar.get(String(k.daireId)) ?? '—', sakinAdi: k.ad }))
-    .sort(adaGore);
+    .map((k) => ({ daireId: k.daireId, ad: names.get(String(k.daireId)) ?? '—', sakinAdi: k.ad }))
+    .sort(byName);
 
-  const kendiDairem = ben.daireId ? { id: ben.daireId, ad: adlar.get(String(ben.daireId)) ?? '—' } : null;
+  const myFlat = me.daireId ? { id: me.daireId, ad: names.get(String(me.daireId)) ?? '—' } : null;
 
   // Set: içinde kayıtlı biri olan dairelerin kimlikleri; geri kalanlar boştur.
-  const doluDaireler = new Set(kayitlilar.map((k) => String(k.daireId)));
-  const bosDaireler = kendiDairem
+  const occupiedFlats = new Set(registered.map((k) => String(k.daireId)));
+  const emptyFlats = myFlat
     ? []
-    : [...adlar].filter(([daireId]) => !doluDaireler.has(daireId)).map(([daireId, ad]) => ({ id: daireId, ad })).sort(adaGore);
+    : [...names].filter(([flatId]) => !occupiedFlats.has(flatId)).map(([flatId, name]) => ({ id: flatId, ad: name })).sort(byName);
 
-  res.json({ adaylar, kendiDairem, bosDaireler });
+  res.json({ adaylar: candidates, kendiDairem: myFlat, bosDaireler: emptyFlats });
 });
 
 // Devir formunun kuralları: daire kimlikleri MongoDB kimliği biçiminde (24 karakter onaltılık) olmalı.
 // kendiDaireId sadece yöneticinin kayıtlı dairesi yoksa gerekir.
-const kimlik = z.string().regex(/^[a-f\d]{24}$/i, 'Daire geçersiz');
-const devirSemasi = z.object({
-  yeniYoneticiDaireId: kimlik,
-  kendiDaireId: kimlik.optional(),
+const objectIdRule = z.string().regex(/^[a-f\d]{24}$/i, 'Daire geçersiz');
+const handoverSchema = z.object({
+  yeniYoneticiDaireId: objectIdRule,
+  kendiDaireId: objectIdRule.optional(),
 });
 
 // POST /api/devir
@@ -66,70 +66,70 @@ const devirSemasi = z.object({
 // - Yeni yönetici: o dairenin sakini (siteId ile aranır; başka sitenin kişisi bulunamaz → 404).
 // - Eski yönetici: kayıtlı dairesi varsa oraya, yoksa seçtiği BOŞ daireye sakin olarak bağlanır.
 // Tüm değişiklikler tek transaction'da yapılır (ya hepsi olur ya hiçbiri); yarım kalmış devir olmaz.
-router.post('/', dogrula(devirSemasi), async (req, res) => {
+router.post('/', validate(handoverSchema), async (req, res) => {
   const { id, siteId } = req.kullanici;
-  const { yeniYoneticiDaireId, kendiDaireId } = req.body;
+  const { yeniYoneticiDaireId: newManagerFlatId, kendiDaireId: ownFlatId } = req.body;
 
-  const yeniYonetici = await Kullanici.findOne({ siteId, rol: 'sakin', daireId: yeniYoneticiDaireId })
+  const newManager = await User.findOne({ siteId, rol: 'sakin', daireId: newManagerFlatId })
     .select('ad pushToken')
     .lean();
-  if (!yeniYonetici) throw new ApiHatasi(404, 'Seçilen dairede kayıtlı bir sakin bulunamadı.');
+  if (!newManager) throw new ApiError(404, 'Seçilen dairede kayıtlı bir sakin bulunamadı.');
 
   // Eski yöneticinin devirden sonra oturacağı daire.
-  const ben = await Kullanici.findById(id).select('daireId').lean();
-  let hedefDaireId = ben.daireId;
-  if (!hedefDaireId) {
-    if (!kendiDaireId) throw new ApiHatasi(400, 'Devirden sonra oturacağınız daireyi seçin.');
-    const daire = await Daire.findOne({ _id: kendiDaireId, siteId }).select('_id').lean();
-    if (!daire) throw new ApiHatasi(404, 'Daire bulunamadı.');
+  const me = await User.findById(id).select('daireId').lean();
+  let targetFlatId = me.daireId;
+  if (!targetFlatId) {
+    if (!ownFlatId) throw new ApiError(400, 'Devirden sonra oturacağınız daireyi seçin.');
+    const flat = await Flat.findOne({ _id: ownFlatId, siteId }).select('_id').lean();
+    if (!flat) throw new ApiError(404, 'Daire bulunamadı.');
     // Seçilen dairede başka biri kayıtlıysa oraya bağlanılamaz (bir dairede tek hesap).
-    if (await Kullanici.exists({ siteId, daireId: daire._id })) {
-      throw new ApiHatasi(400, 'Seçtiğiniz dairede kayıtlı biri var. Boş bir daire seçin.');
+    if (await User.exists({ siteId, daireId: flat._id })) {
+      throw new ApiError(400, 'Seçtiğiniz dairede kayıtlı biri var. Boş bir daire seçin.');
     }
-    hedefDaireId = daire._id;
+    targetFlatId = flat._id;
   }
 
   // Transaction: dört güncelleme birlikte yapılır. İçeride hata fırlatılırsa hepsi geri alınır.
   await mongoose.connection.transaction(async (session) => {
     // Sitenin yöneticisi değişir. Filtrede yoneticiId: id var: aynı anda iki devir denenirse ikincisi
     // hiçbir şeyi değiştiremez (modifiedCount 0) ve 409 alır.
-    const site = await Site.updateOne({ _id: siteId, yoneticiId: id }, { yoneticiId: yeniYonetici._id }, { session });
-    if (site.modifiedCount === 0) throw new ApiHatasi(409, 'Yöneticilik zaten devredilmiş.');
+    const site = await Site.updateOne({ _id: siteId, yoneticiId: id }, { yoneticiId: newManager._id }, { session });
+    if (site.modifiedCount === 0) throw new ApiError(409, 'Yöneticilik zaten devredilmiş.');
 
     // Yeni yönetici: rolü değişir, dairesi (daireId) kayıtlı kalır; ileride devrederse oraya döner.
     // Filtrede "hâlâ o dairenin sakini" şartı var: kişi bu arada daireden çıkarıldıysa hiçbir şey değişmez,
     // hata fırlatılır ve transaction tüm değişiklikleri geri alır.
-    const yeni = await Kullanici.updateOne(
-      { _id: yeniYonetici._id, siteId, rol: 'sakin', daireId: yeniYoneticiDaireId },
+    const managerUpdate = await User.updateOne(
+      { _id: newManager._id, siteId, rol: 'sakin', daireId: newManagerFlatId },
       { rol: 'yonetici' },
       { session }
     );
-    if (yeni.modifiedCount === 0) throw new ApiHatasi(409, 'Seçilen sakin artık bu dairede değil. Sayfayı yenileyin.');
+    if (managerUpdate.modifiedCount === 0) throw new ApiError(409, 'Seçilen sakin artık bu dairede değil. Sayfayı yenileyin.');
     // Eski yönetici: sakin olur, dairesine bağlanır. daireyeGiris: aidat bu aydan itibaren beklenir
     // (yöneticiyken geçen aylar için "ödenmedi" görünmez).
-    await Kullanici.updateOne(
+    await User.updateOne(
       { _id: id, siteId },
-      { rol: 'sakin', daireId: hedefDaireId, daireyeGiris: new Date() },
+      { rol: 'sakin', daireId: targetFlatId, daireyeGiris: new Date() },
       { session }
     );
     // Dairenin kaydı: dolu işaretlenir, davet kodu artık kullanılamaz (başkası bu daireye katılamasın).
     // Boş daire seçildiyse filtrede davetKoduKullanildi "true değil" şartı var: tam bu sırada biri o dairenin kodla
     // katıldıysa güncelleme olmaz, 409 döner ve her şey geri alınır (bir dairede iki hesap olmaz).
     // $ne: true → "true olmayan": kurulumda oluşan dairelerde bu alan hiç yazılmamış olabilir (boş = kullanılmadı).
-    const daireFiltresi = { _id: hedefDaireId, siteId, ...(ben.daireId ? {} : { davetKoduKullanildi: { $ne: true } }) };
-    const daire = await Daire.updateOne(daireFiltresi, { davetKoduKullanildi: true, sakinId: id }, { session });
-    if (daire.matchedCount === 0) throw new ApiHatasi(409, 'Seçtiğiniz daire az önce doldu. Başka bir daire seçin.');
+    const flatFilter = { _id: targetFlatId, siteId, ...(me.daireId ? {} : { davetKoduKullanildi: { $ne: true } }) };
+    const flat = await Flat.updateOne(flatFilter, { davetKoduKullanildi: true, sakinId: id }, { session });
+    if (flat.matchedCount === 0) throw new ApiError(409, 'Seçtiğiniz daire az önce doldu. Başka bir daire seçin.');
   });
 
   // İki tarafın da uygulaması açıksa soketle haber verilir: telefon oturum bilgisini yeniden çeker ve
   // yeni rolün ekranlarına kendiliğinden geçer (tekrar giriş gerekmez).
-  kullaniciyaGonder(yeniYonetici._id, 'rolDegisti', {});
-  kullaniciyaGonder(id, 'rolDegisti', {});
-  res.json({ yeniYonetici: yeniYonetici.ad });
+  sendToUser(newManager._id, 'rolDegisti', {});
+  sendToUser(id, 'rolDegisti', {});
+  res.json({ yeniYonetici: newManager.ad });
 
   // Yeni yöneticiye push bildirim (uygulaması kapalıysa da haberi olsun). Cevaptan sonra gönderilir.
-  if (yeniYonetici.pushToken) {
-    pushGonder([yeniYonetici.pushToken], {
+  if (newManager.pushToken) {
+    sendPush([newManager.pushToken], {
       baslik: 'Site yöneticiliği size devredildi',
       icerik: `${req.kullanici.ad} yöneticiliği size devretti. Uygulamayı açınca yönetici ekranlarını göreceksiniz.`,
     });

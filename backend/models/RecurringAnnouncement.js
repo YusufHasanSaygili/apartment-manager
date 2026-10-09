@@ -1,9 +1,9 @@
 // Tekrarlayan duyuru modeli: yöneticinin belirli günlerde ve saatte kendiliğinden yayınlanmasını
 // istediği duyurular ("Her pazartesi 08:00 — Çöp günü"). Vakti gelince normal bir Duyuru oluşturulur
-// ve sitedeki herkese push bildirim gider (bkz. services/tekrarlananDuyuru.js).
+// ve sitedeki herkese push bildirim gider (bkz. services/recurringAnnouncements.js).
 const mongoose = require('mongoose');
 
-const tekrarlananDuyuruSemasi = new mongoose.Schema(
+const recurringAnnouncementSchema = new mongoose.Schema(
   {
     // Site izolasyonu: duyuru sadece bu sitenin duyuru listesine düşer ve bu sitenin sakinlerine gider.
     siteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Site', required: true },
@@ -23,6 +23,6 @@ const tekrarlananDuyuruSemasi = new mongoose.Schema(
 );
 
 // Zamanlanmış görev her dakika "şu gün ve saatte yayınlanacak duyuru var mı?" diye arar; bu index o aramayı hızlandırır.
-tekrarlananDuyuruSemasi.index({ gunler: 1, saat: 1, dakika: 1 });
+recurringAnnouncementSchema.index({ gunler: 1, saat: 1, dakika: 1 });
 
-module.exports = mongoose.model('TekrarlananDuyuru', tekrarlananDuyuruSemasi);
+module.exports = mongoose.model('TekrarlananDuyuru', recurringAnnouncementSchema);

@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 8.2
+**Mevcut görev:** 8.3
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -164,7 +164,7 @@ Her dilim sonunda uygulama çalışır durumda olur ve telefonda denenir. Türk�
 
 - [x] **8.1 Mobil:** Mobildeki tüm adlar (dosyalar, ekranlar, component'ler, servisler, değişkenler); sunucuyla konuşan alan adlarına dokunulmaz
   - Deneme: Uygulama açılır, giriş yapılır, tüm ekranlar eskisi gibi çalışır
-- [ ] **8.2 Backend:** Backend'deki tüm iç adlar (fonksiyonlar, middleware, servisler, dosyalar, ortam değişkenleri); API ve veritabanı aynı kalır
+- [x] **8.2 Backend:** Backend'deki tüm iç adlar (fonksiyonlar, middleware, servisler, dosyalar, ortam değişkenleri); API ve veritabanı aynı kalır
   - Deneme: Uygulama eskisi gibi çalışır, zamanlanmış görevler çalışır
 - [ ] **8.3 Ortak dil:** Veritabanı modelleri ve alanları, API yolları, JSON alanları, durum değerleri, soket olayları (backend + mobil birlikte); demo yeniden kurulur
   - Deneme: Tüm özellikler baştan sona denenir

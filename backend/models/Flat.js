@@ -1,7 +1,7 @@
 // Daire modeli: her bağımsız bölüm. Sakin, dairesinin davet koduyla uygulamaya katılır.
 const mongoose = require('mongoose');
 
-const daireSemasi = new mongoose.Schema({
+const flatSchema = new mongoose.Schema({
   // Site izolasyonu için her sorgu siteId ile filtrelenir (index: hızlı arama).
   siteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Site', required: true, index: true },
   binaId: { type: mongoose.Schema.Types.ObjectId, ref: 'Bina', required: true },
@@ -16,6 +16,6 @@ const daireSemasi = new mongoose.Schema({
 });
 
 // Aynı binada aynı numaralı iki daire olamaz.
-daireSemasi.index({ binaId: 1, daireNo: 1 }, { unique: true });
+flatSchema.index({ binaId: 1, daireNo: 1 }, { unique: true });
 
-module.exports = mongoose.model('Daire', daireSemasi);
+module.exports = mongoose.model('Daire', flatSchema);

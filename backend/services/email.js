@@ -6,18 +6,18 @@ const nodemailer = require('nodemailer');
 
 // Bir e-posta gönderir. SMTP ayarlanmamışsa veya gönderim başarısız olursa hata fırlatır (çağıran yakalar).
 // Bağlantı her gönderimde yeniden kurulur: günde birkaç e-posta için bağlantıyı saklamaya (önbelleğe) gerek yok.
-async function epostaGonder({ kime, konu, metin }) {
-  const { SMTP_SUNUCU, SMTP_PORT, SMTP_KULLANICI, SMTP_SIFRE, SMTP_GONDEREN } = process.env;
-  if (!SMTP_SUNUCU || !SMTP_KULLANICI || !SMTP_SIFRE) throw new Error('E-posta ayarları (.env içindeki SMTP_) yapılmamış.');
+async function sendEmail({ to, subject, metin: text }) {
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM } = process.env;
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASSWORD) throw new Error('E-posta ayarları (.env içindeki SMTP_) yapılmamış.');
   const port = Number(SMTP_PORT) || 587;
-  const tasiyici = nodemailer.createTransport({
-    host: SMTP_SUNUCU,
+  const transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
     port,
     // 465 portu baştan şifreli (SSL) bağlanır; 587 önce düz bağlanıp STARTTLS ile şifreli bağlantıya geçer.
     secure: port === 465,
-    auth: { user: SMTP_KULLANICI, pass: SMTP_SIFRE },
+    auth: { user: SMTP_USER, pass: SMTP_PASSWORD },
   });
-  await tasiyici.sendMail({ from: SMTP_GONDEREN || SMTP_KULLANICI, to: kime, subject: konu, text: metin });
+  await transporter.sendMail({ from: SMTP_FROM || SMTP_USER, to: to, subject: subject, text: text });
 }
 
-module.exports = { epostaGonder };
+module.exports = { sendEmail };

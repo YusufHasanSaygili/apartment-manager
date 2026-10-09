@@ -2,7 +2,7 @@
 // Yönetici bir ayı elle "ödendi" işaretlerse de buraya onaylı bir kayıt yazılır (odemeYontemi: 'yonetici').
 const mongoose = require('mongoose');
 
-const aidatSemasi = new mongoose.Schema(
+const dueSchema = new mongoose.Schema(
   {
     // Site izolasyonu: her sorgu siteId ile, sakin sorguları ayrıca daireId ile filtrelenir.
     siteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Site', required: true },
@@ -22,44 +22,44 @@ const aidatSemasi = new mongoose.Schema(
 );
 
 // Sakinin geçmişini hızlı listelemek için: daireye göre, yeniden eskiye.
-aidatSemasi.index({ siteId: 1, daireId: 1, tarih: -1 });
+dueSchema.index({ siteId: 1, daireId: 1, tarih: -1 });
 
 // Aynı daire + aynı ay için aynı anda sadece BİR "bekliyor" veya "onaylandi" kayıt olabilir.
 // partialFilterExpression: kural sadece bu iki durumdaki kayıtlara uygulanır; reddedilen
 // kayıtlar sayılmaz, böylece reddedilen aya yeniden bildirim gönderilebilir.
 // Uygulama kontrolüne ek olarak veritabanı seviyesinde garanti verir (butona iki kez basılsa bile).
-aidatSemasi.index(
+dueSchema.index(
   { daireId: 1, yil: 1, ay: 1 },
   { unique: true, partialFilterExpression: { durum: { $in: ['bekliyor', 'onaylandi'] } } }
 );
 
 // Bir tarihi "ay sırası" sayısına çevirir: yıl × 12 + ay. İki ayı tek bir sayıyla karşılaştırmayı sağlar
 // (büyük olan daha ileri bir ay). Örn. Aralık 2026 → 2026 × 12 + 12. Ay, sunucunun saat dilimine göre bulunur.
-aidatSemasi.statics.aySirasi = (tarih) => tarih.getFullYear() * 12 + tarih.getMonth() + 1;
+dueSchema.statics.monthIndex = (date) => date.getFullYear() * 12 + date.getMonth() + 1;
 
 // Bir dairenin seçilen yıldaki 12 ayının durumunu hesaplar (takvim ekranı için).
 // Yönetici ve sakin route'ları aynı hesabı kullansın diye modelde tek yerde tanımlı (statics).
 // Her ay için: odendi (onaylı kayıt var), bekliyor (onay bekleyen var), odenmedi (sakin varken ödenmemiş)
 // veya bos (ödeme kaydı yok ve o ay dairede sakin yoktu: hiç sakin yok ya da sakin daha sonra katıldı).
-// katilmaTarihi: dairedeki sakinin hesabını açtığı tarih; dairede sakin yoksa null.
-aidatSemasi.statics.yillikTakvim = async function (siteId, daireId, yil, katilmaTarihi) {
+// joinDate: dairedeki sakinin hesabını açtığı tarih; dairede sakin yoksa null.
+dueSchema.statics.yearlyCalendar = async function (siteId, flatId, year, joinDate) {
   // Reddedilenler durumu etkilemez; siteId filtresi site izolasyonu için.
-  const kayitlar = await this.find({ siteId, daireId, yil, durum: { $in: ['bekliyor', 'onaylandi'] } }).lean();
-  const ayaGore = new Map(kayitlar.map((k) => [k.ay, k]));
+  const records = await this.find({ siteId, daireId: flatId, yil: year, durum: { $in: ['bekliyor', 'onaylandi'] } }).lean();
+  const byMonth = new Map(records.map((k) => [k.ay, k]));
 
   // Sakinin katıldığı ayın sırası; sakin yoksa Infinity (hiçbir ay "katıldıktan sonra" sayılmaz).
-  const katilmaSirasi = katilmaTarihi ? this.aySirasi(katilmaTarihi) : Infinity;
+  const joinIndex = joinDate ? this.monthIndex(joinDate) : Infinity;
 
   return Array.from({ length: 12 }, (_, i) => {
-    const kayit = ayaGore.get(i + 1);
-    if (!kayit) return { ay: i + 1, durum: yil * 12 + i + 1 < katilmaSirasi ? 'bos' : 'odenmedi' };
+    const record = byMonth.get(i + 1);
+    if (!record) return { ay: i + 1, durum: year * 12 + i + 1 < joinIndex ? 'bos' : 'odenmedi' };
     return {
       ay: i + 1,
-      durum: kayit.durum === 'onaylandi' ? 'odendi' : 'bekliyor',
-      tutar: kayit.tutar,
-      odemeYontemi: kayit.odemeYontemi,
+      durum: record.durum === 'onaylandi' ? 'odendi' : 'bekliyor',
+      tutar: record.tutar,
+      odemeYontemi: record.odemeYontemi,
     };
   });
 };
 
-module.exports = mongoose.model('Aidat', aidatSemasi);
+module.exports = mongoose.model('Aidat', dueSchema);

@@ -4,28 +4,28 @@
 // "$" ile başlayan veya "." içeren anahtarları siler; böylece veri sorgu operatörüne dönüşemez.
 
 // Nesnenin içini (iç içe nesneler ve diziler dahil) gezip tehlikeli anahtarları siler.
-function anahtarlariTemizle(veri) {
-  if (veri && typeof veri === 'object') {
-    for (const anahtar of Object.keys(veri)) {
-      if (anahtar.startsWith('$') || anahtar.includes('.')) {
-        delete veri[anahtar];
+function sanitizeKeys(input) {
+  if (input && typeof input === 'object') {
+    for (const key of Object.keys(input)) {
+      if (key.startsWith('$') || key.includes('.')) {
+        delete input[key];
       } else {
-        anahtarlariTemizle(veri[anahtar]);
+        sanitizeKeys(input[key]);
       }
     }
   }
-  return veri;
+  return input;
 }
 
 // Her istekte body ve query temizlenir. (req.params temizlenmez: URL parametreleri
 // her zaman metindir, nesne olamaz; ayrıca bu aşamada henüz doldurulmamıştır.)
-function temizle(req, res, next) {
-  anahtarlariTemizle(req.body);
+function sanitize(req, res, next) {
+  sanitizeKeys(req.body);
 
   // Express 5'te req.query her okunuşta yeniden üretilir; temizlenmiş halini
   // kalıcı yapmak için req.query'yi temiz kopyayla değiştiriyoruz.
   Object.defineProperty(req, 'query', {
-    value: anahtarlariTemizle({ ...req.query }),
+    value: sanitizeKeys({ ...req.query }),
     writable: true,
     configurable: true,
   });
@@ -33,4 +33,4 @@ function temizle(req, res, next) {
   next();
 }
 
-module.exports = temizle;
+module.exports = sanitize;

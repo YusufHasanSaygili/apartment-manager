@@ -3,7 +3,7 @@
 // böylece her sitenin verisi birbirinden ayrı tutulur.
 const mongoose = require('mongoose');
 
-const siteSemasi = new mongoose.Schema(
+const siteSchema = new mongoose.Schema(
   {
     ad: { type: String, required: true, trim: true, maxlength: 80 },
     // Sitenin şu anki yöneticisi. Yönetici devrinde (Görev 6.2) bu alan değişir.
@@ -16,4 +16,4 @@ const siteSemasi = new mongoose.Schema(
   { timestamps: { createdAt: 'olusturmaTarihi', updatedAt: false } }
 );
 
-module.exports = mongoose.model('Site', siteSemasi);
+module.exports = mongoose.model('Site', siteSchema);

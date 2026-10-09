@@ -108,7 +108,7 @@ npm install
 ```
 
 `backend/.env.example` dosyasını kopyalayıp adını `.env` yapın. `MONGODB_URI` değerine
-MongoDB Atlas bağlantı adresinizi, `JWT_ANAHTARI` değerine uzun rastgele bir metin yazın
+MongoDB Atlas bağlantı adresinizi, `JWT_SECRET` değerine uzun rastgele bir metin yazın
 (üretme komutu `.env.example` içinde). Sonra sunucuyu başlatın:
 
 ```bash
@@ -117,8 +117,8 @@ npm run dev
 
 **E-posta ayarları ("Şifremi unuttum" kodları için):** `.env` içindeki `SMTP_` satırlarını doldurun.
 Gmail ile ücretsiz kullanım: Google hesabında 2 Adımlı Doğrulama'yı açın, https://myaccount.google.com/apppasswords
-adresinden bir uygulama şifresi oluşturun; `SMTP_SUNUCU=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_KULLANICI` Gmail
-adresiniz, `SMTP_SIFRE` 16 haneli uygulama şifresi olsun. (Kişisel Outlook/Hotmail hesapları SMTP ile gönderimi
+adresinden bir uygulama şifresi oluşturun; `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_USER` Gmail
+adresiniz, `SMTP_PASSWORD` 16 haneli uygulama şifresi olsun. (Kişisel Outlook/Hotmail hesapları SMTP ile gönderimi
 desteklemiyor.) Bu ayarlar yapılmazsa uygulama çalışır, sadece şifre sıfırlama kodu gönderilemez.
 
 Konsolda `MongoDB bağlantısı kuruldu` ve `Sunucu 3000 portunda çalışıyor` yazmalıdır.
@@ -177,7 +177,7 @@ Giriş yaptıktan sonra bildirim izni istenir; izin verilirse duyurular telefona
 - **"Sunucuya ulaşılamadı":** Telefon ve bilgisayar aynı Wi-Fi'de mi? `.env` içindeki IP doğru mu?
   Windows Güvenlik Duvarı Node.js'e "Özel ağlar" için izin veriyor mu?
 - **Backend'de `querySrv ECONNREFUSED` hatası:** Bilgisayarın DNS'i Atlas adresini çözemiyor.
-  `backend/.env` içine `DNS_SUNUCULARI=1.1.1.1,8.8.8.8` ekleyin.
+  `backend/.env` içine `DNS_SERVERS=1.1.1.1,8.8.8.8` ekleyin.
 - `.env` değiştirdikten sonra Metro'yu `npx expo start -c` ile yeniden başlatın.
 - **Android derlemesinde CMake/ninja hatası:** Proje yolunda Türkçe karakter var mı? Klasörü yeniden
   adlandırıp `npx expo prebuild --platform android --clean` çalıştırın.
@@ -188,18 +188,18 @@ Giriş yaptıktan sonra bildirim izni istenir; izin verilirse duyurular telefona
 
 ```
 backend/
-├── models/       → Mongoose şemaları (Site, Kullanici, Bina, Daire, Aidat, Duyuru, Mesaj, ...)
-├── routes/       → API uçları (hesap, kurulum, daireler, aidatlar, duyurular, mesajlar, devir, ...)
+├── models/       → Mongoose şemaları (Site, User, Building, Flat, Due, Announcement, Message, ...)
+├── routes/       → API uçları (account, setup, flats, dues, announcements, messages, handover, ...)
 ├── middleware/   → Giriş (JWT) ve rol kontrolü, veri doğrulama, deneme sınırı, hata yönetimi
 ├── services/     → Push bildirim, e-posta, zamanlanmış görevler (hatırlatma, tekrarlayan duyuru)
 ├── scripts/      → Demo verisi betiği (npm run demo)
-├── soket.js      → Socket.io: token doğrulama ve sohbet odaları
+├── socket.js     → Socket.io: token doğrulama ve sohbet odaları
 └── server.js     → Sunucunun başladığı dosya
 mobile/
 ├── screens/      → Ekranlar (yönetici, sakin ve giriş öncesi)
-├── components/   → Ortak parçalar (Buton, FormAlani, HataMesaji, Ikon, durum kutuları, ...)
+├── components/   → Ortak parçalar (Button, FormField, ErrorMessage, Icon, Status, ...)
 ├── services/     → API (axios), oturum (Context), soket ve bildirim bağlantıları
-├── tema.js       → Renkler, yazı tipleri ve köşe ayarı
+├── theme.js      → Renkler, yazı tipleri ve köşe ayarı
 └── App.js        → Uygulamanın giriş noktası ve ekran geçişleri
 docs/ekran-goruntuleri/ → README'deki ekran görüntüleri
 ```

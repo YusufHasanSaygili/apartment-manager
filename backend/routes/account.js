@@ -6,55 +6,55 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { z } = require('zod');
 const Site = require('../models/Site');
-const Kullanici = require('../models/Kullanici');
-const Bina = require('../models/Bina');
-const Daire = require('../models/Daire');
-const SilinenHesap = require('../models/SilinenHesap');
-const dogrula = require('../middleware/dogrula');
+const User = require('../models/User');
+const Building = require('../models/Building');
+const Flat = require('../models/Flat');
+const DeletedAccount = require('../models/DeletedAccount');
+const validate = require('../middleware/validate');
 const crypto = require('node:crypto');
-const { kayitSiniri, girisSiniri, kodSiniri, epostaSiniri } = require('../middleware/denemeSiniri');
-const { epostaGonder } = require('../services/eposta');
-const { girisGerekli, DAIREDEN_CIKARILDI, SIFRE_DEGISTI } = require('../middleware/kimlik');
-const { ApiHatasi } = require('../middleware/hataYonetimi');
-// kullaniciyiKopar: hesap silinince veya şifre sıfırlanınca aynı hesabın başka telefonlardaki
+const { registerLimiter, loginLimiter, codeLimiter, emailLimiter } = require('../middleware/rateLimits');
+const { sendEmail } = require('../services/email');
+const { requireAuth, DAIREDEN_CIKARILDI: REMOVED_FROM_FLAT, SIFRE_DEGISTI: PASSWORD_CHANGED } = require('../middleware/auth');
+const { ApiError } = require('../middleware/errorHandler');
+// disconnectUser: hesap silinince veya şifre sıfırlanınca aynı hesabın başka telefonlardaki
 // soket bağlantısını kapatmak için (önce olay gönderir, telefon oturumu kapatıp mesajı gösterir).
-const { kullaniciyiKopar } = require('../soket');
-const { sakiniKaldir } = require('../services/daire');
+const { disconnectUser } = require('../socket');
+const { detachResident } = require('../services/flat');
 
 const router = express.Router();
 
 // Giriş yapan kullanıcıya verilen JWT (kimlik kartı). İçinde sadece kullanıcı id'si var;
 // site ve rol bilgisi her istekte veritabanından okunur (eski/sahte bilgiye güvenilmez).
 // 7 gün sonra geçersiz olur, kullanıcı tekrar giriş yapar.
-function tokenUret(kullaniciId) {
-  return jwt.sign({ id: kullaniciId }, process.env.JWT_ANAHTARI, { expiresIn: '7d' });
+function createToken(userId) {
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
 // Giriş, katılma ve otomatik giriş route'larının ortak cevabı: kullanıcı, site ve (sakinse) daire.
 // Site ve daire, kullanıcının kendi siteId/daireId'si ile aranır (site izolasyonu).
 // Site silinmişse null döner; route'lar bunu "oturum geçersiz" sayar.
-async function oturumBilgisi(kullanici) {
-  const site = await Site.findById(kullanici.siteId).lean();
+async function sessionInfo(user) {
+  const site = await Site.findById(user.siteId).lean();
   if (!site) return null;
 
-  let daire = null;
-  if (kullanici.daireId) {
-    const d = await Daire.findOne({ _id: kullanici.daireId, siteId: kullanici.siteId }).lean();
-    const bina = d && (await Bina.findOne({ _id: d.binaId, siteId: kullanici.siteId }).lean());
-    if (bina) daire = { id: d._id, ad: `${bina.ad}${d.daireNo}` }; // örn. "A3"
+  let flat = null;
+  if (user.daireId) {
+    const d = await Flat.findOne({ _id: user.daireId, siteId: user.siteId }).lean();
+    const building = d && (await Building.findOne({ _id: d.binaId, siteId: user.siteId }).lean());
+    if (building) flat = { id: d._id, ad: `${building.ad}${d.daireNo}` }; // örn. "A3"
   }
 
   return {
-    // _id: veritabanı kaydından gelirse; id: girisGerekli'nin hazırladığı req.kullanici'dan gelirse.
-    kullanici: { id: kullanici._id ?? kullanici.id, ad: kullanici.ad, eposta: kullanici.eposta, rol: kullanici.rol },
+    // _id: veritabanı kaydından gelirse; id: requireAuth'un hazırladığı req.kullanici'dan gelirse.
+    kullanici: { id: user._id ?? user.id, ad: user.ad, eposta: user.eposta, rol: user.rol },
     site: { id: site._id, ad: site.ad },
-    daire,
+    daire: flat,
   };
 }
 
 // Hesap formlarındaki ortak alan kuralları: boş alan, geçersiz e-posta, kısa şifre kabul edilmez.
 // Şifre en fazla 72 karakter: bcrypt 72 bayttan sonrasını dikkate almaz.
-const hesapAlanlari = {
+const accountFields = {
   ad: z.string({ error: 'Ad girilmeli' }).trim().min(2, 'Ad en az 2 karakter olmalı').max(50, 'Ad en fazla 50 karakter olabilir'),
   // Önce boşluklar silinip küçük harfe çevrilir, sonra e-posta biçimi kontrol edilir.
   eposta: z.string({ error: 'E-posta girilmeli' }).trim().toLowerCase().max(254, 'E-posta çok uzun').pipe(z.email('Geçerli bir e-posta adresi girin')),
@@ -62,60 +62,60 @@ const hesapAlanlari = {
 };
 
 // Site oluşturma formu: hesap alanları + site adı.
-const siteOlusturSemasi = z.object({
-  ...hesapAlanlari,
+const createSiteSchema = z.object({
+  ...accountFields,
   siteAdi: z.string({ error: 'Site adı girilmeli' }).trim().min(2, 'Site adı en az 2 karakter olmalı').max(80, 'Site adı en fazla 80 karakter olabilir'),
 });
 
 // POST /api/hesap/site-olustur
 // Kim kullanabilir: herkes (giriş gerekmez). Yeni bir site ve o sitenin yönetici hesabını
-// oluşturur, giriş için token döner. kayitSiniri: aynı IP'den çok sayıda hesap açılmasını engeller.
-// dogrula: gövdeyi yukarıdaki şemayla kontrol eder; uymazsa route'a hiç girilmeden 400 döner.
+// oluşturur, giriş için token döner. registerLimiter: aynı IP'den çok sayıda hesap açılmasını engeller.
+// validate: gövdeyi yukarıdaki şemayla kontrol eder; uymazsa route'a hiç girilmeden 400 döner.
 // Sıra önemli: önce deneme sınırı, sonra doğrulama; sınırı aşan istek hiç doğrulanmaz.
-router.post('/site-olustur', kayitSiniri, dogrula(siteOlusturSemasi), async (req, res) => {
-  const { ad, eposta, sifre, siteAdi } = req.body;
+router.post('/site-olustur', registerLimiter, validate(createSiteSchema), async (req, res) => {
+  const { ad: name, eposta: email, sifre: password, siteAdi: siteName } = req.body;
 
   // Site yöneticiyi, yönetici de siteyi gösterdiği için iki id önceden üretilir.
   const siteId = new mongoose.Types.ObjectId();
-  const kullaniciId = new mongoose.Types.ObjectId();
+  const userId = new mongoose.Types.ObjectId();
 
   // Transaction: site ve kullanıcı ya birlikte kaydedilir ya hiç kaydedilmez.
   // Örneğin e-posta zaten kayıtlıysa yarım kalmış, yöneticisiz bir site oluşmaz.
   await mongoose.connection.transaction(async (session) => {
     // Bu e-postanın eski bir "silinen hesap" izi varsa kaldırılır (kişi yeni hesap açtı, eski mesaj artık geçersiz).
-    await SilinenHesap.deleteOne({ epostaOzeti: SilinenHesap.ozet(eposta) }, { session });
-    await Site.create([{ _id: siteId, ad: siteAdi, yoneticiId: kullaniciId }], { session });
-    await Kullanici.create(
-      [{ _id: kullaniciId, siteId, ad, eposta, sifre, rol: 'yonetici' }],
+    await DeletedAccount.deleteOne({ epostaOzeti: DeletedAccount.ozet(email) }, { session });
+    await Site.create([{ _id: siteId, ad: siteName, yoneticiId: userId }], { session });
+    await User.create(
+      [{ _id: userId, siteId, ad: name, eposta: email, sifre: password, rol: 'yonetici' }],
       { session }
     );
   });
 
   // 201: yeni kayıt oluşturuldu. Şifre hash'i cevaba hiç eklenmez.
   res.status(201).json({
-    token: tokenUret(kullaniciId),
-    kullanici: { id: kullaniciId, ad, eposta, rol: 'yonetici' },
-    site: { id: siteId, ad: siteAdi },
+    token: createToken(userId),
+    kullanici: { id: userId, ad: name, eposta: email, rol: 'yonetici' },
+    site: { id: siteId, ad: siteName },
     daire: null, // yöneticinin dairesi yok
   });
 });
 
 // Davet koduyla katılma formu: 6 haneli kod + hesap alanları.
-const katilSemasi = z.object({
+const joinSchema = z.object({
   davetKodu: z
     .string({ error: 'Davet kodu girilmeli' })
     .trim()
     .regex(/^\d{6}$/, 'Davet kodu 6 haneli bir sayı olmalı'),
-  ...hesapAlanlari,
+  ...accountFields,
 });
 
 // POST /api/hesap/katil
 // Kim kullanabilir: herkes (giriş gerekmez). Sakin dairesinin davet koduyla hesap açar;
-// hesap kodun ait olduğu siteye ve daireye otomatik bağlanır. kodSiniri: kod tahmin etmeye
-// çalışan hatalı denemeleri sınırlar. Sıra yine önemli: önce deneme sınırı, sonra dogrula.
-router.post('/katil', kodSiniri, dogrula(katilSemasi), async (req, res) => {
-  const { davetKodu, ad, eposta, sifre } = req.body;
-  const kullaniciId = new mongoose.Types.ObjectId();
+// hesap kodun ait olduğu siteye ve daireye otomatik bağlanır. codeLimiter: kod tahmin etmeye
+// çalışan hatalı denemeleri sınırlar. Sıra yine önemli: önce deneme sınırı, sonra validate.
+router.post('/katil', codeLimiter, validate(joinSchema), async (req, res) => {
+  const { davetKodu: inviteCode, ad: name, eposta: email, sifre: password } = req.body;
+  const userId = new mongoose.Types.ObjectId();
 
   // Transaction: kodu "kullanıldı" yapmak ve hesabı açmak birlikte olur. Hesap açılamazsa
   // (örn. e-posta zaten kayıtlı) kod da kullanılmamış haline geri döner.
@@ -125,37 +125,37 @@ router.post('/katil', kodSiniri, dogrula(katilSemasi), async (req, res) => {
     // $ne: true → "true olmayan": alan false olan VE bu alan eklenmeden önce oluşturulmuş
     // (alanı hiç olmayan) daireler de bulunur.
     // returnDocument: 'after' → güncellenmiş daire döner; session → işlem transaction'ın parçası olur.
-    const daire = await Daire.findOneAndUpdate(
-      { davetKodu, davetKoduKullanildi: { $ne: true } },
-      { davetKoduKullanildi: true, sakinId: kullaniciId },
+    const flat = await Flat.findOneAndUpdate(
+      { davetKodu: inviteCode, davetKoduKullanildi: { $ne: true } },
+      { davetKoduKullanildi: true, sakinId: userId },
       { session, returnDocument: 'after' }
     );
     // Kod yoksa da kullanılmışsa da aynı mesaj: hangi kodların var olduğu belli edilmez.
-    if (!daire) {
-      throw new ApiHatasi(400, 'Davet kodu geçersiz veya kullanılmış.');
+    if (!flat) {
+      throw new ApiError(400, 'Davet kodu geçersiz veya kullanılmış.');
     }
 
     // Bu e-postanın eski bir "silinen hesap" izi varsa kaldırılır (kişi yeni dairesine yeni hesapla katıldı).
-    await SilinenHesap.deleteOne({ epostaOzeti: SilinenHesap.ozet(eposta) }, { session });
+    await DeletedAccount.deleteOne({ epostaOzeti: DeletedAccount.ozet(email) }, { session });
     // siteId ve daireId istekten değil, kodun ait olduğu daireden alınır.
-    await Kullanici.create(
+    await User.create(
       // daireyeGiris: sakinin bu daireye geldiği an; aidat hesapları bu aydan itibaren ödeme bekler.
-      [{ _id: kullaniciId, siteId: daire.siteId, daireId: daire._id, daireyeGiris: new Date(), ad, eposta, sifre, rol: 'sakin' }],
+      [{ _id: userId, siteId: flat.siteId, daireId: flat._id, daireyeGiris: new Date(), ad: name, eposta: email, sifre: password, rol: 'sakin' }],
       { session }
     );
   });
 
   // Cevap giriş route'uyla aynı biçimdedir (token + kullanıcı + site + daire); mobil uygulama
   // bununla sakini doğrudan oturum açmış olarak sakin ana ekranına geçirir.
-  const kullanici = await Kullanici.findById(kullaniciId).lean();
-  const bilgi = await oturumBilgisi(kullanici);
+  const user = await User.findById(userId).lean();
+  const info = await sessionInfo(user);
   // Site bu arada silinmişse (çok düşük ihtimal) eksik cevap gönderilmez.
-  if (!bilgi) throw new ApiHatasi(400, 'Davet kodu geçersiz veya kullanılmış.');
-  res.status(201).json({ token: tokenUret(kullaniciId), ...bilgi });
+  if (!info) throw new ApiError(400, 'Davet kodu geçersiz veya kullanılmış.');
+  res.status(201).json({ token: createToken(userId), ...info });
 });
 
 // Giriş formunun kuralları. Şifrede uzunluk kuralı yok: yanlış şifre zaten aşağıda reddedilir.
-const girisSemasi = z.object({
+const loginSchema = z.object({
   eposta: z.string({ error: 'E-posta girilmeli' }).trim().toLowerCase().max(254, 'E-posta çok uzun'),
   sifre: z.string({ error: 'Şifre girilmeli' }).min(1, 'Şifre girilmeli').max(72, 'Şifre çok uzun'),
 });
@@ -163,43 +163,43 @@ const girisSemasi = z.object({
 // Kullanıcı bulunamazsa da bcrypt karşılaştırması yapılsın diye kullanılan sahte hash.
 // Böylece cevap süresi "böyle bir e-posta var mı" bilgisini sızdırmaz.
 // Sunucu açılırken bir kez üretilir (gerçek bir hash olmalı ki karşılaştırma gerçekten yapılsın).
-const SAHTE_HASH = bcrypt.hashSync('kullanici-yok', 12);
+const DUMMY_HASH = bcrypt.hashSync('kullanici-yok', 12);
 
 // POST /api/hesap/giris
 // Kim kullanabilir: herkes. E-posta ve şifre doğruysa token ve kullanıcı/site bilgisini döner.
-// girisSiniri: hatalı denemeleri sınırlar (şifre tahmin saldırısına karşı).
-// Sıra yine önemli: önce deneme sınırı, sonra dogrula ile gövde kontrolü.
-router.post('/giris', girisSiniri, dogrula(girisSemasi), async (req, res) => {
-  const { eposta, sifre } = req.body;
+// loginLimiter: hatalı denemeleri sınırlar (şifre tahmin saldırısına karşı).
+// Sıra yine önemli: önce deneme sınırı, sonra validate ile gövde kontrolü.
+router.post('/giris', loginLimiter, validate(loginSchema), async (req, res) => {
+  const { eposta: email, sifre: password } = req.body;
 
   // select('+sifre'): şifre hash'i normalde sorgulara gelmez, sadece burada karşılaştırma için alınır.
-  const kullanici = await Kullanici.findOne({ eposta }).select('+sifre');
+  const user = await User.findOne({ eposta: email }).select('+sifre');
   // bcrypt.compare: girilen şifreyi hash'leyip kayıtlı hash ile karşılaştırır (şifre çözülmez).
-  const sifreDogru = await bcrypt.compare(sifre, kullanici?.sifre ?? SAHTE_HASH);
+  const passwordValid = await bcrypt.compare(password, user?.sifre ?? DUMMY_HASH);
 
   // Hesap yoksa ama bu e-posta daireden çıkarıldığı için silinen bir hesaba aitse nedeni söylenir.
-  // Yazılan e-postanın özeti (SHA-256) alınıp SilinenHesap izleriyle karşılaştırılır; e-postanın kendisi
+  // Yazılan e-postanın özeti (SHA-256) alınıp DeletedAccount izleriyle karşılaştırılır; e-postanın kendisi
   // hiçbir yerde saklanmadığı için iz kişisel bilgi taşımaz. 403 (yasak): giriş bu hesap için artık mümkün değil.
   // Bilinçli tercih (kullanıcı kararı): hesap silindiği için şifre kontrol edilemez; e-postayı bilen biri o kişinin
   // son 30 gün içinde daireden çıkarıldığını öğrenebilir. İz 30 gün sonra silindiği için bu süreyle sınırlıdır.
-  if (!kullanici && (await SilinenHesap.exists({ epostaOzeti: SilinenHesap.ozet(eposta) }))) {
-    throw new ApiHatasi(403, DAIREDEN_CIKARILDI);
+  if (!user && (await DeletedAccount.exists({ epostaOzeti: DeletedAccount.ozet(email) }))) {
+    throw new ApiError(403, REMOVED_FROM_FLAT);
   }
   // E-posta mı şifre mi yanlış, bilinçli olarak söylenmez: saldırgan hangi e-postaların
   // kayıtlı olduğunu öğrenemez.
-  if (!kullanici || !sifreDogru) {
-    throw new ApiHatasi(401, 'E-posta veya şifre hatalı.');
+  if (!user || !passwordValid) {
+    throw new ApiError(401, 'E-posta veya şifre hatalı.');
   }
 
-  const bilgi = await oturumBilgisi(kullanici);
+  const info = await sessionInfo(user);
   // Sitesi silinmiş bir hesapla giriş yapılamaz (sunucu hata vermesin diye kontrol).
-  if (!bilgi) throw new ApiHatasi(401, 'E-posta veya şifre hatalı.');
+  if (!info) throw new ApiError(401, 'E-posta veya şifre hatalı.');
 
-  res.json({ token: tokenUret(kullanici._id), ...bilgi });
+  res.json({ token: createToken(user._id), ...info });
 });
 
 // Push token kuralı: Expo'nun verdiği biçimde olmalı (başka bir adrese bildirim gönderilemesin).
-const pushTokenSemasi = z.object({
+const pushTokenSchema = z.object({
   token: z
     .string({ error: 'Token girilmeli' })
     .max(200, 'Token geçersiz')
@@ -213,134 +213,134 @@ const pushTokenSemasi = z.object({
 // O temizlikte siteId filtresi bilerek yok: telefon başka sitedeki bir hesapta kayıtlı olabilir.
 // Sadece pushToken alanı null yapılır, başka sitenin hiçbir verisi okunmaz veya cevapta gönderilmez.
 // Kendi hesabı ise istekten değil token'dan gelen req.kullanici.id ile güncellenir.
-router.put('/push-token', girisGerekli, dogrula(pushTokenSemasi), async (req, res) => {
+router.put('/push-token', requireAuth, validate(pushTokenSchema), async (req, res) => {
   const { token } = req.body;
-  await Kullanici.updateMany({ pushToken: token, _id: { $ne: req.kullanici.id } }, { pushToken: null });
-  await Kullanici.updateOne({ _id: req.kullanici.id }, { pushToken: token });
+  await User.updateMany({ pushToken: token, _id: { $ne: req.kullanici.id } }, { pushToken: null });
+  await User.updateOne({ _id: req.kullanici.id }, { pushToken: token });
   res.status(204).end();
 });
 
 // DELETE /api/hesap/push-token
 // Kim kullanabilir: giriş yapmış herkes. Çıkış yaparken çağrılır; bu hesaba artık bildirim gitmez.
-router.delete('/push-token', girisGerekli, async (req, res) => {
-  await Kullanici.updateOne({ _id: req.kullanici.id }, { pushToken: null });
+router.delete('/push-token', requireAuth, async (req, res) => {
+  await User.updateOne({ _id: req.kullanici.id }, { pushToken: null });
   res.status(204).end();
 });
 
 // GET /api/hesap/ben
 // Kim kullanabilir: giriş yapmış herkes. Token'ın sahibini, sitesini ve (sakinse) dairesini döner.
 // Mobil uygulama açılışta kayıtlı token'ın hâlâ geçerli olup olmadığını bununla kontrol eder.
-router.get('/ben', girisGerekli, async (req, res) => {
-  // Bilgiler girisGerekli'nin veritabanından doldurduğu req.kullanici'dan alınır, istekten değil.
-  const bilgi = await oturumBilgisi(req.kullanici);
+router.get('/ben', requireAuth, async (req, res) => {
+  // Bilgiler requireAuth'un veritabanından doldurduğu req.kullanici'dan alınır, istekten değil.
+  const info = await sessionInfo(req.kullanici);
   // Site silinmişse oturum geçersiz sayılır; mobil uygulama kayıtlı token'ı siler.
-  if (!bilgi) throw new ApiHatasi(401, 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
+  if (!info) throw new ApiError(401, 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
 
-  res.json(bilgi);
+  res.json(info);
 });
 
 // Şifremi unuttum formlarının kuralları. E-posta, giriş formundakiyle aynı biçimde işlenir (küçük harf, boşluksuz).
-const kodIsteSemasi = z.object({ eposta: hesapAlanlari.eposta });
-const sifirlaSemasi = z.object({
-  eposta: hesapAlanlari.eposta,
+const requestCodeSchema = z.object({ eposta: accountFields.eposta });
+const resetSchema = z.object({
+  eposta: accountFields.eposta,
   kod: z.string({ error: 'Kod girilmeli' }).trim().regex(/^\d{6}$/, 'Kod 6 haneli bir sayı olmalı'),
-  yeniSifre: hesapAlanlari.sifre, // en az 8, en fazla 72 karakter (kayıttaki kuralla aynı)
+  yeniSifre: accountFields.sifre, // en az 8, en fazla 72 karakter (kayıttaki kuralla aynı)
 });
 
 // Kodun geçerlilik süresi (15 dakika) ve izin verilen yanlış deneme sayısı.
-const KOD_SURESI = 15 * 60 * 1000;
-const EN_FAZLA_DENEME = 5;
+const CODE_LIFETIME = 15 * 60 * 1000;
+const MAX_ATTEMPTS = 5;
 // Hangi e-postaların kayıtlı olduğu belli olmasın diye kod isteğine HER ZAMAN aynı cevap döner.
-const KOD_GONDERILDI = 'Bu e-posta kayıtlıysa 6 haneli bir kod gönderildi. Gelen kutunuzu ve spam klasörünü kontrol edin.';
+const CODE_SENT_MESSAGE = 'Bu e-posta kayıtlıysa 6 haneli bir kod gönderildi. Gelen kutunuzu ve spam klasörünü kontrol edin.';
 
 // POST /api/hesap/sifre-sifirla/kod-iste
 // Kim kullanabilir: herkes (giriş gerekmez). E-posta kayıtlıysa 6 haneli bir kod üretir, hash'ini 15 dakika
-// geçerli olarak kaydeder ve kodu e-postaya gönderir. epostaSiniri: başkalarının kutusunu doldurmayı engeller.
-router.post('/sifre-sifirla/kod-iste', epostaSiniri, dogrula(kodIsteSemasi), async (req, res) => {
-  const { eposta } = req.body;
+// geçerli olarak kaydeder ve kodu e-postaya gönderir. emailLimiter: başkalarının kutusunu doldurmayı engeller.
+router.post('/sifre-sifirla/kod-iste', emailLimiter, validate(requestCodeSchema), async (req, res) => {
+  const { eposta: email } = req.body;
   // Cevap HEMEN ve her durumda aynı döner: e-posta kayıtlı olsun olmasın aynı mesaj ve aynı süre.
   // (E-postanın gönderilmesi birkaç saniye sürer; bekleseydik kayıtlı e-postalar daha geç cevap alırdı.)
-  res.json({ mesaj: KOD_GONDERILDI });
+  res.json({ mesaj: CODE_SENT_MESSAGE });
 
   try {
-    const kullanici = await Kullanici.findOne({ eposta });
-    if (!kullanici) return;
+    const user = await User.findOne({ eposta: email });
+    if (!user) return;
     // crypto.randomInt: tahmin edilemeyen 6 haneli kod; padStart: "048213" gibi başı sıfırlı kodlar 6 hane kalsın.
-    const kod = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
     // Kodun kendisi değil bcrypt hash'i saklanır; yeni kod istenirse eskisi geçersiz olur ve deneme sayacı sıfırlanır.
-    kullanici.sifirlamaKodu = await bcrypt.hash(kod, 10);
-    kullanici.sifirlamaSonTarih = new Date(Date.now() + KOD_SURESI);
-    kullanici.sifirlamaDeneme = 0;
-    await kullanici.save();
-    await epostaGonder({
-      kime: eposta,
-      konu: 'Apartmanım şifre sıfırlama kodunuz',
-      metin: `Merhaba ${kullanici.ad},\n\nŞifre sıfırlama kodunuz: ${kod}\n\nKod 15 dakika geçerlidir ve bir kez kullanılabilir. Bu isteği siz yapmadıysanız bu e-postayı dikkate almayın; şifreniz değişmez.\n\nApartmanım`,
+    user.sifirlamaKodu = await bcrypt.hash(code, 10);
+    user.sifirlamaSonTarih = new Date(Date.now() + CODE_LIFETIME);
+    user.sifirlamaDeneme = 0;
+    await user.save();
+    await sendEmail({
+      to: email,
+      subject: 'Apartmanım şifre sıfırlama kodunuz',
+      metin: `Merhaba ${user.ad},\n\nŞifre sıfırlama kodunuz: ${code}\n\nKod 15 dakika geçerlidir ve bir kez kullanılabilir. Bu isteği siz yapmadıysanız bu e-postayı dikkate almayın; şifreniz değişmez.\n\nApartmanım`,
     });
-  } catch (hata) {
+  } catch (error) {
     // Cevap zaten gönderildiği için hata kullanıcıya iletilemez; sunucu konsoluna yazılır (kod/şifre yazılmaz).
-    console.error('Şifre sıfırlama e-postası gönderilemedi:', hata.message);
+    console.error('Şifre sıfırlama e-postası gönderilemedi:', error.message);
   }
 });
 
 // POST /api/hesap/sifre-sifirla
 // Kim kullanabilir: herkes (giriş gerekmez). E-posta + 6 haneli kod + yeni şifre alır. Kod doğru ve süresi
 // geçmemişse şifre değişir, kod silinir (tek kullanımlık) ve kullanıcı doğrudan giriş yapmış olur (token döner).
-// kodSiniri: hatalı denemeleri IP başına sınırlar; ayrıca her kod için en fazla 5 yanlış deneme hakkı vardır.
-router.post('/sifre-sifirla', kodSiniri, dogrula(sifirlaSemasi), async (req, res) => {
-  const { eposta, kod, yeniSifre } = req.body;
-  const GECERSIZ = 'Kod hatalı veya süresi dolmuş. Yeni kod isteyebilirsiniz.';
+// codeLimiter: hatalı denemeleri IP başına sınırlar; ayrıca her kod için en fazla 5 yanlış deneme hakkı vardır.
+router.post('/sifre-sifirla', codeLimiter, validate(resetSchema), async (req, res) => {
+  const { eposta: email, kod: code, yeniSifre: newPassword } = req.body;
+  const INVALID_CODE_MESSAGE = 'Kod hatalı veya süresi dolmuş. Yeni kod isteyebilirsiniz.';
 
   // '+sifirlamaKodu': modelde select: false olan kod hash'i, karşılaştırma için bu sorguda özellikle istenir.
-  const kullanici = await Kullanici.findOne({ eposta }).select('+sifirlamaKodu');
+  const user = await User.findOne({ eposta: email }).select('+sifirlamaKodu');
   // Kod her durumda bcrypt ile karşılaştırılır (kayıtsız e-postada sahte hash ile): cevap süresi aynı kalır,
   // "bu e-posta kayıtlı mı?" sorusu cevabın ne kadar sürdüğünden anlaşılamaz (girişteki yöntemle aynı).
-  const kodDogru = await bcrypt.compare(kod, kullanici?.sifirlamaKodu ?? SAHTE_HASH);
+  const codeValid = await bcrypt.compare(code, user?.sifirlamaKodu ?? DUMMY_HASH);
   // Kayıtlı olmayan e-posta, hiç kod istenmemiş veya süresi dolmuş kod: hepsi aynı mesajı alır.
   // Deneme hakkı bitmiş kod da geçersizdir (aynı anda gönderilen istekler sayacı 5'in üstüne çıkarmış olabilir).
   if (
-    !kullanici?.sifirlamaKodu ||
-    kullanici.sifirlamaSonTarih < new Date() ||
-    kullanici.sifirlamaDeneme >= EN_FAZLA_DENEME
+    !user?.sifirlamaKodu ||
+    user.sifirlamaSonTarih < new Date() ||
+    user.sifirlamaDeneme >= MAX_ATTEMPTS
   ) {
-    throw new ApiHatasi(400, GECERSIZ);
+    throw new ApiError(400, INVALID_CODE_MESSAGE);
   }
 
-  if (!kodDogru) {
+  if (!codeValid) {
     // Yanlış kod: deneme sayısı artar; 5'e ulaşınca kod tamamen iptal edilir (kalan haklarla tahmin edilemesin).
     // $inc: sayaç veritabanında tek adımda artırılır. Önce okuyup sonra yazsaydık, aynı anda gelen istekler
     // aynı eski değeri okuyup 5'ten fazla deneme yapabilirdi. returnDocument 'after': artırılmış değer döner.
-    const guncel = await Kullanici.findOneAndUpdate(
-      { _id: kullanici._id },
+    const current = await User.findOneAndUpdate(
+      { _id: user._id },
       { $inc: { sifirlamaDeneme: 1 } },
       { returnDocument: 'after' }
     );
-    if (guncel.sifirlamaDeneme >= EN_FAZLA_DENEME) {
-      await Kullanici.updateOne({ _id: kullanici._id }, { sifirlamaKodu: null, sifirlamaSonTarih: null });
+    if (current.sifirlamaDeneme >= MAX_ATTEMPTS) {
+      await User.updateOne({ _id: user._id }, { sifirlamaKodu: null, sifirlamaSonTarih: null });
     }
-    throw new ApiHatasi(400, GECERSIZ);
+    throw new ApiError(400, INVALID_CODE_MESSAGE);
   }
 
   // Doğru kod: yeni şifre atanır (modeldeki pre('save') onu bcrypt ile hash'ler), kod silinir.
-  kullanici.sifre = yeniSifre;
-  kullanici.sifirlamaKodu = null;
-  kullanici.sifirlamaSonTarih = null;
-  kullanici.sifirlamaDeneme = 0;
+  user.sifre = newPassword;
+  user.sifirlamaKodu = null;
+  user.sifirlamaSonTarih = null;
+  user.sifirlamaDeneme = 0;
   // sifreDegisme: bu andan önce verilmiş tüm oturumlar (başka telefonlardaki dahil) geçersiz olur.
-  kullanici.sifreDegisme = new Date();
-  await kullanici.save();
+  user.sifreDegisme = new Date();
+  await user.save();
   // O an açık olan diğer telefonlara haber verilir ve bağlantıları kapatılır; uygulama oturumu kapatıp mesajı gösterir.
-  kullaniciyiKopar(kullanici._id, 'sifreDegisti', { mesaj: SIFRE_DEGISTI });
+  disconnectUser(user._id, 'sifreDegisti', { mesaj: PASSWORD_CHANGED });
 
   // Şifre değişti; kullanıcı ayrıca giriş yapmak zorunda kalmasın diye oturum bilgisi ve token döner.
-  const bilgi = await oturumBilgisi(kullanici);
+  const info = await sessionInfo(user);
   // Kullanıcının sitesi silinmişse oturum açılamaz; token verilmez.
-  if (!bilgi) throw new ApiHatasi(400, GECERSIZ);
-  res.json({ token: tokenUret(kullanici._id), ...bilgi });
+  if (!info) throw new ApiError(400, INVALID_CODE_MESSAGE);
+  res.json({ token: createToken(user._id), ...info });
 });
 
 // Hesap silme formunun kuralı: şifre tekrar girilmeli.
-const hesapSilSemasi = z.object({
+const deleteAccountSchema = z.object({
   sifre: z.string({ error: 'Şifre girilmeli' }).min(1, 'Şifre girilmeli').max(72, 'Şifre çok uzun'),
 });
 
@@ -351,36 +351,36 @@ const hesapSilSemasi = z.object({
 // - Korunanlar: aidat kayıtları. Kişiye değil daireye bağlı oldukları için (daireId) yönetici takviminde durmaya devam eder.
 // - Daire boşaltılır ve yeni davet kodu alır; dairenin yeni sakini yeni kodla katılır.
 // Hepsi tek transaction'da yapılır (ya hepsi ya hiçbiri).
-// girisSiniri: şifre karşılaştırıldığı için girişteki deneme sınırı burada da uygulanır (şifre tahminine karşı).
-router.delete('/', girisSiniri, girisGerekli, dogrula(hesapSilSemasi), async (req, res) => {
-  // id, siteId ve rol istekten değil, girisGerekli'nin token'dan bulduğu veritabanı kaydından gelir.
-  const { id, siteId, rol } = req.kullanici;
+// loginLimiter: şifre karşılaştırıldığı için girişteki deneme sınırı burada da uygulanır (şifre tahminine karşı).
+router.delete('/', loginLimiter, requireAuth, validate(deleteAccountSchema), async (req, res) => {
+  // id, siteId ve rol istekten değil, requireAuth'un token'dan bulduğu veritabanı kaydından gelir.
+  const { id, siteId, rol: role } = req.kullanici;
   // YETKİ KONTROLÜ: mobil ekran yöneticiye silme formunu hiç göstermez ama asıl engel burasıdır.
   // Yönetici silinirse site yöneticisiz kalırdı; bu yüzden önce devir şarttır.
-  if (rol === 'yonetici') {
-    throw new ApiHatasi(403, 'Yönetici hesabı silinemez. Önce yöneticiliği bir sakine devredin.');
+  if (role === 'yonetici') {
+    throw new ApiError(403, 'Yönetici hesabı silinemez. Önce yöneticiliği bir sakine devredin.');
   }
 
   // select('+sifre'): şifre hash'i normalde sorgulara gelmez, sadece karşılaştırma için alınır.
   // Yanlış şifrede 400 döner (401 değil): 401 telefonda oturumu kapatırdı, kullanıcı sadece tekrar denemeli.
-  const kullanici = await Kullanici.findById(id).select('+sifre daireId');
+  const user = await User.findById(id).select('+sifre daireId');
   // Aynı hesap az önce başka bir telefondan silindiyse kayıt yoktur (sunucu hata vermesin diye kontrol).
-  if (!kullanici) throw new ApiHatasi(401, 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
-  if (!(await bcrypt.compare(req.body.sifre, kullanici.sifre))) {
-    throw new ApiHatasi(400, 'Şifre hatalı.');
+  if (!user) throw new ApiError(401, 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
+  if (!(await bcrypt.compare(req.body.sifre, user.sifre))) {
+    throw new ApiError(400, 'Şifre hatalı.');
   }
 
   // Hesap ve mesajlar silinir, daire boşaltılıp yeni kod alır; kendi silen sakin için iz bırakılmaz.
   // sakinId: id → daire gerçekten bu kişiye kayıtlıysa sıfırlanır (bu arada daireye başkası geldiyse dokunulmaz).
-  // daireId kontrolü sadece güvenlik önlemi; sakinde hep doludur. Ayrıntılar services/daire.js içindeki sakiniKaldir'da.
-  await sakiniKaldir({
+  // daireId kontrolü sadece güvenlik önlemi; sakinde hep doludur. Ayrıntılar services/flat.js içindeki detachResident'ta.
+  await detachResident({
     siteId,
-    sakin: kullanici,
-    daireFiltresi: kullanici.daireId ? { _id: kullanici.daireId, sakinId: id } : null,
+    sakin: user,
+    flatFilter: user.daireId ? { _id: user.daireId, sakinId: id } : null,
   });
 
   // Aynı hesap başka bir telefonda da açıksa o uygulamaya haber verilir ve bağlantısı kapatılır.
-  kullaniciyiKopar(id, 'hesapSilindi', { mesaj: 'Hesabınız ve kişisel bilgileriniz silindi.' });
+  disconnectUser(id, 'hesapSilindi', { mesaj: 'Hesabınız ve kişisel bilgileriniz silindi.' });
   // 204: işlem başarılı, cevapta gönderilecek veri yok.
   res.status(204).end();
 });

@@ -1,7 +1,7 @@
 // Duyuru modeli: yöneticinin tüm siteye yaptığı duyurular ("Bugün çöp günü", "Tadilat olacak").
 const mongoose = require('mongoose');
 
-const duyuruSemasi = new mongoose.Schema(
+const announcementSchema = new mongoose.Schema(
   {
     // Duyurunun ait olduğu site: sakinler sadece kendi sitelerinin duyurularını görür.
     siteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Site', required: true },
@@ -13,6 +13,6 @@ const duyuruSemasi = new mongoose.Schema(
 );
 
 // Bir sitenin duyurularını yeniden eskiye hızlı listelemek için.
-duyuruSemasi.index({ siteId: 1, tarih: -1 });
+announcementSchema.index({ siteId: 1, tarih: -1 });
 
-module.exports = mongoose.model('Duyuru', duyuruSemasi);
+module.exports = mongoose.model('Duyuru', announcementSchema);

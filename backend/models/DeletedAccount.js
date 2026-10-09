@@ -4,7 +4,7 @@
 const crypto = require('node:crypto');
 const mongoose = require('mongoose');
 
-const silinenHesapSemasi = new mongoose.Schema({
+const deletedAccountSchema = new mongoose.Schema({
   // E-postanın özeti (HMAC-SHA256): e-postanın kendisi düz metin olarak saklanmaz. Girişte yazılan e-postanın
   // özeti aynı yöntemle alınıp karşılaştırılabilir.
   epostaOzeti: { type: String, required: true, unique: true },
@@ -16,10 +16,10 @@ const silinenHesapSemasi = new mongoose.Schema({
 });
 
 // E-postayı özete çevirir (küçük harfe çevrilip boşluklar silinerek: girişteki e-postayla aynı biçimde).
-// HMAC: özet, sunucunun gizli anahtarıyla (.env'deki JWT_ANAHTARI) alınır. Düz SHA-256 olsaydı, veritabanı
+// HMAC: özet, sunucunun gizli anahtarıyla (.env'deki JWT_SECRET) alınır. Düz SHA-256 olsaydı, veritabanı
 // sızdığında elinde e-posta listesi olan biri özetleri tek tek eşleştirebilirdi; anahtar olmadan bu yapılamaz.
-// statics: modelin kendisine eklenen yardımcı fonksiyon (SilinenHesap.ozet(eposta) diye çağrılır).
-silinenHesapSemasi.statics.ozet = (eposta) =>
-  crypto.createHmac('sha256', process.env.JWT_ANAHTARI).update(eposta.trim().toLowerCase()).digest('hex');
+// statics: modelin kendisine eklenen yardımcı fonksiyon (DeletedAccount.ozet(email) diye çağrılır).
+deletedAccountSchema.statics.ozet = (email) =>
+  crypto.createHmac('sha256', process.env.JWT_SECRET).update(email.trim().toLowerCase()).digest('hex');
 
-module.exports = mongoose.model('SilinenHesap', silinenHesapSemasi);
+module.exports = mongoose.model('SilinenHesap', deletedAccountSchema);

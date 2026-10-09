@@ -2,31 +2,31 @@
 // her zaman aynı biçimde ({ mesaj }) döner. Böylece mobil taraf hatayı tek bir yerden
 // okuyup kullanıcıya gösterebilir; sunucu da hata yüzünden çökmez.
 
-// ApiHatasi: route'larda bilerek fırlatılan hatalar için (örn. 404 "Bulunamadı").
+// ApiError: route'larda bilerek fırlatılan hatalar için (örn. 404 "Bulunamadı").
 // Hem kullanıcıya gösterilecek mesajı hem de HTTP durum kodunu taşır.
-class ApiHatasi extends Error {
-  constructor(durumKodu, mesaj) {
-    super(mesaj);
-    this.durumKodu = durumKodu;
+class ApiError extends Error {
+  constructor(statusCode, message) {
+    super(message);
+    this.durumKodu = statusCode;
   }
 }
 
 // Tanımlı olmayan bir adrese istek gelirse çalışır ve 404 hatası üretir.
-function bulunamadi(req, res, next) {
-  next(new ApiHatasi(404, 'Bulunamadı'));
+function notFound(req, res, next) {
+  next(new ApiError(404, 'Bulunamadı'));
 }
 
 // Hata yakalayıcı: Express 4 parametreli middleware'i hata yakalayıcı olarak tanır.
 // Express 5'te async route'larda fırlatılan hatalar da otomatik olarak buraya gelir.
 // eslint-disable-next-line no-unused-vars
-function hataYakalayici(err, req, res, next) {
+function errorHandler(err, req, res, next) {
   // Cevabın bir kısmı zaten gönderildiyse ikinci cevap yazılamaz; Express'e devredilir.
   if (res.headersSent) {
     return next(err);
   }
 
-  // Bizim bilerek fırlattığımız hata: mesajı olduğu gibi kullanıcıya iletilir.
-  if (err instanceof ApiHatasi) {
+  // Bizim bilerek fırlattığımız hata (ApiError): mesajı olduğu gibi kullanıcıya iletilir.
+  if (err instanceof ApiError) {
     return res.status(err.durumKodu).json({ mesaj: err.message });
   }
 
@@ -50,12 +50,12 @@ function hataYakalayici(err, req, res, next) {
   // 409 (çakışma) döner; hata loglanmaz çünkü içinde kullanıcının e-postası bulunur.
   if (err.code === 11000) {
     // Hangi alan çakıştıysa ona uygun mesaj (aidat: aynı daire + ay için ikinci bildirim).
-    const mesaj = err.keyPattern?.eposta
+    const message = err.keyPattern?.eposta
       ? 'Bu e-posta adresiyle zaten bir hesap var.'
       : err.keyPattern?.daireId && err.keyPattern?.ay
         ? 'Bu ay için zaten bekleyen veya onaylanmış bir bildiriminiz var.'
         : 'Bu kayıt zaten mevcut.';
-    return res.status(409).json({ mesaj });
+    return res.status(409).json({ mesaj: message });
   }
 
   // Mongoose: geçersiz kimlik (ObjectId) gönderildi. Kaydın varlığını belli etmemek
@@ -75,4 +75,4 @@ function hataYakalayici(err, req, res, next) {
   return res.status(500).json({ mesaj: 'Sunucuda bir hata oluştu. Lütfen tekrar deneyin.' });
 }
 
-module.exports = { ApiHatasi, bulunamadi, hataYakalayici };
+module.exports = { ApiError, notFound, errorHandler };

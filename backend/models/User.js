@@ -2,7 +2,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
-const kullaniciSemasi = new mongoose.Schema(
+const userSchema = new mongoose.Schema(
   {
     // Hesabın ait olduğu site. Site izolasyonunda tüm sorgular bu alana göre filtrelenir.
     siteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Site', required: true, index: true },
@@ -22,7 +22,7 @@ const kullaniciSemasi = new mongoose.Schema(
     daireId: { type: mongoose.Schema.Types.ObjectId, ref: 'Daire', default: null },
     // Daireye giriş tarihi: kişi bu daireye ne zaman sakin olarak geldi (davet koduyla katılma veya yönetici devri).
     // Aidat hesapları "hangi aydan itibaren ödemesi gerekiyor?" sorusunu buna göre cevaplar. Bu alan eklenmeden
-    // önce katılan sakinlerde boştur (null); o zaman hesap açma tarihi (createdAt) kullanılır (bkz. daireyeGirisTarihi).
+    // önce katılan sakinlerde boştur (null); o zaman hesap açma tarihi (createdAt) kullanılır (bkz. moveInDateOf).
     daireyeGiris: { type: Date, default: null },
     // Telefonun Expo push adresi ("ExponentPushToken[...]"). Bildirim bu adrese gönderilir.
     // Giriş yapınca kaydedilir, çıkış yapınca silinir (çıkış yapmış telefona bildirim gitmesin).
@@ -44,20 +44,20 @@ const kullaniciSemasi = new mongoose.Schema(
 // Kaydetmeden önce şifreyi bcrypt ile hash'ler; veritabanına asla düz şifre yazılmaz.
 // isModified: sadece şifre yeni girildiyse veya değiştiyse hash'ler (ad değişince tekrar hash'lemez).
 // 12: hash'in "maliyeti"; yükseldikçe kaba kuvvetle şifre denemek zorlaşır.
-kullaniciSemasi.pre('save', async function () {
+userSchema.pre('save', async function () {
   if (!this.isModified('sifre')) return;
   this.sifre = await bcrypt.hash(this.sifre, 12);
 });
 
 // Bir kullanıcının daireye giriş tarihini verir: daireyeGiris doluysa o, değilse hesap açma tarihi.
 // Sorgularda ikisi de seçilmelidir: .select('daireyeGiris createdAt').
-// statics: modelin kendisine eklenen yardımcı fonksiyon (Kullanici.daireyeGirisTarihi(k) diye çağrılır).
-kullaniciSemasi.statics.daireyeGirisTarihi = (k) => k.daireyeGiris ?? k.createdAt;
+// statics: modelin kendisine eklenen yardımcı fonksiyon (User.moveInDateOf(k) diye çağrılır).
+userSchema.statics.moveInDateOf = (k) => k.daireyeGiris ?? k.createdAt;
 
 // Token şifre değişmeden ÖNCE mi verildi? iat: token'ın verildiği an (saniye cinsinden, JWT'nin kendisi ekler).
 // Saniyeye yuvarlanarak karşılaştırılır: şifre değiştikten hemen sonra (aynı saniyede) verilen yeni token geçerli kalsın.
 // Bunun bedeli: şifre değişmeden önce ama aynı saniye içinde verilmiş bir token da geçerli kalır (kabul edilen çok küçük risk).
-kullaniciSemasi.statics.tokenEskiMi = (k, iat) =>
+userSchema.statics.isTokenStale = (k, iat) =>
   Boolean(k.sifreDegisme) && iat < Math.floor(new Date(k.sifreDegisme).getTime() / 1000);
 
-module.exports = mongoose.model('Kullanici', kullaniciSemasi);
+module.exports = mongoose.model('Kullanici', userSchema);
