@@ -11,74 +11,74 @@ const api = axios.create({
 });
 
 // Axios hatasını kullanıcıya gösterilebilecek Türkçe bir mesaja çevirir.
-function hataMesajiOlustur(hata) {
+function buildErrorMessage(error) {
   // Sunucu cevap verdi: backend her hatada { mesaj } döndüğü için onu kullanırız.
-  if (hata.response) {
-    return hata.response.data?.mesaj || `Sunucu beklenmeyen bir cevap verdi (${hata.response.status}).`;
+  if (error.response) {
+    return error.response.data?.mesaj || `Sunucu beklenmeyen bir cevap verdi (${error.response.status}).`;
   }
   // Sunucu süre içinde cevap vermedi.
-  if (hata.code === 'ECONNABORTED') {
+  if (error.code === 'ECONNABORTED') {
     return 'Sunucu cevap vermedi. Lütfen tekrar deneyin.';
   }
   // Hiç cevap yok: internet yok, sunucu kapalı veya adres yanlış.
   return 'Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.';
 }
 
-// Oturum düşünce çağrılacak fonksiyon. OturumContext, uygulama açılınca bir useEffect içinde
-// oturumDusunceAyarla ile kaydeder. api.js bir React component'i olmadığı için
-// oturumu kendisi kapatamaz; bu yüzden işi OturumContext'e bırakır.
-let oturumDustuIsleyici = null;
-export function oturumDusunceAyarla(fn) {
-  oturumDustuIsleyici = fn;
+// Oturum düşünce çağrılacak fonksiyon. SessionContext, uygulama açılınca bir useEffect içinde
+// setSessionDroppedHandler ile kaydeder. api.js bir React component'i olmadığı için
+// oturumu kendisi kapatamaz; bu yüzden işi SessionContext'e bırakır.
+let sessionDroppedHandler = null;
+export function setSessionDroppedHandler(fn) {
+  sessionDroppedHandler = fn;
 }
 
 // Bağlantı durumu: sunucuya şu an ulaşılabiliyor mu. Her istek sonucu (aşağıdaki interceptor) ve soket
-// bağlanıp koptukça (soket.js) güncellenir. "Bağlantı yok" şeridi (BaglantiSeridi) bunu dinler.
+// bağlanıp koptukça (socket.js) güncellenir. "Bağlantı yok" şeridi (ConnectionBanner) bunu dinler.
 // Telefonun internete bağlı olması yetmez; asıl önemli olan bilgisayardaki sunucuya ulaşabilmektir.
-let baglantiVar = true;
-const baglantiDinleyicileri = new Set();
-export function baglantiDurumuAyarla(durum) {
-  if (durum === baglantiVar) return;
-  baglantiVar = durum;
-  baglantiDinleyicileri.forEach((fn) => fn());
+let isConnected = true;
+const connectionListeners = new Set();
+export function setConnectionStatus(status) {
+  if (status === isConnected) return;
+  isConnected = status;
+  connectionListeners.forEach((fn) => fn());
 }
-// useSyncExternalStore için: dinleyici ekleyip kaldırma ve o anki durumu okuma (bkz. BaglantiSeridi).
-export const baglantiyiDinle = (fn) => {
-  baglantiDinleyicileri.add(fn);
-  return () => baglantiDinleyicileri.delete(fn);
+// useSyncExternalStore için: dinleyici ekleyip kaldırma ve o anki durumu okuma (bkz. ConnectionBanner).
+export const subscribeConnection = (fn) => {
+  connectionListeners.add(fn);
+  return () => connectionListeners.delete(fn);
 };
-export const baglantiVarMi = () => baglantiVar;
+export const getIsConnected = () => isConnected;
 
 // Interceptor (araya giren fonksiyon): her hatalı cevap ekrana ulaşmadan önce buradan geçer.
-// Hata tek tip bir nesneye çevrilir; ekranlar sadece hata.message'ı göstermekle yetinir,
+// Hata tek tip bir nesneye çevrilir; ekranlar sadece error.message'ı göstermekle yetinir,
 // her ekranda ayrı ayrı hata ayıklama kodu yazmak gerekmez.
 api.interceptors.response.use(
-  // Başarılı cevap: sunucuya ulaşıldı → bağlantı var. Cevap hiç değiştirilmeden ekrana iletilir.
-  (cevap) => {
-    baglantiDurumuAyarla(true);
-    return cevap;
+  // Başarılı response: sunucuya ulaşıldı → bağlantı var. Cevap hiç değiştirilmeden ekrana iletilir.
+  (response) => {
+    setConnectionStatus(true);
+    return response;
   },
-  // Hatalı cevap: ortak hata nesnesine çevrilip ekrana fırlatılır (ekranda catch ile yakalanır).
-  (hata) => {
+  // Hatalı response: ortak hata nesnesine çevrilip ekrana fırlatılır (ekranda catch ile yakalanır).
+  (error) => {
     // Sunucu cevap verdiyse (400, 404 vb.) bağlantı var; hiç cevap gelmediyse (internet yok, sunucu kapalı,
     // zaman aşımı) bağlantı yok sayılır ve "Bağlantı yok" şeridi çıkar.
-    baglantiDurumuAyarla(Boolean(hata.response));
-    const ortakHata = new Error(hataMesajiOlustur(hata));
+    setConnectionStatus(Boolean(error.response));
+    const apiError = new Error(buildErrorMessage(error));
     // Ekran gerekirse duruma göre davranabilsin diye HTTP kodu da eklenir (örn. 401 → girişe yönlendir).
-    ortakHata.durumKodu = hata.response?.status;
+    apiError.durumKodu = error.response?.status;
     // 401 + istekte token vardı: oturum artık geçersiz (süresi doldu, hesap silindi veya sakin daireden
     // çıkarıldı). Hangi ekranda olursa olsun oturum kapatılır ve sunucunun mesajı gösterilir.
     // (Giriş ekranındaki "şifre hatalı" 401'inde token olmadığı için bu çalışmaz.)
-    if (ortakHata.durumKodu === 401 && hata.config?.headers?.Authorization) {
-      oturumDustuIsleyici?.(ortakHata.message);
+    if (apiError.durumKodu === 401 && error.config?.headers?.Authorization) {
+      sessionDroppedHandler?.(apiError.message);
     }
-    return Promise.reject(ortakHata);
+    return Promise.reject(apiError);
   }
 );
 
 // Giriş yapılınca token'ı tüm isteklerin "Authorization" başlığına ekler; böylece backend
 // isteği kimin attığını bilir. Çıkışta null verilir ve başlık silinir.
-export function tokenAyarla(token) {
+export function setToken(token) {
   if (token) {
     api.defaults.headers.common.Authorization = `Bearer ${token}`;
   } else {

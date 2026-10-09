@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** Tüm görevler tamamlandı (opsiyonel O.1 kullanıcı isterse)
+**Mevcut görev:** 8.2
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -155,6 +155,21 @@ Kurallar:
 - [x] **7.4 Demo verisi:** Sunum için örnek site, daireler, aidatlar ve mesajlar oluşturan script
 - [x] **7.5 Teslim hazırlığı:** README'nin son hali ve ekran görüntüleri, sunum akışı
 - [x] **7.6 İndirilebilir APK:** Android Studio araçlarıyla yerelde release APK derlenir ve GitHub Releases'a yüklenir. Karar: APK, backend'i çalışan bilgisayarla aynı Wi-Fi'da kullanılır (ders online, sunum evden ekran paylaşımıyla yapılır); backend internete taşınmaz. APK yerel IP'ye `http` ile bağlanabilsin diye cleartext izni verilir.
+
+## Aşama 8 — Kodun İngilizceye Çevrilmesi
+
+Hocanın şartı (2026-10-08): `//` açıklamaları ve ekranda kullanıcının okuduğu yazılar dışında tüm kod İngilizce olacak.
+Çalışma kopyası: `A:/Github projeleri/apartment-manager` (veritabanı `apartment-manager`). Eski hal: `Apartmanim` klasörü, `apartmanim` veritabanı ve GitHub'da `turkce-son-surum` etiketi.
+Her dilim sonunda uygulama çalışır durumda olur ve telefonda denenir. Türkçe → İngilizce ad sözlüğü `mobile/ders-ornekleri/` içinde tutulur.
+
+- [x] **8.1 Mobil:** Mobildeki tüm adlar (dosyalar, ekranlar, component'ler, servisler, değişkenler); sunucuyla konuşan alan adlarına dokunulmaz
+  - Deneme: Uygulama açılır, giriş yapılır, tüm ekranlar eskisi gibi çalışır
+- [ ] **8.2 Backend:** Backend'deki tüm iç adlar (fonksiyonlar, middleware, servisler, dosyalar, ortam değişkenleri); API ve veritabanı aynı kalır
+  - Deneme: Uygulama eskisi gibi çalışır, zamanlanmış görevler çalışır
+- [ ] **8.3 Ortak dil:** Veritabanı modelleri ve alanları, API yolları, JSON alanları, durum değerleri, soket olayları (backend + mobil birlikte); demo yeniden kurulur
+  - Deneme: Tüm özellikler baştan sona denenir
+- [ ] **8.4 Kapanış:** Demo betiği, README, SUNUM.md, ders örnekleri ve Türkçe → İngilizce ad sözlüğü
+  - Deneme: Belgeler ve örnekler yeni adlarla birebir uyumlu
 
 ## Opsiyonel (sadece kullanıcı isterse)
 

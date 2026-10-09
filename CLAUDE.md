@@ -195,7 +195,8 @@ Hoca derste "bu kod ne işe yarıyor?" diye soracak. Bu yüzden:
 ## Kod Yazma Kuralları
 
 - Kodu **profesyonel standartta** yaz: fonksiyonel component, hook'lar, temiz klasör yapısı, tekrar kullanılabilir parçalar, düzgün hata yönetimi. React en iyi uygulamalarını takip et.
-- Değişken ve fonksiyon isimleri **Türkçe ve anlamlı** olabilir (`aidatOnayla`, `duyuruGonder`).
+- **Kodun tamamı İngilizce yazılır** (hocanın şartı, 2026-10-08): değişken, fonksiyon, component, dosya/klasör adları, veritabanı alanları ve API yolları İngilizce ve anlamlı olur (`approveDue`, `sendAnnouncement`). Türkçe kalanlar: `//` açıklama satırları ve kullanıcının ekranda okuduğu yazılar ("Giriş yap", hata mesajları).
+- Terimler: Kullanıcı → User, Yönetici → manager, Sakin → resident, Bina → Building, Daire → **Flat**, Aidat → Due, Duyuru → Announcement, Mesaj → Message, Davet kodu → inviteCode, Devir → handover.
 - Bir görevde sadece o görevin işini yap. Sonraki görevlerin özelliklerini önceden ekleme.
 - Çalışan kodu sadece stil yüzünden baştan yazma. Küçük, odaklı değişiklik yap.
 - Mevcut dosyayı düzenle, gerekmedikçe tüm dosyayı yeniden üretme.
