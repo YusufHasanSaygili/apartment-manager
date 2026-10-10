@@ -21,7 +21,7 @@ export function setOpenChat(personId) {
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const data = notification.request.content.data;
-    const show = !(data?.ekran === 'Sohbet' && data.kisiId === openChatPersonId);
+    const show = !(data?.screen === 'Chat' && data.personId === openChatPersonId);
     return {
       shouldShowBanner: show,
       shouldShowList: show,
@@ -39,10 +39,13 @@ export async function getPushToken() {
   if (!Device.isDevice && Platform.OS === 'ios') return null;
 
   try {
-    // Android 8+ bildirimleri "kanal" üzerinden gösterir; backend 'varsayilan' kanalına gönderir.
+    // Android 8+ bildirimleri "kanal" üzerinden gösterir; backend 'default' kanalına gönderir.
     // MAX önem: bildirim ekranın üstünde açılır pencere olarak görünür.
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('varsayilan', {
+      // Uygulamanın eski sürümü 'varsayilan' adlı bir kanal kullanıyordu; telefon ayarlarında boşta kalmasın diye silinir
+      // (yoksa hata vermez, sessizce geçilir).
+      await Notifications.deleteNotificationChannelAsync('varsayilan').catch(() => {});
+      await Notifications.setNotificationChannelAsync('default', {
         name: 'Duyurular ve bildirimler',
         importance: Notifications.AndroidImportance.MAX,
       });

@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { mix, radius, colors, fonts } from '../theme';
 import Icon from './Icon';
 
-export default function Tile({ icon, baslik: title, subtitle, badge, onPress, wide = false, highlighted = false, style, children }) {
+export default function Tile({ icon, title, subtitle, badge, onPress, wide = false, highlighted = false, style, children }) {
   // Vurgulu kutuda zemin altın, yazılar koyu; diğerlerinde zemin koyu kart, ikon altın.
   const background = highlighted ? colors.primary : colors.card;
   const text = highlighted ? colors.onPrimary : colors.text;
@@ -26,7 +26,7 @@ export default function Tile({ icon, baslik: title, subtitle, badge, onPress, wi
     >
       <View style={[styles.header, wide && styles.headerWide]}>
         <View style={[styles.iconBox, { backgroundColor: iconBackground }]}>
-          <Icon ad={icon} size={22} color={highlighted ? colors.onPrimary : colors.primary} background={iconBackground} />
+          <Icon name={icon} size={22} color={highlighted ? colors.onPrimary : colors.primary} background={iconBackground} />
         </View>
         {/* Rozet: geniş kutuda sağda ortada, normal kutuda sağ üstte (kare, mono sayı) */}
         {badge && !wide ? (
@@ -36,8 +36,8 @@ export default function Tile({ icon, baslik: title, subtitle, badge, onPress, wi
         ) : null}
       </View>
       {children}
-      <View style={wide ? styles.textWide : styles.metin}>
-        <Text style={[styles.baslik, { color: text }]}>{title}</Text>
+      <View style={wide ? styles.textWide : styles.text}>
+        <Text style={[styles.title, { color: text }]}>{title}</Text>
         {subtitle ? <Text style={[styles.subtitle, highlighted && { color: mix(colors.onPrimary, 0.7, colors.primary) }]}>{subtitle}</Text> : null}
       </View>
       {badge && wide ? (
@@ -87,21 +87,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  metin: {
+  text: {
     gap: 1,
   },
   textWide: {
     flex: 1,
     gap: 1,
   },
-  baslik: {
-    fontFamily: fonts.metin,
+  title: {
+    fontFamily: fonts.text,
     fontSize: 15,
     fontWeight: '600',
     lineHeight: 19,
   },
   subtitle: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 12.5,
     color: colors.muted,
   },

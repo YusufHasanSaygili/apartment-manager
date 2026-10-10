@@ -7,11 +7,11 @@ import { useSession } from '../services/SessionContext';
 import { mix, radius, colors, fonts } from '../theme';
 import Icon from './Icon';
 
-// navigation: "Hesabımı sil" satırıyla DeleteAccount ekranını açmak için. rol: kartta görünen rol etiketi.
-export default function AccountCard({ navigation, rol: role }) {
+// navigation: "Hesabımı sil" satırıyla DeleteAccount ekranını açmak için. role: kartta görünen rol etiketi.
+export default function AccountCard({ navigation, role }) {
   // session: kullanıcının adı ve e-postası; logout: token'ı silip açılış ekranına döner.
   const { session, logout } = useSession();
-  const { ad: name, eposta: email } = session.kullanici;
+  const { name, email } = session.user;
   // Baş harfler: "Ayşe Yılmaz" → "AY"
   const initials = name.split(' ').filter(Boolean).map((k) => k[0]).join('').slice(0, 2).toLocaleUpperCase('tr-TR');
 
@@ -29,17 +29,17 @@ export default function AccountCard({ navigation, rol: role }) {
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
         <View style={styles.who}>
-          <Text style={styles.ad} numberOfLines={1}>{name}</Text>
-          <Text style={styles.eposta} numberOfLines={1}>{email}</Text>
+          <Text style={styles.name} numberOfLines={1}>{name}</Text>
+          <Text style={styles.email} numberOfLines={1}>{email}</Text>
         </View>
-        <View style={styles.rol}>
+        <View style={styles.role}>
           <Text style={styles.roleText}>{role.toLocaleUpperCase('tr-TR')}</Text>
         </View>
       </View>
 
       {/* "Çıkış yap" satırı: basınca confirmLogout çalışır */}
       <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={confirmLogout} accessibilityRole="button">
-        <Icon ad="logout" size={20} color={colors.muted} />
+        <Icon name="logout" size={20} color={colors.muted} />
         <Text style={styles.rowLabel}>Çıkış yap</Text>
         <Feather name="chevron-right" size={18} color={colors.faint} />
       </Pressable>
@@ -50,7 +50,7 @@ export default function AccountCard({ navigation, rol: role }) {
         onPress={() => navigation.navigate('DeleteAccount')}
         accessibilityRole="button"
       >
-        <Icon ad="deleteAccount" size={20} color={colors.error} />
+        <Icon name="deleteAccount" size={20} color={colors.error} />
         <View style={styles.rowText}>
           <Text style={[styles.rowLabel, { color: colors.error }]}>Hesabımı sil</Text>
           <Text style={styles.rowSubtitle}>Kalıcıdır, geri alınamaz</Text>
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontWeight: '700',
     fontSize: 14,
     color: colors.primary,
@@ -92,18 +92,18 @@ const styles = StyleSheet.create({
   who: {
     flex: 1,
   },
-  ad: {
-    fontFamily: fonts.metin,
+  name: {
+    fontFamily: fonts.text,
     fontSize: 15,
     fontWeight: '600',
     color: colors.text,
   },
-  eposta: {
+  email: {
     fontFamily: fonts.mono,
     fontSize: 12,
     color: colors.muted,
   },
-  rol: {
+  role: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radius,
@@ -131,13 +131,13 @@ const styles = StyleSheet.create({
   },
   rowLabel: {
     flex: 1,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     fontWeight: '600',
     color: colors.text,
   },
   rowSubtitle: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 12,
     color: colors.muted,
   },

@@ -9,8 +9,8 @@ const generalLimiter = rateLimit({
   // Kalan hak bilgisini standart "RateLimit" başlığıyla gönderir, eski başlıkları kapatır.
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  // Sınır aşılınca dönen cevap; diğer hatalarla aynı { mesaj } biçiminde.
-  message: { mesaj: 'Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.' },
+  // Sınır aşılınca dönen cevap; diğer hatalarla aynı { message } biçiminde.
+  message: { message: 'Çok fazla istek gönderildi. Lütfen biraz sonra tekrar deneyin.' },
 });
 
 // Kayıt sınırı: bir IP 15 dakikada en fazla 10 hesap/site oluşturma denemesi yapabilir.
@@ -20,7 +20,7 @@ const registerLimiter = rateLimit({
   limit: 10,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  message: { mesaj: 'Çok fazla kayıt denemesi yapıldı. Lütfen 15 dakika sonra tekrar deneyin.' },
+  message: { message: 'Çok fazla kayıt denemesi yapıldı. Lütfen 15 dakika sonra tekrar deneyin.' },
 });
 
 // Giriş sınırı: bir IP 15 dakikada en fazla 10 HATALI giriş denemesi yapabilir.
@@ -32,7 +32,7 @@ const loginLimiter = rateLimit({
   skipSuccessfulRequests: true,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  message: { mesaj: 'Çok fazla hatalı giriş denemesi. Lütfen 15 dakika sonra tekrar deneyin.' },
+  message: { message: 'Çok fazla hatalı giriş denemesi. Lütfen 15 dakika sonra tekrar deneyin.' },
 });
 
 // Davet kodu sınırı: bir IP 15 dakikada en fazla 10 HATALI kod deneyebilir.
@@ -43,7 +43,7 @@ const codeLimiter = rateLimit({
   skipSuccessfulRequests: true,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  message: { mesaj: 'Çok fazla hatalı kod denemesi. Lütfen 15 dakika sonra tekrar deneyin.' },
+  message: { message: 'Çok fazla hatalı kod denemesi. Lütfen 15 dakika sonra tekrar deneyin.' },
 });
 
 // E-posta sınırı: bir IP 15 dakikada en fazla 5 "şifre sıfırlama kodu gönder" isteği atabilir.
@@ -53,7 +53,7 @@ const emailLimiter = rateLimit({
   limit: 5,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  message: { mesaj: 'Çok fazla kod istendi. Lütfen 15 dakika sonra tekrar deneyin.' },
+  message: { message: 'Çok fazla kod istendi. Lütfen 15 dakika sonra tekrar deneyin.' },
 });
 
 module.exports = { generalLimiter, registerLimiter, loginLimiter, codeLimiter, emailLimiter };

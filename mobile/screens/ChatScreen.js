@@ -1,6 +1,6 @@
 // Sohbet ekranı: iki kişi arasındaki mesajları WhatsApp benzeri baloncuklarla gösterir ve yeni mesaj gönderir.
-// Yönetici ve sakin aynı ekranı kullanır. Yönetici bir sakine dokununca açılır (kisiId parametresiyle);
-// sakin "Yöneticiye mesaj" butonuyla açar (kisiId verilmez, yöneticinin kimliği sunucudan öğrenilir).
+// Yönetici ve sakin aynı ekranı kullanır. Yönetici bir sakine dokununca açılır (personId parametresiyle);
+// sakin "Yöneticiye mesaj" butonuyla açar (personId verilmez, yöneticinin kimliği sunucudan öğrenilir).
 // Yeni mesajlar Socket.io ile sayfa yenilemeden anında düşer. Kendi mesajlarımda ✓ = iletildi
 // (sunucuya ulaştı), ✓✓ = görüldü (karşı taraf sohbeti açıp okudu) işareti görünür.
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -25,7 +25,7 @@ const MAX_LENGTH = 1000;
 const addMessage = (previous, message) =>
   previous?.some((m) => m.id === message.id) ? previous : [message, ...(previous ?? [])];
 
-// route.params.kisiId: konuşulan kişi (yönetici açarken verir; sakin açarken boştur).
+// route.params.personId: konuşulan kişi (yönetici açarken verir; sakin açarken boştur).
 export default function ChatScreen({ route }) {
   // Alttaki güvenli boşluk (telefonun alt çubuğu/hareket çizgisi): yazma kutusu bu çubuğun altında kalmasın diye.
   const bottomInset = useSafeAreaInsets().bottom;
@@ -33,7 +33,7 @@ export default function ChatScreen({ route }) {
   // useRef: konuşulan kişinin kimliği. Yönetici için parametreden gelir; sakin için ilk yüklemede bulunur.
   // useState yerine useRef: değeri değişince ekran yeniden çizilmez ve load fonksiyonu yeniden oluşmaz;
   // böylece sakin sohbeti açınca mesajlar iki kez istenmez. Değer personRef.current ile okunur/yazılır.
-  const personRef = useRef(route.params?.kisiId ?? null);
+  const personRef = useRef(route.params?.personId ?? null);
   // useState: mesajlar (yeniden eskiye). null → henüz yüklenmedi.
   const [messages, setMessages] = useState(null);
   // useState: liste yüklenemezse gösterilecek hata mesajı.
@@ -55,7 +55,7 @@ export default function ChatScreen({ route }) {
   // bakarken "görüldü" sayılır. Değişince ekranın yeniden çizilmesine gerek olmadığı için useRef.
   const visibleRef = useRef(false);
 
-  // API isteği: PUT /api/mesajlar/:kisiId/okundu ile karşı taraftan gelen okunmamış mesajları "okundu" yapar;
+  // API isteği: PUT /api/messages/:personId/read ile karşı taraftan gelen okunmamış mesajları "okundu" yapar;
   // sunucu da karşı tarafa haber verir ve onun ekranında ✓ → ✓✓ olur.
   // Sadece ekran öndeyse VE uygulama açıksa (AppState 'active') çağrılır; telefon cepteyken veya kullanıcı
   // başka ekrandayken gelen mesaj okunmuş sayılmaz. Hata olursa sessizce geçilir (sadece işaret gecikir).
@@ -63,29 +63,29 @@ export default function ChatScreen({ route }) {
   // böylece onu kullanan load, onNewMessage ve AppState dinleyicisi de sabit kalır.
   const markRead = useCallback(() => {
     if (!visibleRef.current || AppState.currentState !== 'active' || !personRef.current) return;
-    api.put(`/mesajlar/${personRef.current}/okundu`).catch(() => {});
+    api.put(`/messages/${personRef.current}/read`).catch(() => {});
   }, []);
 
-  // API isteği: önce (sakinse) GET /api/mesajlar/sohbetler ile yöneticinin kimliğini bulur,
-  // sonra GET /api/mesajlar/:kisiId ile bu kişiyle olan son 100 mesajı çeker.
+  // API isteği: önce (sakinse) GET /api/messages/chats ile yöneticinin kimliğini bulur,
+  // sonra GET /api/messages/:personId ile bu kişiyle olan son 100 mesajı çeker.
   // useCallback: fonksiyonu tek bir kez oluşturur (tek bağımlılığı markRead de hiç değişmez); böylece
   // useFocusEffect ve soket dinleyicisi her çizimde gereksiz yere yeniden kurulmaz.
   const load = useCallback(async () => {
     setError('');
     try {
       if (!personRef.current) {
-        const { data } = await api.get('/mesajlar/sohbetler');
+        const { data } = await api.get('/messages/chats');
         // Sakinin listesinde sadece sitenin yöneticisi bulunur.
         if (data.length === 0) throw new Error('Sitenin yöneticisi bulunamadı.');
         personRef.current = data[0].id;
       }
-      const { data } = await api.get(`/mesajlar/${personRef.current}`);
+      const { data } = await api.get(`/messages/${personRef.current}`);
       // Liste sunucudan gelenle değiştirilir; ama istek sürerken soketle gelen (sunucunun listesinden
       // daha yeni) mesajlar kaybolmasın diye onlar listenin başında korunur.
       // Tarihler ISO metni ("2026-10-03T12:00:00.000Z") olarak geldiği için > ile doğrudan karşılaştırılabilir.
       setMessages((previous) => {
-        const newest = data[0]?.tarih ?? '';
-        const incoming = (previous ?? []).filter((m) => m.tarih > newest && !data.some((d) => d.id === m.id));
+        const newest = data[0]?.date ?? '';
+        const incoming = (previous ?? []).filter((m) => m.date > newest && !data.some((d) => d.id === m.id));
         return [...incoming, ...data];
       });
       // Ekran öndeyse: bu sohbet "açık" olarak kaydedilir (bu kişiden gelen bildirimler gösterilmez)
@@ -122,15 +122,15 @@ export default function ChatScreen({ route }) {
     return () => subscription.remove();
   }, [markRead]);
 
-  // Soketten yeni mesaj gelince çalışır. Mesaj sadece AÇIK OLAN sohbete aitse (mesajın kisiId'si bu ekrandaki
+  // Soketten yeni mesaj gelince çalışır. Mesaj sadece AÇIK OLAN sohbete aitse (mesajın personId'si bu ekrandaki
   // kişiyse) listeye eklenir; başka bir sakinden gelen mesaj bu ekranda görünmez.
   // useCallback: dinleyici her çizimde yeniden kurulmasın diye fonksiyon sabit tutulur.
   // Karşı taraftan gelen mesajsa ve kullanıcı ekrana bakıyorsa hemen okundu işaretlenir.
   const onNewMessage = useCallback(
     (message) => {
-      if (message.kisiId !== personRef.current) return;
+      if (message.personId !== personRef.current) return;
       setMessages((previous) => addMessage(previous, message));
-      if (!message.benden) markRead();
+      if (!message.fromMe) markRead();
     },
     [markRead]
   );
@@ -138,21 +138,21 @@ export default function ChatScreen({ route }) {
   // Soketten "mesajlarınız okundu" haberi gelince çalışır: bu sohbetse, benim gönderdiğim mesajlar
   // okundu sayılır ve ekranda ✓ işaretleri ✓✓ olur. map: listeyi değiştirmeden yeni bir liste üretir
   // (React state'i doğrudan değiştirilmez, yeni değer verilir ki ekran yenilensin).
-  // zaman: karşı tarafın okuduğu an; sadece o andan önce gönderilmiş mesajlar ✓✓ yapılır (ISO metin karşılaştırması).
-  const messagesRead = useCallback(({ kisiId: personId, zaman: time }) => {
+  // time: karşı tarafın okuduğu an; sadece o andan önce gönderilmiş mesajlar ✓✓ yapılır (ISO metin karşılaştırması).
+  const messagesRead = useCallback(({ personId, time }) => {
     if (personId !== personRef.current) return;
     setMessages((previous) =>
-      previous?.map((m) => (m.benden && !m.okundu && m.tarih <= time ? { ...m, okundu: true } : m))
+      previous?.map((m) => (m.fromMe && !m.read && m.date <= time ? { ...m, read: true } : m))
     );
   }, []);
 
-  // Soket olayları: 'yeniMesaj' gelince mesaj ekrana eklenir; 'mesajlarOkundu' gelince messagesRead çalışır ve ✓✓ yapılır. 'connect': bağlantı koptuysa (internet gitti,
+  // Soket olayları: 'newMessage' gelince mesaj ekrana eklenir; 'messagesRead' gelince messagesRead çalışır ve ✓✓ yapılır. 'connect': bağlantı koptuysa (internet gitti,
   // uygulama arka plana alındı) yeniden bağlanınca o arada kaçırılan mesajlar için liste yeniden çekilir.
-  useSocketEvent('yeniMesaj', onNewMessage);
-  useSocketEvent('mesajlarOkundu', messagesRead);
+  useSocketEvent('newMessage', onNewMessage);
+  useSocketEvent('messagesRead', messagesRead);
   useSocketEvent('connect', load);
 
-  // API isteği: POST /api/mesajlar ile { aliciId, icerik } gönderir. Başarılıysa sunucunun döndürdüğü
+  // API isteği: POST /api/messages ile { recipientId, content } gönderir. Başarılıysa sunucunun döndürdüğü
   // mesaj listenin başına (en yeni) eklenir ve yazma kutusu temizlenir; hata olursa metin silinmez.
   const send = async () => {
     const content = text.trim();
@@ -160,7 +160,7 @@ export default function ChatScreen({ route }) {
     setSending(true);
     setSendError('');
     try {
-      const { data } = await api.post('/mesajlar', { aliciId: personRef.current, icerik: content });
+      const { data } = await api.post('/messages', { recipientId: personRef.current, content });
       setMessages((previous) => addMessage(previous, data));
       setText('');
     } catch (e) {
@@ -188,7 +188,7 @@ export default function ChatScreen({ route }) {
       {error !== '' && (
         <View style={styles.error}>
           {/* Hata kutusundaki "Tekrar dene" butonu: basınca load çalışır */}
-          <ErrorMessage mesaj={error} onRetry={load} />
+          <ErrorMessage message={error} onRetry={load} />
         </View>
       )}
       {messages === null && error === '' && <ActivityIndicator style={styles.loading} color={colors.primary} />}
@@ -203,32 +203,32 @@ export default function ChatScreen({ route }) {
         keyExtractor={(m) => m.id}
         // Boş liste yazısı: ters listede React Native bu yazıyı kendisi düz çevirir, ayrıca bir şey yapmaya gerek yok.
         ListEmptyComponent={
-          messages && <Text style={styles.bos}>Henüz mesaj yok. İlk mesajı siz yazın.</Text>
+          messages && <Text style={styles.empty}>Henüz mesaj yok. İlk mesajı siz yazın.</Text>
         }
         renderItem={({ item: m, index }) => {
           // Gün ayıracı: bu mesaj kendi gününün ilk (en eski) mesajıysa üstünde "Bugün / Dün / 2 Ekim 2026" çıkar.
           // Liste yeniden eskiye sıralı olduğu için bir sonraki eleman (index + 1) bir önceki mesajdır.
           const previous = messages[index + 1];
-          const newDay = !previous || new Date(previous.tarih).toDateString() !== new Date(m.tarih).toDateString();
+          const newDay = !previous || new Date(previous.date).toDateString() !== new Date(m.date).toDateString();
           return (
             <View>
               {newDay && (
                 <View style={styles.daySeparator}>
-                  <Text style={styles.dayText}>{dayLabel(m.tarih).toLocaleUpperCase('tr-TR')}</Text>
+                  <Text style={styles.dayText}>{dayLabel(m.date).toLocaleUpperCase('tr-TR')}</Text>
                 </View>
               )}
               {/* Baloncuk: benim mesajım sağda ve koyu zümrüt, karşı tarafınki solda ve koyu gri. */}
-              <View style={[styles.bubble, m.benden ? styles.mine : styles.theirs]}>
-                <Text style={[styles.mesaj, m.benden && styles.myText]}>{m.icerik}</Text>
+              <View style={[styles.bubble, m.fromMe ? styles.mine : styles.theirs]}>
+                <Text style={[styles.message, m.fromMe && styles.myText]}>{m.content}</Text>
                 {/* Sadece saat (gün yukarıdaki ayıraçta); benim mesajımsa yanında ✓ (iletildi) veya altın ✓✓ (görüldü) */}
-                <Text style={[styles.saat, m.benden && styles.myTime]}>
-                  {formatTime(m.tarih)}
-                  {m.benden && (
+                <Text style={[styles.hour, m.fromMe && styles.myTime]}>
+                  {formatTime(m.date)}
+                  {m.fromMe && (
                     <Text
-                      style={m.okundu && styles.seen}
-                      accessibilityLabel={m.okundu ? 'Görüldü' : 'İletildi'}
+                      style={m.read && styles.seen}
+                      accessibilityLabel={m.read ? 'Görüldü' : 'İletildi'}
                     >
-                      {m.okundu ? '  ✓✓' : '  ✓'}
+                      {m.read ? '  ✓✓' : '  ✓'}
                     </Text>
                   )}
                 </Text>
@@ -266,7 +266,7 @@ export default function ChatScreen({ route }) {
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
             // Kağıt uçak ikonu: yazı yerine; ekran okuyucu için butonun adı accessibilityLabel'da
-            <Icon ad="send" size={24} color={colors.onPrimary} background={colors.primary} />
+            <Icon name="send" size={24} color={colors.onPrimary} background={colors.primary} />
           )}
         </Pressable>
       </View>
@@ -307,9 +307,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     color: colors.muted,
   },
-  bos: {
+  empty: {
     textAlign: 'center',
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     color: colors.muted,
   },
@@ -328,8 +328,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     backgroundColor: colors.surface2,
   },
-  mesaj: {
-    fontFamily: fonts.metin,
+  message: {
+    fontFamily: fonts.text,
     fontSize: 16,
     lineHeight: 22,
     color: colors.text,
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   myText: {
     color: colors.bubbleText,
   },
-  saat: {
+  hour: {
     alignSelf: 'flex-end',
     fontFamily: fonts.mono,
     fontSize: 11,
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   sendError: {
     paddingHorizontal: 16,
     paddingVertical: 6,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 14,
     color: colors.error,
     backgroundColor: colors.card,
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: radius,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 16,
     color: colors.text,
     backgroundColor: colors.surface2,

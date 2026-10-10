@@ -13,11 +13,11 @@ const VARIANTS = {
   dangerOutline: { background: colors.errorBackground, text: colors.error, frame: colors.errorBorder },
 };
 
-// baslik: buton yazısı, subtitle: (isteğe bağlı) başlığın altındaki küçük açıklama,
+// title: buton yazısı, subtitle: (isteğe bağlı) başlığın altındaki küçük açıklama,
 // icon: (isteğe bağlı) yazının solundaki ikonun adı (components/Icon.js), onPress: basınca çalışacak fonksiyon,
 // loading: true ise yazı yerine dönen simge çıkar ve buton tekrar basılamaz
 // (aynı formun iki kez gönderilmesini önler).
-export default function Button({ baslik: title, subtitle, icon, onPress, variant = 'primary', loading = false }) {
+export default function Button({ title, subtitle, icon, onPress, variant = 'primary', loading = false }) {
   // Seçilen türün renklerini tablodan alır; aşağıda zemin, yazı ve ikon bu renklerle boyanır.
   const color = VARIANTS[variant];
 
@@ -42,8 +42,8 @@ export default function Button({ baslik: title, subtitle, icon, onPress, variant
       ) : (
         <View style={styles.row}>
           {/* İkon verilmişse yazının solunda, yazıyla aynı renkte çizilir */}
-          {icon ? <Icon ad={icon} size={20} color={color.text} background={color.background} /> : null}
-          <View style={styles.textStyles}>
+          {icon ? <Icon name={icon} size={20} color={color.text} background={color.background} /> : null}
+          <View style={styles.textColumn}>
             <Text style={[styles.text, { color: color.text }]}>{title}</Text>
             {/* subtitle verilmişse başlığın altında küçük puntoyla gösterilir.
                 "subtitle && ..." yerine üçlü (? :) kullanılır: subtitle boş metin ("") olursa && onu ekrana yazmaya
@@ -70,20 +70,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  textStyles: {
+  textColumn: {
     alignItems: 'center',
   },
   pressed: {
     opacity: 0.75,
   },
   text: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 16,
     fontWeight: '600',
   },
   subtitle: {
     marginTop: 2,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 12,
     opacity: 0.75,
   },

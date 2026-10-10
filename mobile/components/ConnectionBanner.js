@@ -18,11 +18,11 @@ export default function ConnectionBanner() {
   // Açılışta sunucuya ulaşılamadıysa ekranın ortasında zaten aynı hata ve "Tekrar dene" var; şerit ikinci kez göstermez.
   const { startupError } = useSession();
 
-  // useEffect: bağlantı yokken 5 saniyede bir GET /api/saglik isteği atar. Sunucu cevap verirse api.js
+  // useEffect: bağlantı yokken 5 saniyede bir GET /api/health isteği atar. Sunucu cevap verirse api.js
   // durumu "var" yapar, şerit kapanır ve bu zamanlayıcı temizlenir. Hata sessizce yutulur (şerit zaten açık).
   useEffect(() => {
     if (connected) return;
-    const timer = setInterval(() => api.get('/saglik').catch(() => {}), 5000);
+    const timer = setInterval(() => api.get('/health').catch(() => {}), 5000);
     return () => clearInterval(timer);
   }, [connected]);
 
@@ -31,7 +31,7 @@ export default function ConnectionBanner() {
     // pointerEvents="none": şerit dokunmaları engellemez; altındaki butonlara basılabilir.
     // accessibilityLiveRegion: ekran okuyucu şerit çıkınca uyarıyı kendiliğinden okur (Android).
     <View pointerEvents="none" style={[styles.banner, { bottom: bottom + 12 }]} accessibilityLiveRegion="polite">
-      <Icon ad="warning" size={16} color={colors.error} background={colors.errorBackground} />
+      <Icon name="warning" size={16} color={colors.error} background={colors.errorBackground} />
       <Text style={styles.text}>Sunucuya ulaşılamıyor. Yeniden deneniyor…</Text>
     </View>
   );
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   },
   text: {
     flex: 1,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 13,
     fontWeight: '500',
     color: colors.error,

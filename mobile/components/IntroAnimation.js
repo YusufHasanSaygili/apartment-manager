@@ -211,7 +211,7 @@ export default function IntroAnimation({ onFinish }) {
         {/* Yeşil halka ve uygulama ikonu çarpma noktasında konumlanır */}
         <Animated.View style={[styles.ring, { left: impact.x - 20, top: impact.y - 20 }, ringStyle]} />
         <Animated.View style={[styles.icon, { left: impact.x - 62, top: impact.y - 31 }, iconStyle]}>
-          <Icon ad="paid" size={34} color={colors.primary} background={colors.background} />
+          <Icon name="paid" size={34} color={colors.primary} background={colors.background} />
         </Animated.View>
       </Pressable>
     </Animated.View>

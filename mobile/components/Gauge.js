@@ -22,7 +22,7 @@ export default function Gauge({ ratio, width = 168 }) {
   const needleProps = useAnimatedProps(() => ({ rotation: angle.value, originX: 100, originY: 100 }));
 
   return (
-    <View style={{ width: width }}>
+    <View style={{ width }}>
       <Svg width={width} height={(width * 140) / 200} viewBox="0 0 200 140" accessibilityLabel={`Ödeme oranı yüzde ${Math.round(ratio * 100)}`}>
         {/* Arka iz ve üç renkli bölge (kırmızı, sarı, yeşil) */}
         <Path d="M20 100A80 80 0 0 1 180 100" fill="none" stroke={colors.surface3} strokeWidth={15} />

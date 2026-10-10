@@ -15,8 +15,8 @@ export default function WriteAnnouncementScreen({ route, navigation }) {
   const editing = route.params?.announcement;
 
   // useState: başlık ve içerik alanlarının değerleri (düzenlemede mevcut değerlerle başlar).
-  const [title, setTitle] = useState(editing?.baslik ?? '');
-  const [content, setContent] = useState(editing?.icerik ?? '');
+  const [title, setTitle] = useState(editing?.title ?? '');
+  const [content, setContent] = useState(editing?.content ?? '');
   // useState: istek sürerken true; duyuru iki kez gönderilmez.
   const [loading, setLoading] = useState(false);
   // useState: hata olursa gösterilecek mesaj.
@@ -33,12 +33,12 @@ export default function WriteAnnouncementScreen({ route, navigation }) {
     setError('');
     setLoading(true);
     try {
-      // API isteği: yeni duyuruda POST /api/duyurular, düzenlemede PUT /api/duyurular/:id.
+      // API isteği: yeni duyuruda POST /api/announcements, düzenlemede PUT /api/announcements/:id.
       // Site bilgisi gönderilmez; backend yöneticinin sitesini token'dan bulur.
       if (editing) {
-        await api.put(`/duyurular/${editing.id}`, { baslik: title, icerik: content });
+        await api.put(`/announcements/${editing.id}`, { title, content });
       } else {
-        await api.post('/duyurular', { baslik: title, icerik: content });
+        await api.post('/announcements', { title, content });
       }
       navigation.goBack();
     } catch (e) {
@@ -47,10 +47,10 @@ export default function WriteAnnouncementScreen({ route, navigation }) {
     }
   };
 
-  // Silme geri alınamaz; önce onay sorulur. Onaylanırsa DELETE /api/duyurular/:id isteği atılır
+  // Silme geri alınamaz; önce onay sorulur. Onaylanırsa DELETE /api/announcements/:id isteği atılır
   // ve listeye dönülür (liste öne gelince kendini yeniler).
   const confirmDelete = () =>
-    Alert.alert('Duyuruyu sil', `"${editing.baslik}" duyurusu silinsin mi?`, [
+    Alert.alert('Duyuruyu sil', `"${editing.title}" duyurusu silinsin mi?`, [
       { text: 'Vazgeç', style: 'cancel' },
       {
         text: 'Sil',
@@ -59,7 +59,7 @@ export default function WriteAnnouncementScreen({ route, navigation }) {
           // Silme sürerken butonlar kilitlenir (aynı anda "Kaydet"e basılamaz).
           setLoading(true);
           try {
-            await api.delete(`/duyurular/${editing.id}`);
+            await api.delete(`/announcements/${editing.id}`);
             navigation.goBack();
           } catch (e) {
             setError(e.message);
@@ -73,11 +73,11 @@ export default function WriteAnnouncementScreen({ route, navigation }) {
     // KeyboardAwareScrollView: klavye açılınca alanlar ve buton klavyenin altında kalmaz.
     <KeyboardAwareScrollView
       style={styles.container}
-      contentContainerStyle={styles.icerik}
+      contentContainerStyle={styles.content}
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={[textStyles.aciklama, styles.aciklama]}>Duyuru sitedeki herkesin duyurular listesinde görünür.</Text>
+      <Text style={[textStyles.note, styles.note]}>Duyuru sitedeki herkesin duyurular listesinde görünür.</Text>
 
       {/* counter: yazılan karakter sayısı / en fazla (backend de aynı sınırları kontrol eder) */}
       <FormField label="Başlık" counter={`${title.length} / 80`} value={title} onChangeText={setTitle} maxLength={80} placeholder="Örn. Bugün çöp günü" />
@@ -94,15 +94,15 @@ export default function WriteAnnouncementScreen({ route, navigation }) {
       />
 
       {/* Hata varsa ortak hata kutusu gösterilir */}
-      {error !== '' && <ErrorMessage mesaj={error} />}
+      {error !== '' && <ErrorMessage message={error} />}
 
       {/* "Yayınla" / "Kaydet" butonu: basınca publish çalışır ve duyuru backend'e gönderilir */}
-      <Button baslik={editing ? 'Kaydet' : 'Yayınla'} onPress={publish} loading={loading} />
+      <Button title={editing ? 'Kaydet' : 'Yayınla'} onPress={publish} loading={loading} />
 
       {/* "Duyuruyu sil" butonu: sadece düzenlemede görünür; basınca confirmDelete çalışır (önce onay sorulur) */}
       {editing && (
         <View style={styles.remove}>
-          <Button baslik="Duyuruyu sil" icon="trash" variant="dangerOutline" onPress={confirmDelete} loading={loading} />
+          <Button title="Duyuruyu sil" icon="trash" variant="dangerOutline" onPress={confirmDelete} loading={loading} />
         </View>
       )}
     </KeyboardAwareScrollView>
@@ -114,11 +114,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 18,
     gap: 4,
   },
-  aciklama: {
+  note: {
     marginBottom: 16,
   },
   remove: {

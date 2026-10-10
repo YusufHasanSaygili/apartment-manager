@@ -18,12 +18,12 @@ export default function PendingPaymentsScreen() {
   // dönen simge gösterir ve tekrar basılamaz.
   const [processingId, setProcessingId] = useState(null);
 
-  // API isteği: GET /api/yonetim/aidatlar/bekleyen ile sitedeki bekleyen bildirimleri çeker.
+  // API isteği: GET /api/manager/dues/pending ile sitedeki bekleyen bildirimleri çeker.
   // useCallback: fonksiyon sabit kalır, useEffect gereksiz yere tekrar çalışmaz.
   const load = useCallback(async () => {
     setError('');
     try {
-      const { data } = await api.get('/yonetim/aidatlar/bekleyen');
+      const { data } = await api.get('/manager/dues/pending');
       setReports(data);
     } catch (e) {
       setError(e.message);
@@ -38,14 +38,14 @@ export default function PendingPaymentsScreen() {
   // Aşağı çekip yenileme (refreshControl): sayfa en üstteyken aşağı çekilince load tekrar çalışır (components/Refresh.js).
   const refreshControl = useRefresh(load);
 
-  // action: 'onayla' veya 'reddet'. API isteği: POST /api/yonetim/aidatlar/:id/onayla|reddet.
+  // action: 'approve' veya 'reject'. API isteği: POST /api/manager/dues/:id/approve|reject.
   // Başarılı olunca bildirim listeden çıkarılır (sunucudan yeniden çekmeye gerek yok).
   const resolveReport = async (id, action) => {
     // Bir işlem sürerken başka bir karta basılırsa yok sayılır (işlemler sırayla yapılır).
     if (processingId !== null) return;
     setProcessingId(id);
     try {
-      await api.post(`/yonetim/aidatlar/${id}/${action}`);
+      await api.post(`/manager/dues/${id}/${action}`);
       setReports((previous) => previous.filter((b) => b.id !== id));
     } catch (e) {
       // Örn. bildirim bu arada başka bir cihazdan sonuçlandırıldıysa: liste yenilenir.
@@ -58,16 +58,16 @@ export default function PendingPaymentsScreen() {
 
   // Reddetme geri alınamaz; yanlışlıkla basılmasın diye önce onay sorulur.
   const confirmReject = (b) =>
-    Alert.alert('Bildirimi reddet', `${b.daire} dairesinin ${monthLabel(b.ay, b.yil)} bildirimi reddedilsin mi? Sakin bu ay için tekrar bildirim gönderebilir.`, [
+    Alert.alert('Bildirimi reddet', `${b.flat} dairesinin ${monthLabel(b.month, b.year)} bildirimi reddedilsin mi? Sakin bu ay için tekrar bildirim gönderebilir.`, [
       { text: 'Vazgeç', style: 'cancel' },
-      { text: 'Reddet', style: 'destructive', onPress: () => resolveReport(b.id, 'reddet') },
+      { text: 'Reddet', style: 'destructive', onPress: () => resolveReport(b.id, 'reject') },
     ]);
 
   // Hata varsa ortak hata kutusu; "Tekrar dene" load'u yeniden çalıştırır.
   if (error !== '') {
     return (
       <View style={styles.center}>
-        <ErrorMessage mesaj={error} onRetry={load} />
+        <ErrorMessage message={error} onRetry={load} />
       </View>
     );
   }
@@ -87,41 +87,41 @@ export default function PendingPaymentsScreen() {
     <FlatList
       refreshControl={refreshControl}
       style={styles.container}
-      contentContainerStyle={styles.icerik}
+      contentContainerStyle={styles.content}
       data={reports}
       keyExtractor={(b) => b.id}
-      ListEmptyComponent={<Text style={styles.bos}>Onay bekleyen aidat yok.</Text>}
+      ListEmptyComponent={<Text style={styles.empty}>Onay bekleyen aidat yok.</Text>}
       renderItem={({ item: b }) => (
         <View style={styles.card}>
           {/* Üst satır: solda daire rozeti, sağda tutar ve altında hangi ayın aidatı olduğu */}
           <View style={styles.topRow}>
             <View style={styles.flatBadge}>
-              <Text style={styles.daire}>{b.daire}</Text>
+              <Text style={styles.flat}>{b.flat}</Text>
             </View>
             <View style={styles.amountBlock}>
-              <Text style={styles.tutar}>{formatMoney(b.tutar)}</Text>
-              <Text style={styles.muted}>{monthLabel(b.ay, b.yil)}</Text>
+              <Text style={styles.amount}>{formatMoney(b.amount)}</Text>
+              <Text style={styles.muted}>{monthLabel(b.month, b.year)}</Text>
             </View>
           </View>
           {/* Ödeme yöntemi ve bildirimin gönderildiği tarih; altında sakinin adı tek başına */}
           <Text style={styles.muted}>
-            {b.odemeYontemi === 'banka' ? 'Banka havalesi' : 'Elden'} · {formatDateTime(b.tarih)}
+            {b.paymentMethod === 'bank' ? 'Banka havalesi' : 'Elden'} · {formatDateTime(b.date)}
           </Text>
-          <Text style={styles.sakin}>{b.sakin}</Text>
-          {b.aciklama !== '' && (
+          <Text style={styles.resident}>{b.resident}</Text>
+          {b.note !== '' && (
             <View style={styles.quote}>
-              <Text style={styles.aciklama}>“{b.aciklama}”</Text>
+              <Text style={styles.note}>“{b.note}”</Text>
             </View>
           )}
 
           <View style={styles.buttons}>
-            {/* "Onayla" butonu (₺ coin ikonlu): basınca resolveReport(id, 'onayla') çalışır; o ay ödenmiş sayılır */}
+            {/* "Onayla" butonu (₺ coin ikonlu): basınca resolveReport(id, 'approve') çalışır; o ay ödenmiş sayılır */}
             <View style={styles.button}>
-              <Button baslik="Onayla" icon="paid" onPress={() => resolveReport(b.id, 'onayla')} loading={processingId === b.id} />
+              <Button title="Onayla" icon="paid" onPress={() => resolveReport(b.id, 'approve')} loading={processingId === b.id} />
             </View>
             {/* "Reddet" butonu: basınca önce onay sorulur (confirmReject), onaylanırsa bildirim reddedilir */}
             <View style={styles.button}>
-              <Button baslik="Reddet" variant="secondary" onPress={() => confirmReject(b)} loading={processingId === b.id} />
+              <Button title="Reddet" variant="secondary" onPress={() => confirmReject(b)} loading={processingId === b.id} />
             </View>
           </View>
         </View>
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 18,
     gap: 12,
   },
@@ -146,10 +146,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background,
   },
-  bos: {
+  empty: {
     marginTop: 24,
     textAlign: 'center',
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     color: colors.muted,
   },
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     borderRadius: radius,
     backgroundColor: colors.surface3,
   },
-  daire: {
+  flat: {
     fontFamily: fonts.mono,
     fontSize: 17,
     fontWeight: '600',
@@ -181,19 +181,19 @@ const styles = StyleSheet.create({
   amountBlock: {
     alignItems: 'flex-end',
   },
-  tutar: {
+  amount: {
     fontFamily: fonts.mono,
     fontSize: 20,
     fontWeight: '600',
     color: colors.text,
   },
   muted: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 13,
     color: colors.muted,
   },
-  sakin: {
-    fontFamily: fonts.metin,
+  resident: {
+    fontFamily: fonts.text,
     fontSize: 15.5,
     fontWeight: '600',
     color: colors.text,
@@ -205,8 +205,8 @@ const styles = StyleSheet.create({
     borderLeftWidth: 2,
     borderLeftColor: colors.borderStrong,
   },
-  aciklama: {
-    fontFamily: fonts.metin,
+  note: {
+    fontFamily: fonts.text,
     fontSize: 14,
     fontStyle: 'italic',
     color: colors.text,

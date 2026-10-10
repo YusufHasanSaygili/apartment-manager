@@ -82,7 +82,7 @@ function Screens() {
   // Açılışta kayıtlı oturum sunucuya sorulamadı (internet yok, sunucu kapalı): açılış ekranı yerine hata ve
   // "Tekrar dene" gösterilir. Kullanıcı çıkış yapmış sayılmaz; sunucuya ulaşılınca oturum kaldığı yerden açılır.
   if (startupError) {
-    // "Tekrar dene" butonuna basınca: SessionContext'teki loadSavedSession tekrar çalışır (GET /api/hesap/ben).
+    // "Tekrar dene" butonuna basınca: SessionContext'teki loadSavedSession tekrar çalışır (GET /api/account/me).
     // retrying kontrolü: butona hızlıca iki kez basılırsa ikinci istek atılmaz.
     const onRetry = async () => {
       if (retrying) return;
@@ -95,7 +95,7 @@ function Screens() {
         {retrying ? (
           <ActivityIndicator size="large" color={colors.primary} />
         ) : (
-          <ErrorMessage mesaj={startupError} onRetry={onRetry} />
+          <ErrorMessage message={startupError} onRetry={onRetry} />
         )}
       </View>
     );
@@ -109,7 +109,7 @@ function Screens() {
         headerTintColor: colors.text,
         // Başlık yazısı Geist yarı kalın; tüm ekranların üst çubuğu aynı görünür.
         headerTitleStyle: {
-          fontFamily: fonts.metin,
+          fontFamily: fonts.text,
           fontWeight: '600',
           fontSize: 18,
         },
@@ -134,7 +134,7 @@ function Screens() {
           ) : null,
       })}
     >
-      {session?.kullanici.rol === 'yonetici' ? (
+      {session?.user.role === 'manager' ? (
         <>
           {/* Ana ekranlarda üst çubuk yok: ekranın kendi büyük başlığı (site adı) var */}
           <Stack.Screen name="ManagerHome" component={ManagerHomeScreen} options={{ headerShown: false }} />
@@ -190,7 +190,7 @@ function Screens() {
             options={{ title: 'Tekrarlayan duyurular' }}
           />
           {/* Yöneticiliği devret: ana ekrandaki "Yöneticiliği devret" butonuyla açılır. Devir tamamlanınca rol
-              "sakin" olur ve bu grup listeden çıkar; uygulama kendiliğinden sakin ekranlarına geçer. */}
+              'resident' (sakin) olur ve bu grup listeden çıkar; uygulama kendiliğinden sakin ekranlarına geçer. */}
           <Stack.Screen name="Handover" component={HandoverScreen} options={{ title: 'Yöneticiliği devret' }} />
           {/* Hesabımı sil (yönetici): sadece "önce yöneticiliği devredin" açıklaması ve Devir ekranına geçiş */}
           <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ title: 'Hesabımı sil' }} />
@@ -201,7 +201,7 @@ function Screens() {
             name="Chat"
             component={ChatScreen}
             options={({ route }) => ({
-              title: route.params.baslik,
+              title: route.params.title,
               contentStyle: chatContentStyle,
             })}
           />
@@ -211,17 +211,17 @@ function Screens() {
         <>
           <Stack.Screen name="ResidentHome" component={ResidentHomeScreen} options={{ headerShown: false }} />
           <Stack.Screen name="ReportPayment" component={ReportPaymentScreen} options={{ title: 'Aidat bildirimi' }} />
-          {/* Aidat takvimi (sakin): aynı ekran, daireId verilmeden açılır → sakinin kendi dairesi */}
+          {/* Aidat takvimi (sakin): aynı ekran, flatId verilmeden açılır → sakinin kendi dairesi */}
           <Stack.Screen name="DueCalendar" component={DueCalendarScreen} options={{ title: 'Aidat takvimim' }} />
           {/* Duyurular (sakin): aynı ekran, sadece okuma */}
           <Stack.Screen name="Announcements" component={AnnouncementsScreen} options={{ title: 'Duyurular' }} />
-          {/* Sohbet (sakin): aynı ekran, kisiId verilmeden açılır → sakinin konuşabileceği tek kişi olan yönetici */}
+          {/* Sohbet (sakin): aynı ekran, personId verilmeden açılır → sakinin konuşabileceği tek kişi olan yönetici */}
           <Stack.Screen
             name="Chat"
             component={ChatScreen}
             // Başlık: ana ekrandan yöneticinin adıyla gelir ("Ayşe Yılmaz · Yönetici"); gelmezse genel başlık
             options={({ route }) => ({
-              title: route.params?.baslik ?? 'Yönetici ile mesajlar',
+              title: route.params?.title ?? 'Yönetici ile mesajlar',
               contentStyle: chatContentStyle,
             })}
           />

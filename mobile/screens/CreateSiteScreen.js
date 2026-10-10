@@ -41,9 +41,9 @@ export default function CreateSiteScreen() {
     setError('');
     setLoading(true);
     try {
-      // API isteği: form bilgilerini POST /api/hesap/site-olustur adresine gönderir.
+      // API isteği: form bilgilerini POST /api/account/create-site adresine gönderir.
       // Cevapta token, kullanıcı ve site bilgisi gelir.
-      const { data } = await api.post('/hesap/site-olustur', { ad: name, eposta: email, sifre: password, siteAdi: siteName });
+      const { data } = await api.post('/account/create-site', { name, email, password, siteName });
       // Oturum açılınca App.js otomatik olarak yönetici ana ekranına geçer.
       // Bu ekran kapandığı için başarıda loading'i false yapmaya gerek yok; sadece hatada yapılır.
       await openSession(data);
@@ -61,11 +61,11 @@ export default function CreateSiteScreen() {
     // keyboardShouldPersistTaps: klavye açıkken butona tek dokunuşla basılabilsin.
     <KeyboardAwareScrollView
       style={styles.container}
-      contentContainerStyle={styles.icerik}
+      contentContainerStyle={styles.content}
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.aciklama}>
+      <Text style={styles.note}>
         Siteyi oluşturan kişi sitenin yöneticisi olur. Daireler bir sonraki adımda eklenecek.
       </Text>
 
@@ -90,10 +90,10 @@ export default function CreateSiteScreen() {
       <FormField label="Site / Apartman adı" value={siteName} onChangeText={setSiteName} />
 
       {/* Hata varsa ortak hata kutusu gösterilir */}
-      {error !== '' && <ErrorMessage mesaj={error} />}
+      {error !== '' && <ErrorMessage message={error} />}
 
       {/* "Devam et" butonu: basınca createSite çalışır ve form backend'e gönderilir */}
-      <Button baslik="Devam et" onPress={createSite} loading={loading} />
+      <Button title="Devam et" onPress={createSite} loading={loading} />
     </KeyboardAwareScrollView>
   );
 }
@@ -103,13 +103,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 24,
     gap: 4,
   },
-  aciklama: {
+  note: {
     marginBottom: 20,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     lineHeight: 22,
     color: colors.muted,

@@ -10,12 +10,12 @@ import ErrorMessage from '../components/ErrorMessage';
 import { MONTH_NAMES, amountText, parseAmount, cleanAmount } from '../format';
 import { radius, colors, fonts, textStyles } from '../theme';
 
-// Bu ay ve önceki 11 ay: [{ ay, yil }, ...] (en yeni başta). Backend de sadece bu aralığı kabul eder.
+// Bu ay ve önceki 11 ay: [{ month, year }, ...] (en yeni başta). Backend de sadece bu aralığı kabul eder.
 function last12Months() {
   const today = new Date();
   return Array.from({ length: 12 }, (_, i) => {
     const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    return { ay: date.getMonth() + 1, yil: date.getFullYear() };
+    return { month: date.getMonth() + 1, year: date.getFullYear() };
   });
 }
 
@@ -39,7 +39,7 @@ function Option({ text, subtitle, isSelected, onPress }) {
 // 12 ayı 3'lü satırlara böler (4 satır × 3 eşit kutu)
 const chunk = (list) => Array.from({ length: Math.ceil(list.length / 3) }, (_, i) => list.slice(i * 3, i * 3 + 3));
 
-// route.params.aidatTutari: yöneticinin belirlediği aylık tutar (sakin ana ekranından gelir).
+// route.params.dueAmount: yöneticinin belirlediği aylık tutar (sakin ana ekranından gelir).
 export default function ReportPaymentScreen({ route, navigation }) {
   // Ekrandaki ay düğmelerinin listesi (bu ay + önceki 11 ay).
   const months = last12Months();
@@ -47,12 +47,12 @@ export default function ReportPaymentScreen({ route, navigation }) {
   // useState: seçilen ay. Reddedilen bir bildirimden gelindiyse o ay (listede varsa), yoksa bu ay.
   // useState'e fonksiyon verilir: bu arama sadece ekran ilk açıldığında bir kez yapılır.
   const [selectedMonth, setSelectedMonth] = useState(
-    () => months.find((a) => a.ay === route.params?.ay && a.yil === route.params?.yil) ?? months[0]
+    () => months.find((a) => a.month === route.params?.month && a.year === route.params?.year) ?? months[0]
   );
   // useState: tutar kutusundaki metin. Yöneticinin tutarı hazır gelir, sakin değiştirebilir
   // (örn. 2 aylık ödediyse 1500 yazar).
-  const [amount, setAmount] = useState(amountText(route.params?.aidatTutari));
-  // useState: ödeme yöntemi ('banka' | 'elden'); başta seçili değil, sakin seçmeli.
+  const [amount, setAmount] = useState(amountText(route.params?.dueAmount));
+  // useState: ödeme yöntemi ('bank' | 'cash'); başta seçili değil, sakin seçmeli.
   const [paymentMethod, setPaymentMethod] = useState(null);
   // useState: isteğe bağlı açıklama (örn. "Ziraat'ten 1 Ekim'de attım").
   const [note, setNote] = useState('');
@@ -82,9 +82,9 @@ export default function ReportPaymentScreen({ route, navigation }) {
     setError('');
     setLoading(true);
     try {
-      // API isteği: seçilen ay, tutar, yöntem ve açıklamayı POST /api/aidatlar adresine gönderir.
+      // API isteği: seçilen ay, tutar, yöntem ve açıklamayı POST /api/dues adresine gönderir.
       // Daire ve site bilgisi gönderilmez; backend bunları sakinin token'ından bulur.
-      await api.post('/aidatlar', { ...selectedMonth, tutar: num, odemeYontemi: paymentMethod, aciklama: note });
+      await api.post('/dues', { ...selectedMonth, amount: num, paymentMethod, note });
       // Ana ekrana dönülür; ana ekran öne gelince listeyi yeniden çeker ve yeni bildirim "Onay bekliyor" görünür.
       navigation.goBack();
     } catch (e) {
@@ -98,7 +98,7 @@ export default function ReportPaymentScreen({ route, navigation }) {
     // KeyboardAwareScrollView: klavye açılınca alanlar ve buton klavyenin altında kalmaz.
     <KeyboardAwareScrollView
       style={styles.container}
-      contentContainerStyle={styles.icerik}
+      contentContainerStyle={styles.content}
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
@@ -109,10 +109,10 @@ export default function ReportPaymentScreen({ route, navigation }) {
           <View key={i} style={styles.row}>
             {row.map((a) => (
               <Option
-                key={`${a.yil}-${a.ay}`}
-                text={MONTH_NAMES[a.ay - 1].slice(0, 3)}
-                subtitle={String(a.yil)}
-                isSelected={a.ay === selectedMonth.ay && a.yil === selectedMonth.yil}
+                key={`${a.year}-${a.month}`}
+                text={MONTH_NAMES[a.month - 1].slice(0, 3)}
+                subtitle={String(a.year)}
+                isSelected={a.month === selectedMonth.month && a.year === selectedMonth.year}
                 onPress={() => setSelectedMonth(a)}
               />
             ))}
@@ -134,8 +134,8 @@ export default function ReportPaymentScreen({ route, navigation }) {
         <Text style={textStyles.label}>ÖDEME YÖNTEMİ</Text>
         {/* Ödeme yöntemi kutuları: 2 eşit sütun; basınca o yöntem seçilir */}
         <View style={styles.row}>
-          <Option text="Banka havalesi" isSelected={paymentMethod === 'banka'} onPress={() => setPaymentMethod('banka')} />
-          <Option text="Elden" isSelected={paymentMethod === 'elden'} onPress={() => setPaymentMethod('elden')} />
+          <Option text="Banka havalesi" isSelected={paymentMethod === 'bank'} onPress={() => setPaymentMethod('bank')} />
+          <Option text="Elden" isSelected={paymentMethod === 'cash'} onPress={() => setPaymentMethod('cash')} />
         </View>
       </View>
 
@@ -150,10 +150,10 @@ export default function ReportPaymentScreen({ route, navigation }) {
       />
 
       {/* Hata varsa ortak hata kutusu gösterilir */}
-      {error !== '' && <ErrorMessage mesaj={error} />}
+      {error !== '' && <ErrorMessage message={error} />}
 
       {/* "Bildirimi gönder" butonu: basınca send çalışır ve bildirim backend'e gönderilir */}
-      <Button baslik="Bildirimi gönder" icon="send" onPress={send} loading={loading} />
+      <Button title="Bildirimi gönder" icon="send" onPress={send} loading={loading} />
     </KeyboardAwareScrollView>
   );
 }
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   // Ferah düzen: bölümler arası geniş boşluk, büyük kutular (ekranın altında boşluk kalmasın)
-  icerik: {
+  content: {
     padding: 18,
     paddingTop: 14,
     gap: 14,
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   optionText: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15.5,
     fontWeight: '600',
     color: colors.text,

@@ -14,11 +14,11 @@ import { radius, colors, fonts, textStyles } from '../theme';
 // route.params: daire listesinden gönderilen daire kimliği, adı (örn. "A3"), davet kodu, dolu bilgisi ve sakinin adı.
 export default function InviteCodeScreen({ route, navigation }) {
   // managerFlat: dairede sitenin yöneticisi oturuyor (devirle yönetici olmuş); çıkarma butonu gösterilmez.
-  const { daireId: flatId, flatName, sakinAdi: residentName, yoneticiDairesi: managerFlat } = route.params;
+  const { flatId, flatName, residentName, managerFlat } = route.params;
   // useState: davet kodu ve dolu bilgisi listeden gelen değerlerle başlar; sakin çıkarılınca yeni kod
   // gelir ve daire boş olur. State olduğu için ekran kendiliğinden yeni kodu gösterir.
-  const [inviteCode, setInviteCode] = useState(route.params.davetKodu);
-  const [occupied, setOccupied] = useState(route.params.dolu);
+  const [inviteCode, setInviteCode] = useState(route.params.inviteCode);
+  const [occupied, setOccupied] = useState(route.params.occupied);
   // useState: çıkarma isteği sürerken true; buton dönen simge gösterir ve tekrar basılamaz.
   const [removing, setRemoving] = useState(false);
   // useSession: giriş yapan kullanıcının oturum bilgisi; paylaşım mesajına site adını koymak için gerekir.
@@ -31,20 +31,20 @@ export default function InviteCodeScreen({ route, navigation }) {
   const share = async () => {
     try {
       await Share.share({
-        message: `Apartmanım uygulamasında ${session.site.ad} sitesine katılmak için davet kodunuz: ${inviteCode} (Daire ${flatName})`,
+        message: `Apartmanım uygulamasında ${session.site.name} sitesine katılmak için davet kodunuz: ${inviteCode} (Daire ${flatName})`,
       });
     } catch {
       Alert.alert('Paylaşılamadı', 'Paylaşım menüsü açılamadı. Lütfen tekrar deneyin.');
     }
   };
 
-  // API isteği: POST /api/daireler/:id/sakini-cikar. Sakinin hesabı ve mesajları silinir
+  // API isteği: POST /api/flats/:id/remove-resident. Sakinin hesabı ve mesajları silinir
   // ve sunucu daireye yeni davet kodu verir; yeni kod ekranda gösterilir ve paylaşılabilir.
   const removeResident = async () => {
     setRemoving(true);
     try {
-      const { data } = await api.post(`/daireler/${flatId}/sakini-cikar`);
-      setInviteCode(data.davetKodu);
+      const { data } = await api.post(`/flats/${flatId}/remove-resident`);
+      setInviteCode(data.inviteCode);
       setOccupied(false);
     } catch (e) {
       Alert.alert('Sakin çıkarılamadı', e.message);
@@ -87,8 +87,8 @@ export default function InviteCodeScreen({ route, navigation }) {
             <Text style={styles.badgeText}>{flatName}</Text>
           </View>
           <View>
-            <Text style={styles.baslik}>Daire {flatName}</Text>
-            <Text style={textStyles.aciklama}>
+            <Text style={styles.title}>Daire {flatName}</Text>
+            <Text style={textStyles.note}>
               {managerFlat
                 ? 'Site yöneticisinin dairesi'
                 : occupied
@@ -101,11 +101,11 @@ export default function InviteCodeScreen({ route, navigation }) {
         {/* Kod kutusu: kesikli çerçeve içinde büyük, monospace kod. selectable: basılı tutarak kopyalanabilir. */}
         <View style={styles.codeBox}>
           <Text style={textStyles.label}>DAVET KODU</Text>
-          <Text style={styles.kod} selectable accessibilityLabel={`Davet kodu ${inviteCode.split('').join(' ')}`}>
+          <Text style={styles.code} selectable accessibilityLabel={`Davet kodu ${inviteCode.split('').join(' ')}`}>
             {inviteCode.slice(0, 3)} {inviteCode.slice(3)}
           </Text>
           <View style={styles.codeStatus}>
-            <Icon ad={used ? 'paid' : 'before'} size={15} color={used ? colors.success : colors.muted} />
+            <Icon name={used ? 'paid' : 'before'} size={15} color={used ? colors.success : colors.muted} />
             <Text style={[styles.codeStatusText, used && { color: colors.success }]}>
               {used ? 'Kullanıldı · tek kullanımlık' : 'Henüz kullanılmadı · tek kullanımlık'}
             </Text>
@@ -119,7 +119,7 @@ export default function InviteCodeScreen({ route, navigation }) {
           // "Sakini daireden çıkar" butonu: basınca confirmRemove çalışır (önce onay sorulur), onaylanırsa
           // removeResident ile sakin çıkarılır ve yeni davet kodu gösterilir
           <Button
-            baslik="Sakini daireden çıkar"
+            title="Sakini daireden çıkar"
             icon="removeResident"
             variant="dangerOutline"
             loading={removing}
@@ -127,10 +127,10 @@ export default function InviteCodeScreen({ route, navigation }) {
           />
         ) : (
           // "Kodu paylaş" butonu: basınca share çalışır ve telefonun paylaşım menüsü açılır
-          <Button baslik="Kodu paylaş" icon="share" onPress={share} />
+          <Button title="Kodu paylaş" icon="share" onPress={share} />
         )}
         {/* "Kapat" butonu: basınca pencere kapanır, daire listesine dönülür */}
-        <Button baslik="Kapat" variant="secondary" onPress={() => navigation.goBack()} />
+        <Button title="Kapat" variant="secondary" onPress={() => navigation.goBack()} />
       </View>
     </View>
   );
@@ -177,8 +177,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  baslik: {
-    fontFamily: fonts.metin,
+  title: {
+    fontFamily: fonts.text,
     fontSize: 20,
     fontWeight: '600',
     color: colors.text,
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderStrong,
     backgroundColor: colors.background,
   },
-  kod: {
+  code: {
     fontFamily: fonts.mono,
     fontSize: 38,
     fontWeight: '600',
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   codeStatusText: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 12.5,
     color: colors.muted,
   },

@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 16,
     color: colors.text,
   },

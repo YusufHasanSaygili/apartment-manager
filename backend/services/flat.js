@@ -10,16 +10,16 @@ const Message = require('../models/Message');
 const DeletedAccount = require('../models/DeletedAccount');
 const { generateInviteCodes } = require('./inviteCode');
 
-// Bir sitenin tüm dairelerinin adını döner: daireId (metin) → "B12" eşlemesi (Map).
+// Bir sitenin tüm dairelerinin adını döner: flatId (metin) → "B12" eşlemesi (Map).
 // Daire adı bina adı + daire numarasıdır; bina ve daireler iki toplu sorguyla (her daire için ayrı sorgu
 // atmadan) alınır. Promise.all: iki sorgu aynı anda çalışır. Sorguların ikisi de siteId ile filtrelenir.
 async function flatNames(siteId) {
   const [buildings, flats] = await Promise.all([
-    Building.find({ siteId }).select('ad').lean(),
-    Flat.find({ siteId }).select('binaId daireNo').lean(),
+    Building.find({ siteId }).select('name').lean(),
+    Flat.find({ siteId }).select('buildingId flatNumber').lean(),
   ]);
-  const buildingName = new Map(buildings.map((b) => [String(b._id), b.ad]));
-  return new Map(flats.map((d) => [String(d._id), `${buildingName.get(String(d.binaId))}${d.daireNo}`]));
+  const buildingName = new Map(buildings.map((b) => [String(b._id), b.name]));
+  return new Map(flats.map((d) => [String(d._id), `${buildingName.get(String(d.buildingId))}${d.flatNumber}`]));
 }
 
 // Bir sakini sistemden kaldırır ve dairesini yeni sakine hazırlar. Hepsi tek transaction'da yapılır
@@ -33,18 +33,18 @@ async function flatNames(siteId) {
 //   davet kodu konur. Filtrede her zaman siteId vardır (site izolasyonu).
 // Yeni kod başka bir dairenin koduyla çakışırsa (çok düşük ihtimal) unique index 11000 hatası verir, transaction
 // geri alınır ve yeni kodla en fazla 3 kez denenir. Dönen değer: dairenin yeni davet kodu.
-async function detachResident({ siteId, sakin: resident, leaveTrace = false, flatFilter }) {
+async function detachResident({ siteId, resident, leaveTrace = false, flatFilter }) {
   for (let attempt = 1; ; attempt++) {
     const [newCode] = generateInviteCodes(1);
     try {
       await mongoose.connection.transaction(async (session) => {
         if (resident) {
-          await Message.deleteMany({ siteId, $or: [{ gonderenId: resident._id }, { aliciId: resident._id }] }, { session });
+          await Message.deleteMany({ siteId, $or: [{ senderId: resident._id }, { recipientId: resident._id }] }, { session });
           await User.deleteOne({ _id: resident._id, siteId }, { session });
           if (leaveTrace) {
             await DeletedAccount.updateOne(
-              { epostaOzeti: DeletedAccount.ozet(resident.eposta) },
-              { kullaniciId: resident._id, tarih: new Date() },
+              { emailHash: DeletedAccount.hashEmail(resident.email) },
+              { userId: resident._id, date: new Date() },
               { upsert: true, session }
             );
           }
@@ -52,7 +52,7 @@ async function detachResident({ siteId, sakin: resident, leaveTrace = false, fla
         if (flatFilter) {
           await Flat.updateOne(
             { ...flatFilter, siteId },
-            { davetKodu: newCode, davetKoduKullanildi: false, sakinId: null },
+            { inviteCode: newCode, inviteCodeUsed: false, residentId: null },
             { session }
           );
         }

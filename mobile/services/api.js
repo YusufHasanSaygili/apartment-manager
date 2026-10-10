@@ -4,7 +4,7 @@ import axios from 'axios';
 import { API_URL } from '../config';
 
 const api = axios.create({
-  // Her isteğin başına eklenecek adres, örn. api.get('/saglik') → http://IP:3000/api/saglik
+  // Her isteğin başına eklenecek adres, örn. api.get('/health') → http://IP:3000/api/health
   baseURL: `${API_URL}/api`,
   // Sunucu 10 saniyede cevap vermezse istek hata ile biter; uygulama sonsuza kadar beklemez.
   timeout: 10000,
@@ -12,9 +12,9 @@ const api = axios.create({
 
 // Axios hatasını kullanıcıya gösterilebilecek Türkçe bir mesaja çevirir.
 function buildErrorMessage(error) {
-  // Sunucu cevap verdi: backend her hatada { mesaj } döndüğü için onu kullanırız.
+  // Sunucu cevap verdi: backend her hatada { message } döndüğü için onu kullanırız.
   if (error.response) {
-    return error.response.data?.mesaj || `Sunucu beklenmeyen bir cevap verdi (${error.response.status}).`;
+    return error.response.data?.message || `Sunucu beklenmeyen bir cevap verdi (${error.response.status}).`;
   }
   // Sunucu süre içinde cevap vermedi.
   if (error.code === 'ECONNABORTED') {
@@ -53,23 +53,23 @@ export const getIsConnected = () => isConnected;
 // Hata tek tip bir nesneye çevrilir; ekranlar sadece error.message'ı göstermekle yetinir,
 // her ekranda ayrı ayrı hata ayıklama kodu yazmak gerekmez.
 api.interceptors.response.use(
-  // Başarılı response: sunucuya ulaşıldı → bağlantı var. Cevap hiç değiştirilmeden ekrana iletilir.
+  // Başarılı cevap: sunucuya ulaşıldı → bağlantı var. Cevap hiç değiştirilmeden ekrana iletilir.
   (response) => {
     setConnectionStatus(true);
     return response;
   },
-  // Hatalı response: ortak hata nesnesine çevrilip ekrana fırlatılır (ekranda catch ile yakalanır).
+  // Hatalı cevap: ortak hata nesnesine çevrilip ekrana fırlatılır (ekranda catch ile yakalanır).
   (error) => {
     // Sunucu cevap verdiyse (400, 404 vb.) bağlantı var; hiç cevap gelmediyse (internet yok, sunucu kapalı,
     // zaman aşımı) bağlantı yok sayılır ve "Bağlantı yok" şeridi çıkar.
     setConnectionStatus(Boolean(error.response));
     const apiError = new Error(buildErrorMessage(error));
     // Ekran gerekirse duruma göre davranabilsin diye HTTP kodu da eklenir (örn. 401 → girişe yönlendir).
-    apiError.durumKodu = error.response?.status;
+    apiError.statusCode = error.response?.status;
     // 401 + istekte token vardı: oturum artık geçersiz (süresi doldu, hesap silindi veya sakin daireden
     // çıkarıldı). Hangi ekranda olursa olsun oturum kapatılır ve sunucunun mesajı gösterilir.
     // (Giriş ekranındaki "şifre hatalı" 401'inde token olmadığı için bu çalışmaz.)
-    if (apiError.durumKodu === 401 && error.config?.headers?.Authorization) {
+    if (apiError.statusCode === 401 && error.config?.headers?.Authorization) {
       sessionDroppedHandler?.(apiError.message);
     }
     return Promise.reject(apiError);

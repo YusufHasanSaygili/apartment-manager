@@ -3,10 +3,10 @@
 import { ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { radius, colors, fonts } from '../theme';
 
-// greeting: üstteki küçük yazı ("Hoş geldin, Zeynep Kaya"), ad: sitenin adı
-export default function SiteHeader({ greeting, ad: name }) {
+// greeting: üstteki küçük yazı ("Hoş geldin, Zeynep Kaya"), name: sitenin adı
+export default function SiteHeader({ greeting, name }) {
   return (
-    <View style={styles.baslik}>
+    <View style={styles.title}>
       <Text style={styles.greeting}>{greeting}</Text>
       {/* ImageBackground: içine başka bileşen konabilen resim. Image'dan farkı, yazının resimle aynı kutuda
           durabilmesidir. style: site adının kutusu; imageStyle: sadece resmin kendisi. Kutu, yazının genişliği kadar
@@ -20,14 +20,14 @@ export default function SiteHeader({ greeting, ad: name }) {
         resizeMode="contain"
         accessible={false}
       >
-        <Text style={styles.ad}>{name}</Text>
+        <Text style={styles.name}>{name}</Text>
       </ImageBackground>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  baslik: {
+  title: {
     gap: 2,
   },
   // Site adının kutusu: yazı kadar geniş, sağda logo için 50 birim boşluk
@@ -52,12 +52,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   greeting: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 14,
     color: colors.muted,
   },
-  ad: {
-    fontFamily: fonts.metin,
+  name: {
+    fontFamily: fonts.text,
     fontSize: 31,
     fontWeight: '700',
     letterSpacing: -0.8,

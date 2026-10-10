@@ -62,9 +62,9 @@ export const relativeDay = (date) => {
   return diff < 30 ? `${diff} gün önce` : shortDate.format(new Date(date));
 };
 
-// Duyuru kartının tarih bloğu: { gun: "04", ay: "EKİ" }
+// Duyuru kartının tarih bloğu: { day: "04", month: "EKİ" }
 const shortMonth = new Intl.DateTimeFormat('tr-TR', { month: 'short' });
 export const dateBlock = (date) => {
   const t = new Date(date);
-  return { gun: String(t.getDate()).padStart(2, '0'), ay: shortMonth.format(t).toLocaleUpperCase('tr-TR') };
+  return { day: String(t.getDate()).padStart(2, '0'), month: shortMonth.format(t).toLocaleUpperCase('tr-TR') };
 };

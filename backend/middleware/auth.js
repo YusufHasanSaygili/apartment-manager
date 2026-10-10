@@ -14,7 +14,7 @@ const REMOVED_FROM_FLAT = 'Daireden çıkarıldığınız için hesabınız sili
 // requireAuth: sadece giriş yapmış kullanıcıların geçebileceği route'lara konur.
 // Mobil uygulama her istekte "Authorization: Bearer <token>" başlığı gönderir.
 // throw ile fırlatılan ApiError'ı Express 5 otomatik yakalar ve merkezi hata
-// middleware'ine (errorHandler) iletir; kullanıcıya { mesaj } biçiminde cevap döner.
+// middleware'ine (errorHandler) iletir; kullanıcıya { message } biçiminde cevap döner.
 async function requireAuth(req, res, next) {
   const [scheme, token] = (req.headers.authorization || '').split(' ');
   if (scheme !== 'Bearer' || !token) {
@@ -34,12 +34,12 @@ async function requireAuth(req, res, next) {
   const user = await User.findById(payload.id).lean();
   if (!user) {
     // Hesap, sakin daireden çıkarıldığı için silindiyse telefondaki eski oturuma bunun nedeni söylenir.
-    const removed = await DeletedAccount.exists({ kullaniciId: payload.id });
+    const removed = await DeletedAccount.exists({ userId: payload.id });
     throw new ApiError(401, removed ? REMOVED_FROM_FLAT : 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
   }
   // Ek güvenlik: daireye bağlı olmayan bir sakin hesabı (normalde olmaz; daireden çıkarılan hesap silinir) işlem yapamaz.
   // 401 döner: telefon bunu görünce oturumu kapatır ve mesajı gösterir.
-  if (user.rol === 'sakin' && !user.daireId) {
+  if (user.role === 'resident' && !user.flatId) {
     throw new ApiError(401, REMOVED_FROM_FLAT);
   }
 
@@ -52,13 +52,13 @@ async function requireAuth(req, res, next) {
   // SİTE İZOLASYONU: route'lar siteId ve rolü SADECE buradan (veritabanındaki kayıttan) alır,
   // asla istek gövdesinden veya adresten almaz. Böylece kimse başka bir sitenin verisine
   // istek gövdesine farklı bir siteId yazarak ulaşamaz.
-  req.kullanici = {
+  req.user = {
     id: user._id,
     siteId: user.siteId,
-    rol: user.rol,
-    daireId: user.daireId, // oturduğu daire (siteyi kuran yönetici için null; devirle yönetici olanda dolu)
-    ad: user.ad,
-    eposta: user.eposta,
+    role: user.role,
+    flatId: user.flatId, // oturduğu daire (siteyi kuran yönetici için null; devirle yönetici olanda dolu)
+    name: user.name,
+    email: user.email,
   };
   next();
 }
@@ -67,7 +67,7 @@ async function requireAuth(req, res, next) {
 // requireAuth'den SONRA kullanılır; sakin bu route'lara istek atarsa 403 (yasak) alır.
 // Kontrol backend'de yapılır, çünkü ekranda butonu gizlemek tek başına güvenlik sağlamaz.
 function managerOnly(req, res, next) {
-  if (req.kullanici.rol !== 'yonetici') {
+  if (req.user.role !== 'manager') {
     throw new ApiError(403, 'Bu işlemi sadece site yöneticisi yapabilir.');
   }
   next();
@@ -76,10 +76,10 @@ function managerOnly(req, res, next) {
 // residentOnly: sakin işlemlerine (aidat bildirimi...) konur. requireAuth'den SONRA kullanılır.
 // Dairesine bağlı olmayan bir hesap (yönetici veya ek güvenlik olarak dairesiz kalmış bir sakin) 403 alır.
 function residentOnly(req, res, next) {
-  if (req.kullanici.rol !== 'sakin' || !req.kullanici.daireId) {
+  if (req.user.role !== 'resident' || !req.user.flatId) {
     throw new ApiError(403, 'Bu işlemi sadece daire sakini yapabilir.');
   }
   next();
 }
 
-module.exports = { requireAuth, managerOnly, residentOnly, DAIREDEN_CIKARILDI: REMOVED_FROM_FLAT, SIFRE_DEGISTI: PASSWORD_CHANGED };
+module.exports = { requireAuth, managerOnly, residentOnly, REMOVED_FROM_FLAT, PASSWORD_CHANGED };

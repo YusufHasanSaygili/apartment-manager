@@ -4,9 +4,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { radius, colors, fonts } from '../theme';
 
-// baslik: ortadaki yazı, subtitle: (isteğe bağlı) altındaki açıklama, onPrevious / onNext: oklara basınca çalışır.
+// title: ortadaki yazı, subtitle: (isteğe bağlı) altındaki açıklama, onPrevious / onNext: oklara basınca çalışır.
 // previousDisabled / nextDisabled: true ise o ok soluk görünür ve basılamaz (örn. daha ileri ay yok).
-export default function Pager({ baslik: title, subtitle, onPrevious, onNext, previousDisabled = false, nextDisabled = false, previousLabel = 'Önceki', nextLabel = 'Sonraki' }) {
+export default function Pager({ title, subtitle, onPrevious, onNext, previousDisabled = false, nextDisabled = false, previousLabel = 'Önceki', nextLabel = 'Sonraki' }) {
   return (
     <View style={styles.box}>
       {/* Sol ok: basınca onPrevious çalışır (bir önceki ay/yıl) */}
@@ -14,7 +14,7 @@ export default function Pager({ baslik: title, subtitle, onPrevious, onNext, pre
         <Feather name="chevron-left" size={20} color={colors.text} />
       </Pressable>
       <View style={styles.center}>
-        <Text style={styles.baslik}>{title}</Text>
+        <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
       {/* Sağ ok: basınca onNext çalışır (bir sonraki ay/yıl) */}
@@ -50,14 +50,14 @@ const styles = StyleSheet.create({
   center: {
     alignItems: 'center',
   },
-  baslik: {
-    fontFamily: fonts.metin,
+  title: {
+    fontFamily: fonts.text,
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
   },
   subtitle: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 12,
     color: colors.muted,
   },

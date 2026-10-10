@@ -21,13 +21,13 @@ export default function ChatsScreen({ navigation }) {
   // useState: liste yüklenemezse gösterilecek hata mesajı.
   const [error, setError] = useState('');
 
-  // API isteği: GET /api/mesajlar/sohbetler ile sakinleri ve her biriyle son mesajı çeker.
+  // API isteği: GET /api/messages/chats ile sakinleri ve her biriyle son mesajı çeker.
   // useCallback: fonksiyon her çizimde yeniden oluşmaz; useFocusEffect onu bağımlılık olarak kullandığı için
   // aksi halde ekran her yenilendiğinde istek tekrar atılırdı.
   const load = useCallback(async () => {
     setError('');
     try {
-      const { data } = await api.get('/mesajlar/sohbetler');
+      const { data } = await api.get('/messages/chats');
       setChats(data);
     } catch (e) {
       setError(e.message);
@@ -50,26 +50,26 @@ export default function ChatsScreen({ navigation }) {
   const loadIfVisible = useCallback(() => {
     if (navigation.isFocused()) load();
   }, [navigation, load]);
-  useSocketEvent('yeniMesaj', loadIfVisible);
+  useSocketEvent('newMessage', loadIfVisible);
   useSocketEvent('connect', loadIfVisible);
 
   // Aşağı çekip yenileme (refreshControl): sayfa en üstteyken aşağı çekilince load tekrar çalışır (components/Refresh.js).
   const refreshControl = useRefresh(load);
 
   // Okunmamış mesajı olan sohbetler üstte ayrı bölümde, diğer sakinler altta. Toplam okunmamış sayısı özet kartında.
-  const unreadChats = (chats ?? []).filter((x) => x.okunmamis > 0);
-  const rest = (chats ?? []).filter((x) => x.okunmamis === 0);
-  const total = unreadChats.reduce((t, x) => t + x.okunmamis, 0);
+  const unreadChats = (chats ?? []).filter((x) => x.unread > 0);
+  const rest = (chats ?? []).filter((x) => x.unread === 0);
+  const total = unreadChats.reduce((t, x) => t + x.unread, 0);
   const sections = [
-    { baslik: 'OKUNMAMIŞ', data: unreadChats },
-    { baslik: 'DİĞER SAKİNLER', data: rest },
+    { title: 'OKUNMAMIŞ', data: unreadChats },
+    { title: 'DİĞER SAKİNLER', data: rest },
   ].filter((b) => b.data.length > 0);
 
   return (
     // SectionList: bölümlü liste (Okunmamış / Diğer sakinler). Aşağı çekince liste yenilenir.
     <SectionList
       style={styles.container}
-      contentContainerStyle={styles.icerik}
+      contentContainerStyle={styles.content}
       sections={sections}
       keyExtractor={(x) => x.id}
       refreshControl={refreshControl}
@@ -77,55 +77,55 @@ export default function ChatsScreen({ navigation }) {
       ListHeaderComponent={
         <>
           {/* Hata kutusundaki "Tekrar dene" butonu: basınca load çalışır ve liste yeniden istenir */}
-          {error !== '' && <ErrorMessage mesaj={error} onRetry={load} />}
+          {error !== '' && <ErrorMessage message={error} onRetry={load} />}
           {chats === null && error === '' && <ActivityIndicator color={colors.primary} />}
           {/* Özet kartı: toplam okunmamış mesaj ve kaç sohbette olduğu */}
           {chats && chats.length > 0 && (
-            <View style={styles.ozet}>
+            <View style={styles.summary}>
               <Text style={styles.summaryCount}>{total}</Text>
-              <Text style={textStyles.aciklama}>{total > 0 ? `okunmamış mesaj\n${unreadChats.length} sohbette` : 'Okunmamış mesaj yok'}</Text>
+              <Text style={textStyles.note}>{total > 0 ? `okunmamış mesaj\n${unreadChats.length} sohbette` : 'Okunmamış mesaj yok'}</Text>
             </View>
           )}
         </>
       }
-      renderSectionHeader={({ section }) => <Text style={[textStyles.label, styles.section]}>{section.baslik}</Text>}
+      renderSectionHeader={({ section }) => <Text style={[textStyles.label, styles.section]}>{section.title}</Text>}
       ListEmptyComponent={
         chats && (
-          <Text style={styles.bos}>Henüz kayıtlı sakin yok. Sakinler davet koduyla katıldıkça burada görünür.</Text>
+          <Text style={styles.empty}>Henüz kayıtlı sakin yok. Sakinler davet koduyla katıldıkça burada görünür.</Text>
         )
       }
       renderItem={({ item: x }) => {
-        const unread = x.okunmamis > 0;
-        const noMessages = !x.sonMesaj;
+        const unread = x.unread > 0;
+        const noMessages = !x.lastMessage;
         return (
           // Satıra basınca o sakinle Sohbet ekranı açılır; başlıkta sakinin adı ve dairesi görünür.
           <Pressable
             style={({ pressed }) => [styles.row, unread && styles.rowUnread, noMessages && styles.rowEmpty, pressed && styles.pressed]}
-            onPress={() => navigation.navigate('Chat', { kisiId: x.id, baslik: `${x.ad} (${x.altBaslik})` })}
+            onPress={() => navigation.navigate('Chat', { personId: x.id, title: `${x.name} (${x.subtitle})` })}
             accessibilityRole="button"
-            accessibilityHint={`${x.ad} ile sohbeti açar`}
+            accessibilityHint={`${x.name} ile sohbeti açar`}
           >
             {/* Daire rozeti (örn. "A5"); köşedeki nokta (dot): sarı = okunmamış mesaj var, yeşil = hepsi okundu */}
             <View style={[styles.avatar, noMessages && styles.avatarEmpty]}>
-              <Text style={[styles.avatarText, noMessages && { color: colors.muted }]}>{x.altBaslik}</Text>
+              <Text style={[styles.avatarText, noMessages && { color: colors.muted }]}>{x.subtitle}</Text>
               {!noMessages && <View style={[styles.dot, { backgroundColor: unread ? colors.warning : colors.success }]} />}
             </View>
             <View style={styles.center}>
               <View style={styles.topRow}>
-                <Text style={[styles.ad, noMessages && styles.nameEmpty]} numberOfLines={1}>
-                  {x.ad}
+                <Text style={[styles.name, noMessages && styles.nameEmpty]} numberOfLines={1}>
+                  {x.name}
                 </Text>
-                {x.sonMesaj && <Text style={styles.tarih}>{shortTime(x.sonMesaj.tarih)}</Text>}
+                {x.lastMessage && <Text style={styles.date}>{shortTime(x.lastMessage.date)}</Text>}
               </View>
               {/* Son mesajın tek satırlık önizlemesi; benim yazdığım mesajın başında "Siz:" yazar (okundu bilgisi listede gelmediği için tik gösterilmez) */}
               <View style={styles.topRow}>
                 <Text style={[styles.preview, unread && styles.unreadText, noMessages && styles.previewEmpty]} numberOfLines={1}>
-                  {x.sonMesaj ? `${x.sonMesaj.benden ? 'Siz: ' : ''}${x.sonMesaj.icerik}` : 'Henüz mesaj yok'}
+                  {x.lastMessage ? `${x.lastMessage.fromMe ? 'Siz: ' : ''}${x.lastMessage.content}` : 'Henüz mesaj yok'}
                 </Text>
                 {/* Okunmamış sayısı: gri kare içinde beyaz sayı (0 ise gösterilmez) */}
                 {unread && (
-                  <View style={styles.counter} accessibilityLabel={`${x.okunmamis} okunmamış mesaj`}>
-                    <Text style={styles.counterText}>{x.okunmamis}</Text>
+                  <View style={styles.counter} accessibilityLabel={`${x.unread} okunmamış mesaj`}>
+                    <Text style={styles.counterText}>{x.unread}</Text>
                   </View>
                 )}
               </View>
@@ -142,18 +142,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 18,
     gap: 6,
   },
-  bos: {
+  empty: {
     marginTop: 24,
     textAlign: 'center',
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     color: colors.muted,
   },
-  ozet: {
+  summary: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -234,9 +234,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  ad: {
+  name: {
     flex: 1,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     fontWeight: '600',
     color: colors.text,
@@ -245,14 +245,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.muted,
   },
-  tarih: {
+  date: {
     fontFamily: fonts.mono,
     fontSize: 11.5,
     color: colors.muted,
   },
   preview: {
     flex: 1,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 13.5,
     color: colors.muted,
   },

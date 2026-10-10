@@ -38,9 +38,9 @@ export default function LoginScreen({ navigation }) {
     setError('');
     setLoading(true);
     try {
-      // API isteği: e-posta ve şifreyi POST /api/hesap/giris adresine gönderir.
+      // API isteği: e-posta ve şifreyi POST /api/account/login adresine gönderir.
       // Cevapta token, kullanıcı ve site bilgisi gelir.
-      const { data } = await api.post('/hesap/giris', { eposta: email, sifre: password });
+      const { data } = await api.post('/account/login', { email, password });
       // Oturum açılınca App.js otomatik olarak ana ekrana geçer (bu ekran kapanır).
       // Bu yüzden başarılı durumda setLoading(false) çağrılmaz; ekran zaten kapanıyor.
       await openSession(data);
@@ -55,7 +55,7 @@ export default function LoginScreen({ navigation }) {
     // KeyboardAwareScrollView: klavye açılınca sayfayı dokunulan alana kaydırır.
     <KeyboardAwareScrollView
       style={styles.container}
-      contentContainerStyle={styles.icerik}
+      contentContainerStyle={styles.content}
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
@@ -79,13 +79,13 @@ export default function LoginScreen({ navigation }) {
       />
 
       {/* Hata varsa ortak hata kutusu gösterilir */}
-      {error !== '' && <ErrorMessage mesaj={error} />}
+      {error !== '' && <ErrorMessage message={error} />}
 
       {/* "Giriş yap" butonu: basınca login çalışır ve bilgiler backend'e gönderilir */}
-      <Button baslik="Giriş yap" onPress={login} loading={loading} />
+      <Button title="Giriş yap" onPress={login} loading={loading} />
 
       {/* "Şifremi unuttum" bağlantısı: basınca ForgotPassword ekranı açılır; yazılmış e-posta da oraya taşınır */}
-      <TextButton baslik="Şifremi unuttum" onPress={() => navigation.navigate('ForgotPassword', { eposta: email })} />
+      <TextButton title="Şifremi unuttum" onPress={() => navigation.navigate('ForgotPassword', { email })} />
     </KeyboardAwareScrollView>
   );
 }
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 24,
     gap: 4,
   },

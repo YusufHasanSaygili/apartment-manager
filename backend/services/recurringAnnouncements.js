@@ -26,47 +26,47 @@ function turkeyTime(date) {
   // Parçalar dizisi { weekday: 'Mon', hour: '08', minute: '30', ... } nesnesine çevrilir (Object.fromEntries).
   // Sonra gün adı dizideki sırasına (Mon → 1), saat ve dakika metinleri sayıya çevrilir.
   const part = Object.fromEntries(turkeyTimeFormatter.formatToParts(date).map((p) => [p.type, p.value]));
-  return { gun: DAY_ABBREVIATIONS.indexOf(part.weekday), saat: Number(part.hour), dakika: Number(part.minute) };
+  return { day: DAY_ABBREVIATIONS.indexOf(part.weekday), hour: Number(part.hour), minute: Number(part.minute) };
 }
 
 // Zamanı gelen tekrarlayan duyuruları yayınlar. Her dakika bir kez çalışır.
 async function publishScheduledAnnouncements() {
   const now = new Date();
-  const { gun: day, saat: hour, dakika: minute } = turkeyTime(now);
-  // Bu dakikanın başlangıcı: sonGonderim bundan önceyse bu dakika henüz yayınlanmamış demektir.
+  const { day, hour, minute } = turkeyTime(now);
+  // Bu dakikanın başlangıcı: lastSentAt bundan önceyse bu dakika henüz yayınlanmamış demektir.
   const minuteStart = new Date(now);
   minuteStart.setSeconds(0, 0);
 
-  // gunler: day → dizinin içinde bu gün VARSA eşleşir (MongoDB dizi alanlarında böyle arar).
+  // days: day → dizinin içinde bu gün VARSA eşleşir (MongoDB dizi alanlarında böyle arar).
   // $or: daha önce hiç gönderilmemiş (null) VEYA en son bu dakikadan önce gönderilmiş olanlar alınır.
   const readyItems = await RecurringAnnouncement.find({
-    gunler: day,
-    saat: hour,
-    dakika: minute,
-    $or: [{ sonGonderim: null }, { sonGonderim: { $lt: minuteStart } }],
+    days: day,
+    hour,
+    minute,
+    $or: [{ lastSentAt: null }, { lastSentAt: { $lt: minuteStart } }],
   }).lean();
 
   // Bir duyuruda hata olursa diğerleri yarıda kalmasın diye her biri ayrı try/catch içinde.
   for (const t of readyItems) {
     try {
-      // "Önce işaretle, sonra yayınla": duyuruyu yayınlamadan ÖNCE kayda "gönderildi" (sonGonderim = şimdi) yazılır.
+      // "Önce işaretle, sonra yayınla": duyuruyu yayınlamadan ÖNCE kayda "gönderildi" (lastSentAt = şimdi) yazılır.
       // updateOne'ın filtresinde aynı "henüz gönderilmedi" şartı tekrar vardır; yani kontrol ve yazma tek adımda yapılır.
       // Görev aynı dakikada iki kez çalışırsa (örn. sunucu yeniden başladı) ilki kaydı işaretler, ikincisinin
       // filtresi artık tutmaz, hiçbir kayıt değişmez (modifiedCount 0) ve continue ile bu duyuru atlanır.
       // Böylece aynı duyuru iki kez yayınlanmaz.
       const mark = await RecurringAnnouncement.updateOne(
-        { _id: t._id, $or: [{ sonGonderim: null }, { sonGonderim: { $lt: minuteStart } }] },
-        { sonGonderim: now }
+        { _id: t._id, $or: [{ lastSentAt: null }, { lastSentAt: { $lt: minuteStart } }] },
+        { lastSentAt: now }
       );
       if (mark.modifiedCount === 0) continue;
 
       // Normal bir duyuru olarak eklenir: sitedeki herkes duyurular listesinde görür.
-      await Announcement.create({ siteId: t.siteId, baslik: t.baslik, icerik: t.icerik });
+      await Announcement.create({ siteId: t.siteId, title: t.title, content: t.content });
       // Sitedeki herkese (yönetici dahil, hatırlatma niteliğinde olduğu için) push gönderilir. siteId filtresi: site izolasyonu.
       const recipients = await User.find({ siteId: t.siteId, pushToken: { $ne: null } }).select('pushToken').lean();
       await sendPush(
         recipients.map((k) => k.pushToken),
-        { baslik: `Duyuru: ${t.baslik}`, icerik: t.icerik, pushData: { ekran: 'Duyurular' } }
+        { title: `Duyuru: ${t.title}`, content: t.content, pushData: { screen: 'Announcements' } }
       );
     } catch (error) {
       console.error(`Tekrarlayan duyuru yayınlanamadı (${t._id}):`, error.message);
@@ -78,7 +78,7 @@ async function publishScheduledAnnouncements() {
 // Cron ifadesi '* * * * *': beş alanın hepsi * (her biri) → her dakika çalışır.
 // noOverlap: önceki dakikanın çalışması bitmeden yenisi başlamaz.
 function scheduleRecurringAnnouncements() {
-  cron.schedule('* * * * *', publishScheduledAnnouncements, { name: 'tekrarlanan-duyurular', noOverlap: true });
+  cron.schedule('* * * * *', publishScheduledAnnouncements, { name: 'recurring-announcements', noOverlap: true });
 }
 
 module.exports = { scheduleRecurringAnnouncements };

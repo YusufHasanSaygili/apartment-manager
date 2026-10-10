@@ -46,7 +46,7 @@ export const colors = {
 // eklentisi bunları uygulamanın içine gömer; fontWeight ile kalınlık seçilir (Geist: 400-700, Geist Mono: 400-600).
 // Gömülü oldukları için uygulama açılırken yazı tipinin yüklenmesini beklemek gerekmez (useFonts kullanılmaz).
 export const fonts = {
-  metin: 'Geist',
+  text: 'Geist',
   mono: 'Geist Mono',
 };
 
@@ -65,6 +65,6 @@ export function mix(color, ratio, background = colors.card) {
 // ve açıklama metni. Ekranlar bunları kendi StyleSheet'lerine yaymadan doğrudan kullanır.
 export const textStyles = {
   label: { fontFamily: fonts.mono, fontSize: 11, fontWeight: '500', letterSpacing: 0.8, color: colors.muted },
-  aciklama: { fontFamily: fonts.metin, fontSize: 14, lineHeight: 20, color: colors.muted },
-  baslik: { fontFamily: fonts.metin, fontSize: 17, fontWeight: '600', color: colors.text },
+  note: { fontFamily: fonts.text, fontSize: 14, lineHeight: 20, color: colors.muted },
+  title: { fontFamily: fonts.text, fontSize: 17, fontWeight: '600', color: colors.text },
 };

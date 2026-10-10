@@ -62,16 +62,16 @@ app.use(express.json({ limit: '100kb' }));
 app.use(sanitize);
 
 // Route'lar: her özellik kendi dosyasında, burada sadece adrese bağlanır.
-app.use('/api/saglik', healthRoute);
-app.use('/api/hesap', accountRoute);
-app.use('/api/kurulum', setupRoute); // bina/daire kurulumu ve aidat tutarı: sadece giriş yapmış yönetici
-app.use('/api/daireler', flatsRoute); // sadece giriş yapmış yönetici
-app.use('/api/aidatlar', duesRoute); // sadece giriş yapmış sakin: aidat bildirimi ve kendi geçmişi
-app.use('/api/yonetim/aidatlar', dueManagementRoute); // sadece yönetici: bildirim onay/red, harita, takvim, elle işaretleme
-app.use('/api/duyurular', announcementsRoute); // listeleme herkes, yazma/silme sadece yönetici
-app.use('/api/tekrarlanan-duyurular', recurringAnnouncementsRoute); // sadece yönetici: tekrarlayan duyuru ekleme, listeleme, silme
-app.use('/api/mesajlar', messagesRoute); // giriş yapmış herkes: yönetici ↔ kendi sitesinin sakinleri arasında yazışma
-app.use('/api/devir', handoverRoute); // sadece yönetici: yöneticiliği bir dairenin sakinine devretme
+app.use('/api/health', healthRoute);
+app.use('/api/account', accountRoute);
+app.use('/api/setup', setupRoute); // bina/daire kurulumu ve aidat tutarı: sadece giriş yapmış yönetici
+app.use('/api/flats', flatsRoute); // sadece giriş yapmış yönetici
+app.use('/api/dues', duesRoute); // sadece giriş yapmış sakin: aidat bildirimi ve kendi geçmişi
+app.use('/api/manager/dues', dueManagementRoute); // sadece yönetici: bildirim onay/red, harita, takvim, elle işaretleme
+app.use('/api/announcements', announcementsRoute); // listeleme herkes, yazma/silme sadece yönetici
+app.use('/api/recurring-announcements', recurringAnnouncementsRoute); // sadece yönetici: tekrarlayan duyuru ekleme, listeleme, silme
+app.use('/api/messages', messagesRoute); // giriş yapmış herkes: yönetici ↔ kendi sitesinin sakinleri arasında yazışma
+app.use('/api/handover', handoverRoute); // sadece yönetici: yöneticiliği bir dairenin sakinine devretme
 
 // Hiçbir route'a uymayan istekler 404'e, tüm hatalar merkezi hata yakalayıcıya gider.
 // Bu ikisi route'lardan SONRA eklenmelidir; Express middleware'leri sırayla çalıştırır.

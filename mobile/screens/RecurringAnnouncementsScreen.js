@@ -56,12 +56,12 @@ export default function RecurringAnnouncementsScreen() {
   const [adding, setAdding] = useState(false);
   const [formError, setFormError] = useState('');
 
-  // API isteği: GET /api/tekrarlanan-duyurular ile kendi sitemin tekrarlayan duyurularını çeker.
+  // API isteği: GET /api/recurring-announcements ile kendi sitemin tekrarlayan duyurularını çeker.
   // useCallback: fonksiyon her çizimde yeniden oluşmasın diye saklanır; böylece aşağıdaki useFocusEffect gereksiz yere tekrar çalışmaz.
   const load = useCallback(async () => {
     setListError('');
     try {
-      const { data } = await api.get('/tekrarlanan-duyurular');
+      const { data } = await api.get('/recurring-announcements');
       setList(data);
     } catch (e) {
       setListError(e.message);
@@ -97,19 +97,19 @@ export default function RecurringAnnouncementsScreen() {
     setFormError('');
     setAdding(true);
     try {
-      // API isteği: POST /api/tekrarlanan-duyurular ile yeni tekrarlayan duyuruyu gönderir.
+      // API isteği: POST /api/recurring-announcements ile yeni tekrarlayan duyuruyu gönderir.
       // Site bilgisi gönderilmez; backend yöneticinin sitesini token'dan bulur.
-      const { data } = await api.post('/tekrarlanan-duyurular', {
-        baslik: title,
-        icerik: content,
-        gunler: selectedDays,
-        saat: Number(match[1]),
-        dakika: Number(match[2]),
+      const { data } = await api.post('/recurring-announcements', {
+        title,
+        content,
+        days: selectedDays,
+        hour: Number(match[1]),
+        minute: Number(match[2]),
       });
       // Başarılı: yeni kayıt listeye eklenir, form temizlenir (saat aynı kalır, art arda eklemek kolay olsun).
       // sort: liste backend'deki gibi saate göre sıralı kalsın (saat × 60 + dakika = günün kaçıncı dakikası).
       setList((previous) =>
-        [...(previous ?? []), data].sort((a, b) => a.saat * 60 + a.dakika - (b.saat * 60 + b.dakika))
+        [...(previous ?? []), data].sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute))
       );
       setTitle('');
       setContent('');
@@ -121,17 +121,17 @@ export default function RecurringAnnouncementsScreen() {
     }
   };
 
-  // Silme geri alınamaz; önce onay sorulur. Onaylanırsa DELETE /api/tekrarlanan-duyurular/:id isteği atılır
+  // Silme geri alınamaz; önce onay sorulur. Onaylanırsa DELETE /api/recurring-announcements/:id isteği atılır
   // ve kayıt listeden çıkarılır. Daha önce yayınlanmış duyurular duyurular listesinde kalır.
   const confirmDelete = (t) =>
-    Alert.alert('Tekrarlayan duyuruyu sil', `"${t.baslik}" bundan sonra yayınlanmayacak. Silinsin mi?`, [
+    Alert.alert('Tekrarlayan duyuruyu sil', `"${t.title}" bundan sonra yayınlanmayacak. Silinsin mi?`, [
       { text: 'Vazgeç', style: 'cancel' },
       {
         text: 'Sil',
         style: 'destructive',
         onPress: async () => {
           try {
-            await api.delete(`/tekrarlanan-duyurular/${t.id}`);
+            await api.delete(`/recurring-announcements/${t.id}`);
             setList((previous) => previous.filter((x) => x.id !== t.id));
           } catch (e) {
             Alert.alert('Silinemedi', e.message);
@@ -145,11 +145,11 @@ export default function RecurringAnnouncementsScreen() {
     // Liste en fazla 20 kayıt olduğu için FlatList yerine map ile aynı kaydırılan alana çizilir.
     <KeyboardAwareScrollView
       style={styles.container}
-      contentContainerStyle={styles.icerik}
+      contentContainerStyle={styles.content}
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={[textStyles.aciklama, styles.aciklama]}>
+      <Text style={[textStyles.note, styles.note]}>
         Seçtiğiniz gün ve saatte duyuru kendiliğinden yayınlanır ve herkese bildirim gider (Türkiye saati).
       </Text>
 
@@ -166,12 +166,12 @@ export default function RecurringAnnouncementsScreen() {
 
       <Text style={[textStyles.label, styles.label]}>GÜNLER</Text>
       {/* 7 gün tek satırda, eşit genişlikte (flex: 1) */}
-      <View style={styles.gunler}>
+      <View style={styles.days}>
         {DAYS.map((g) => {
           const isSelected = selectedDays.includes(g.value);
           return (
             // Gün düğmesi: basınca toggleDay çalışır, gün seçilir veya seçimden çıkarılır (seçiliyse dolu renkli).
-            <ChoiceButton key={g.value} text={g.short} isSelected={isSelected} multiple style={styles.gun} onPress={() => toggleDay(g.value)} />
+            <ChoiceButton key={g.value} text={g.short} isSelected={isSelected} multiple style={styles.day} onPress={() => toggleDay(g.value)} />
           );
         })}
       </View>
@@ -198,34 +198,34 @@ export default function RecurringAnnouncementsScreen() {
           selectTextOnFocus
           accessibilityLabel="Dakika"
         />
-        <Text style={[textStyles.aciklama, styles.timeNote]}>{'saat : dakika\nTürkiye saati'}</Text>
+        <Text style={[textStyles.note, styles.timeNote]}>{'saat : dakika\nTürkiye saati'}</Text>
       </View>
 
-      {formError !== '' && <ErrorMessage mesaj={formError} />}
+      {formError !== '' && <ErrorMessage message={formError} />}
       {/* "Ekle" butonu: basınca add çalışır ve tekrarlayan duyuru backend'e kaydedilir */}
-      <Button baslik="Ekle" icon="add" onPress={add} loading={adding} />
+      <Button title="Ekle" icon="add" onPress={add} loading={adding} />
 
       <Text style={[textStyles.label, styles.listTitle]}>KAYITLI</Text>
       {/* Liste hatasında "Tekrar dene" butonu load'u yeniden çalıştırır */}
-      {listError !== '' && <ErrorMessage mesaj={listError} onRetry={load} />}
+      {listError !== '' && <ErrorMessage message={listError} onRetry={load} />}
       {list === null && listError === '' && <ActivityIndicator color={colors.primary} />}
-      {list?.length === 0 && <Text style={styles.bos}>Henüz tekrarlayan duyuru yok.</Text>}
+      {list?.length === 0 && <Text style={styles.empty}>Henüz tekrarlayan duyuru yok.</Text>}
       {list?.map((t) => (
         <View key={t.id} style={styles.card}>
           <View style={styles.cardTop}>
             <View style={styles.scheduleRow}>
-              <Icon ad="repeat" size={16} color={colors.primary} />
-              <Text style={styles.zaman}>
-                {dayText(t.gunler)} · {timeText(t.saat, t.dakika)}
+              <Icon name="repeat" size={16} color={colors.primary} />
+              <Text style={styles.time}>
+                {dayText(t.days)} · {timeText(t.hour, t.minute)}
               </Text>
             </View>
             {/* "Sil" düğmesi: basınca confirmDelete çalışır (önce onay sorulur) */}
-            <TextButton baslik="Sil" danger centered={false} onPress={() => confirmDelete(t)} />
+            <TextButton title="Sil" danger centered={false} onPress={() => confirmDelete(t)} />
           </View>
-          <Text style={styles.cardTitle}>{t.baslik}</Text>
-          <Text style={styles.cardText}>{t.icerik}</Text>
+          <Text style={styles.cardTitle}>{t.title}</Text>
+          <Text style={styles.cardText}>{t.content}</Text>
           <Text style={styles.last}>
-            {t.sonGonderim ? `Son gönderim: ${formatDateTime(t.sonGonderim)}` : 'Henüz gönderilmedi'}
+            {t.lastSentAt ? `Son gönderim: ${formatDateTime(t.lastSentAt)}` : 'Henüz gönderilmedi'}
           </Text>
         </View>
       ))}
@@ -238,11 +238,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 18,
     gap: 4,
   },
-  aciklama: {
+  note: {
     marginBottom: 16,
   },
   longField: {
@@ -252,13 +252,13 @@ const styles = StyleSheet.create({
   label: {
     marginBottom: 7,
   },
-  gunler: {
+  days: {
     flexDirection: 'row',
     gap: 6,
     marginBottom: 16,
   },
   // Gün düğmesi: 7 düğme satırı eşit paylaşır (minWidth ve yan boşluk sıfırlanır ki dar ekranda sığsın)
-  gun: {
+  day: {
     flex: 1,
     minWidth: 0,
     paddingHorizontal: 0,
@@ -297,8 +297,8 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 8,
   },
-  bos: {
-    fontFamily: fonts.metin,
+  empty: {
+    fontFamily: fonts.text,
     fontSize: 15,
     color: colors.muted,
   },
@@ -321,26 +321,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  zaman: {
+  time: {
     fontFamily: fonts.mono,
     fontSize: 13.5,
     fontWeight: '600',
     color: colors.primary,
   },
   cardTitle: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 17,
     fontWeight: '600',
     color: colors.text,
   },
   cardText: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 14,
     lineHeight: 20,
     color: colors.muted,
   },
   last: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 13,
     color: colors.faint,
   },

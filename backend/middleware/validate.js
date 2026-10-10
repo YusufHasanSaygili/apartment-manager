@@ -3,7 +3,7 @@
 // ulaşmaz, kullanıcıya 400 hatasıyla anlaşılır bir mesaj döner.
 //
 // Kullanım örneği (ileriki görevlerde):
-//   const schema = z.object({ ay: z.number().int().min(1).max(12) });
+//   const schema = z.object({ month: z.number().int().min(1).max(12) });
 //   router.post('/', validate(schema), reportPayment);
 const { z } = require('zod');
 const { ApiError } = require('./errorHandler');
@@ -24,7 +24,7 @@ function validate(schema, source = 'body') {
     }
 
     // Doğrulanmış veri isteğe geri yazılır. zod şemada olmayan alanları attığı için
-    // route'a sadece beklenen alanlar ulaşır (örn. biri "rol": "yonetici" gönderemez).
+    // route'a sadece beklenen alanlar ulaşır (örn. biri "role": "manager" gönderemez).
     Object.defineProperty(req, source, {
       value: result.data,
       writable: true,

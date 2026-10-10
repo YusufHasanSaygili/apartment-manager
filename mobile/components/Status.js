@@ -15,20 +15,20 @@ import Animated, {
 import { mix, radius, colors, fonts } from '../theme';
 import Icon from './Icon';
 
-// Durum kodu → renk, ikon ve ekranda görünen ad. Kodlar backend'den gelir (odendi, bekliyor, odenmedi, bos);
-// gelecek, once, dolu ve bosDaire mobilde hesaplanır.
+// Durum kodu → renk, ikon ve ekranda görünen ad. Kodlar backend'den gelir (paid, pending, unpaid, empty);
+// upcoming, before, occupied ve emptyFlat mobilde hesaplanır.
 export const STATUSES = {
-  odendi: { color: colors.success, icon: 'paid', ad: 'Ödedi' },
-  bekliyor: { color: colors.warning, icon: 'pending', ad: 'Bekliyor' },
-  odenmedi: { color: colors.error, icon: 'unpaid', ad: 'Ödemedi' },
-  bos: { color: colors.none, icon: 'none', ad: 'Sakin yok' },
-  gelecek: { color: colors.muted, icon: 'upcoming', ad: 'Henüz gelmedi' },
-  once: { color: colors.none, icon: 'before', ad: 'Katılmadan önce' },
-  dolu: { color: colors.success, icon: 'resident', ad: 'Sakin katılmış' },
-  bosDaire: { color: colors.none, icon: 'none', ad: 'Henüz katılmamış' },
+  paid: { color: colors.success, icon: 'paid', label: 'Ödedi' },
+  pending: { color: colors.warning, icon: 'pending', label: 'Bekliyor' },
+  unpaid: { color: colors.error, icon: 'unpaid', label: 'Ödemedi' },
+  empty: { color: colors.none, icon: 'none', label: 'Sakin yok' },
+  upcoming: { color: colors.muted, icon: 'upcoming', label: 'Henüz gelmedi' },
+  before: { color: colors.none, icon: 'before', label: 'Katılmadan önce' },
+  occupied: { color: colors.success, icon: 'resident', label: 'Sakin katılmış' },
+  emptyFlat: { color: colors.none, icon: 'none', label: 'Henüz katılmamış' },
 };
 // Renkli (dolgulu) çizilen durumlar; diğerleri sadece ince çerçeveli
-const FILLED = ['odendi', 'bekliyor', 'odenmedi', 'dolu'];
+const FILLED = ['paid', 'pending', 'unpaid', 'occupied'];
 
 // Renkli kutunun zemini: yukarıda durum renginin %15'i, aşağıda %6'sı (yukarıdan aşağı koyulaşan ince ton,
 // plastik düz dolgu yerine). Çerçeve durum renginin %34'ü. backgroundColor: geçiş çizilemezse kullanılan düz ton.
@@ -71,7 +71,7 @@ function Breathe() {
 // FlatBox, daire kutusu (harita, daire listesi, kurulum önizlemesi): üstte daire adı, altta durum ikonu.
 // onPress verilirse basılabilir olur (haritada takvime, listede davet koduna gider).
 // hideIcon: daire listesinde sadece ad gösterilir. small: kurulum önizlemesindeki küçük kutular.
-export function FlatBox({ ad: name, durum: status, onPress, hideIcon = false, small = false, index = 0, accessibilityName }) {
+export function FlatBox({ name, status, onPress, hideIcon = false, small = false, index = 0, accessibilityName }) {
   const d = STATUSES[status];
   const filled = FILLED.includes(status);
   return (
@@ -79,9 +79,9 @@ export function FlatBox({ ad: name, durum: status, onPress, hideIcon = false, sm
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={accessibilityName ?? `Daire ${name}: ${d.ad}`}
+      accessibilityLabel={accessibilityName ?? `Daire ${name}: ${d.label}`}
       style={({ pressed }) => [
-        styles.daire,
+        styles.flat,
         small && styles.flatSmall,
         filled
           ? filledBackground(d.color)
@@ -90,9 +90,9 @@ export function FlatBox({ ad: name, durum: status, onPress, hideIcon = false, sm
       ]}
     >
       <Text style={[styles.flatName, small && styles.flatNameSmall, !filled && { color: colors.faint }]}>{name}</Text>
-      {!hideIcon && <Icon ad={d.icon} size={18} color={d.color} background={colors.card} />}
-      {status === 'odendi' && <Shine delay={(index % 3) * 900} />}
-      {status === 'odenmedi' && <Breathe />}
+      {!hideIcon && <Icon name={d.icon} size={18} color={d.color} background={colors.card} />}
+      {status === 'paid' && <Shine delay={(index % 3) * 900} />}
+      {status === 'unpaid' && <Breathe />}
     </Pressable>
   );
 }
@@ -109,10 +109,10 @@ function UpcomingIcon() {
   return (
     <View>
       <Animated.View style={style}>
-        <Icon ad="upcomingArrow" size={20} color={colors.muted} />
+        <Icon name="upcomingArrow" size={20} color={colors.muted} />
       </Animated.View>
       <View style={StyleSheet.absoluteFill}>
-        <Icon ad="upcomingCalendar" size={20} color={colors.muted} />
+        <Icon name="upcomingCalendar" size={20} color={colors.muted} />
       </View>
     </View>
   );
@@ -120,7 +120,7 @@ function UpcomingIcon() {
 
 // MonthBox, ay kutusu (aidat takvimi): solda ikon kutusu, sağda ay adı ve durum yazısı. Bütün kutular aynı yükseklikte.
 // subtitle: durum yazısının yerine geçen özel yazı (örn. "Elle işaretlendi"), onPress: basınca çalışır (elle işaretleme).
-export function MonthBox({ ad: name, durum: status, subtitle, onPress, index = 0 }) {
+export function MonthBox({ name, status, subtitle, onPress, index = 0 }) {
   const d = STATUSES[status];
   const filled = FILLED.includes(status);
   return (
@@ -128,9 +128,9 @@ export function MonthBox({ ad: name, durum: status, subtitle, onPress, index = 0
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={`${name}: ${subtitle ?? d.ad}`}
+      accessibilityLabel={`${name}: ${subtitle ?? d.label}`}
       style={({ pressed }) => [
-        styles.ay,
+        styles.month,
         filled
           ? filledBackground(d.color)
           : { borderColor: colors.border },
@@ -138,16 +138,16 @@ export function MonthBox({ ad: name, durum: status, subtitle, onPress, index = 0
       ]}
     >
       <View style={[styles.monthIcon, { backgroundColor: mix(d.color, 0.12, filled ? mix(d.color, 0.12) : colors.background) }]}>
-        {status === 'gelecek' ? <UpcomingIcon /> : <Icon ad={d.icon} size={20} color={d.color} />}
+        {status === 'upcoming' ? <UpcomingIcon /> : <Icon name={d.icon} size={20} color={d.color} />}
       </View>
       <View style={styles.monthText}>
         <Text style={[styles.monthName, !filled && { color: colors.muted, fontWeight: '500' }]}>{name}</Text>
         <Text style={[styles.monthStatus, { color: d.color }]} numberOfLines={1}>
-          {subtitle ?? d.ad}
+          {subtitle ?? d.label}
         </Text>
       </View>
-      {status === 'odendi' && <Shine delay={(index % 2) * 1200} />}
-      {status === 'odenmedi' && <Breathe />}
+      {status === 'paid' && <Shine delay={(index % 2) * 1200} />}
+      {status === 'unpaid' && <Breathe />}
     </Pressable>
   );
 }
@@ -158,9 +158,9 @@ export function Legend({ items }) {
     <View style={styles.legend}>
       {items.map(([status, num]) => (
         <View key={status} style={styles.legendItem}>
-          <Icon ad={STATUSES[status].icon} size={15} color={STATUSES[status].color} />
+          <Icon name={STATUSES[status].icon} size={15} color={STATUSES[status].color} />
           <Text style={[styles.legendText, { color: FILLED.includes(status) ? STATUSES[status].color : colors.muted }]}>
-            {STATUSES[status].ad}
+            {STATUSES[status].label}
             {num !== undefined && <Text style={styles.legendCount}> {num}</Text>}
           </Text>
         </View>
@@ -170,12 +170,12 @@ export function Legend({ items }) {
 }
 
 // StatusBadge, durum rozeti: küçük renkli etiket (örn. "Onay bekliyor"). text verilmezse durumun adı yazılır.
-export function StatusBadge({ durum: status, text }) {
+export function StatusBadge({ status, text }) {
   const d = STATUSES[status];
   return (
     <View style={[styles.badge, { backgroundColor: mix(d.color, 0.12), borderColor: mix(d.color, 0.4) }]}>
-      <Icon ad={d.icon} size={15} color={d.color} />
-      <Text style={[styles.badgeText, { color: d.color }]}>{text ?? d.ad}</Text>
+      <Icon name={d.icon} size={15} color={d.color} />
+      <Text style={[styles.badgeText, { color: d.color }]}>{text ?? d.label}</Text>
     </View>
   );
 }
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   // Daire kutusu: genişliği dışarıdan (satırdaki yer) belirlenir, yüksekliği genişliğe oranla
-  daire: {
+  flat: {
     flex: 1,
     flexBasis: 0,
     aspectRatio: 1 / 0.92,
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     borderColor: colors.error,
     borderRadius: radius,
   },
-  ay: {
+  month: {
     flex: 1,
     flexBasis: 0,
     height: 62,
@@ -251,13 +251,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   monthName: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     fontWeight: '600',
     color: colors.text,
   },
   monthStatus: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 12,
     fontWeight: '500',
   },
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   legendText: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 13,
   },
   legendCount: {
@@ -292,16 +292,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   badgeText: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 12.5,
     fontWeight: '600',
   },
 });
 
 // BuildingCard, bina kartı: "A Blok" başlığı, sağda daire sayısı ve daireler 4'lü hizalı satırlarda.
-// daireler: [{ id, ad, durum }], onFlatPress: daireye basınca çalışır (verilmezse kutular basılamaz).
+// flats: [{ id, name, status }], onFlatPress: daireye basınca çalışır (verilmezse kutular basılamaz).
 // hideIcon / small / columns: FlatBox'a ve satır uzunluğuna aktarılır (kurulum önizlemesinde 6 sütun, küçük kutu).
-export function BuildingCard({ ad: name, daireler: flats, onFlatPress, hideIcon, small, columns = 4, frameless = false }) {
+export function BuildingCard({ name, flats, onFlatPress, hideIcon, small, columns = 4, frameless = false }) {
   // Daireler columns sayısı kadar daireli satırlara bölünür; son satır boş yer tutucularla tamamlanır ki kutular hizalı kalsın.
   const rows = [];
   for (let i = 0; i < flats.length; i += columns) rows.push(flats.slice(i, i + columns));
@@ -318,8 +318,8 @@ export function BuildingCard({ ad: name, daireler: flats, onFlatPress, hideIcon,
               row[i] ? (
                 <FlatBox
                   key={row[i].id}
-                  ad={row[i].ad}
-                  durum={row[i].durum}
+                  name={row[i].name}
+                  status={row[i].status}
                   hideIcon={hideIcon}
                   small={small}
                   index={s * columns + i}
@@ -356,7 +356,7 @@ const buildingStyles = StyleSheet.create({
   },
   buildingName: {
     flex: 1,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,

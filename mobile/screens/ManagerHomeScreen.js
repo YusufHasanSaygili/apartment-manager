@@ -29,8 +29,8 @@ export default function ManagerHomeScreen({ navigation }) {
   // olmadığı için kaydırılan sayfa bu yükseklik kadar aşağıdan başlar; yoksa içerik saatin altına girerdi.
   const { top: topOffset } = useSafeAreaInsets();
 
-  // useState: ekranın verisi { ozet, map, okunmamis, latestAnnouncement }. null → henüz yüklenmedi.
-  // ozet: bina/daire sayısı, aidat tutarı, bekleyen sayısı; map: bu ayın daire durumları (kadran ve mini harita için).
+  // useState: ekranın verisi { summary, map, unread, latestAnnouncement }. null → henüz yüklenmedi.
+  // summary: bina/daire sayısı, aidat tutarı, bekleyen sayısı; map: bu ayın daire durumları (kadran ve mini harita için).
   const [screenData, setScreenData] = useState(null);
   // useState: veri yüklenemezse gösterilecek hata mesajı.
   const [error, setError] = useState('');
@@ -41,29 +41,29 @@ export default function ManagerHomeScreen({ navigation }) {
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
-  // API istekleri (aynı anda, Promise.all): GET /api/kurulum (özet), GET /api/yonetim/aidatlar/harita (bu ayın
-  // daire durumları), GET /api/mesajlar/sohbetler (okunmamış mesaj sayısı), GET /api/duyurular (son duyuru).
+  // API istekleri (aynı anda, Promise.all): GET /api/setup (özet), GET /api/manager/dues/map (bu ayın
+  // daire durumları), GET /api/messages/chats (okunmamış mesaj sayısı), GET /api/announcements (son duyuru).
   // Kurulum yapılmadıysa diğerleri istenmez.
   // useCallback: load fonksiyonu her çizimde yeniden oluşturulmaz (sadece ay/yıl değişirse). useFocusEffect bu
   // fonksiyona bağlı olduğu için, yoksa her çizimde istek tekrar atılırdı.
   const load = useCallback(async () => {
     setError('');
     try {
-      const { data: summary } = await api.get('/kurulum');
-      if (summary.binaSayisi === 0) {
-        setScreenData({ ozet: summary });
+      const { data: summary } = await api.get('/setup');
+      if (summary.buildingCount === 0) {
+        setScreenData({ summary });
         return;
       }
       const [map, chats, announcements] = await Promise.all([
-        api.get('/yonetim/aidatlar/harita', { params: { ay: month, yil: year } }),
-        api.get('/mesajlar/sohbetler'),
-        api.get('/duyurular'),
+        api.get('/manager/dues/map', { params: { month, year } }),
+        api.get('/messages/chats'),
+        api.get('/announcements'),
       ]);
       setScreenData({
-        ozet: summary,
+        summary,
         map: map.data,
-        okunmamis: chats.data.reduce((t, s) => t + s.okunmamis, 0),
-        latestAnnouncement: announcements.data[0]?.baslik ?? null,
+        unread: chats.data.reduce((t, s) => t + s.unread, 0),
+        latestAnnouncement: announcements.data[0]?.title ?? null,
       });
     } catch (e) {
       setError(e.message);
@@ -81,18 +81,18 @@ export default function ManagerHomeScreen({ navigation }) {
   // Aşağı çekip yenileme (refreshControl): sayfa en üstteyken aşağı çekilince load tekrar çalışır (components/Refresh.js).
   const refreshControl = useRefresh(load);
 
-  // API isteği: POST /api/yonetim/aidatlar/hatirlatma ile bu ayın aidatını ödemeyen sakinlere hatırlatma gönderir.
+  // API isteği: POST /api/manager/dues/reminders ile bu ayın aidatını ödemeyen sakinlere hatırlatma gönderir.
   // Sonuçta kaç daireye gönderildiği, bildirimi kapalı sakin varsa o da yöneticiye gösterilir.
   const sendReminder = async () => {
     setReminding(true);
     try {
-      const { data } = await api.post('/yonetim/aidatlar/hatirlatma');
-      const unreachableCount = data.odemeyen - data.bildirimGiden;
+      const { data } = await api.post('/manager/dues/reminders');
+      const unreachableCount = data.unpaidCount - data.notifiedCount;
       Alert.alert(
         'Hatırlatma gönderildi',
-        data.odemeyen === 0
+        data.unpaidCount === 0
           ? 'Bu ay ödemeyen daire yok, kimseye hatırlatma gönderilmedi.'
-          : `${data.bildirimGiden} daireye hatırlatma gönderildi.` +
+          : `${data.notifiedCount} daireye hatırlatma gönderildi.` +
               (unreachableCount > 0 ? ` ${unreachableCount} sakinin bildirimleri kapalı olduğu için ulaşılamadı.` : ''),
       );
     } catch (e) {
@@ -112,49 +112,49 @@ export default function ManagerHomeScreen({ navigation }) {
     ]);
   };
 
-  const summary = screenData?.ozet;
-  const amountText = summary?.aidatTutari == null ? 'Belirlenmedi' : formatMoney(summary.aidatTutari);
+  const summary = screenData?.summary;
+  const amountText = summary?.dueAmount == null ? 'Belirlenmedi' : formatMoney(summary.dueAmount);
 
   return (
     // ScrollView: içerik ekrana sığmazsa sayfa kaydırılır.
-    <ScrollView style={[styles.container, { marginTop: topOffset }]} contentContainerStyle={styles.icerik} refreshControl={refreshControl}>
+    <ScrollView style={[styles.container, { marginTop: topOffset }]} contentContainerStyle={styles.content} refreshControl={refreshControl}>
       {/* Selamlama, site adı (sağında logo, SiteHeader, ImageBackground) ve kısa özet (bina, daire, aidat) */}
       <View style={styles.greetingBlock}>
-        <SiteHeader greeting={`Hoş geldin, ${session.kullanici.ad}`} ad={session.site.ad} />
+        <SiteHeader greeting={`Hoş geldin, ${session.user.name}`} name={session.site.name} />
         {summary && (
           <Text style={[textStyles.label, styles.siteMeta]}>
-            {summary.binaSayisi === 0
+            {summary.buildingCount === 0
               ? 'SİTENİZ HAZIR, 3 ADIMDA KURUN'
-              : `${summary.binaSayisi} BİNA · ${summary.daireSayisi} DAİRE · ${amountText.toLocaleUpperCase('tr-TR')} / AY`}
+              : `${summary.buildingCount} BİNA · ${summary.flatCount} DAİRE · ${amountText.toLocaleUpperCase('tr-TR')} / AY`}
           </Text>
         )}
       </View>
 
       {error !== '' ? (
         // Hata olursa "Tekrar dene" ile load yeniden çalışır
-        <ErrorMessage mesaj={error} onRetry={load} />
+        <ErrorMessage message={error} onRetry={load} />
       ) : screenData === null ? (
         <ActivityIndicator color={colors.primary} style={styles.loading} />
-      ) : summary.binaSayisi === 0 ? (
-        <BeforeSetup navigation={navigation} aidatTutari={summary.aidatTutari} />
+      ) : summary.buildingCount === 0 ? (
+        <BeforeSetup navigation={navigation} dueAmount={summary.dueAmount} />
       ) : (
         <>
-          <SummaryCard map={screenData.map} ay={month} yil={year} />
+          <SummaryCard map={screenData.map} month={month} year={year} />
 
           {/* Bento ızgara. "Bekleyen aidatlar": geniş, altın kutu; basınca PendingPayments ekranı açılır */}
           <Tile
             wide
-            highlighted={summary.bekleyenSayisi > 0}
+            highlighted={summary.pendingCount > 0}
             icon="pendingList"
-            baslik="Bekleyen aidatlar"
-            subtitle={summary.bekleyenSayisi > 0 ? `${summary.bekleyenSayisi} aidat onayınızı bekliyor` : 'Onay bekleyen aidat yok'}
-            badge={summary.bekleyenSayisi > 0 ? String(summary.bekleyenSayisi) : null}
+            title="Bekleyen aidatlar"
+            subtitle={summary.pendingCount > 0 ? `${summary.pendingCount} aidat onayınızı bekliyor` : 'Onay bekleyen aidat yok'}
+            badge={summary.pendingCount > 0 ? String(summary.pendingCount) : null}
             onPress={() => navigation.navigate('PendingPayments')}
           />
           <View style={styles.row}>
             {/* "Daire haritası" kutusu (iki kutu boyunda, içinde mini harita): basınca FlatMap açılır */}
             <View style={styles.columns}>
-              <Tile icon="map" baslik="Daire haritası" subtitle="Kim ödedi, kim ödemedi" onPress={() => navigation.navigate('FlatMap')}>
+              <Tile icon="map" title="Daire haritası" subtitle="Kim ödedi, kim ödemedi" onPress={() => navigation.navigate('FlatMap')}>
                 <MiniMap map={screenData.map} />
               </Tile>
             </View>
@@ -162,15 +162,15 @@ export default function ManagerHomeScreen({ navigation }) {
               {/* "Mesajlar" kutusu: basınca Chats açılır; rozet okunmamış mesaj sayısı */}
               <Tile
                 icon="message"
-                baslik="Mesajlar"
-                subtitle={screenData.okunmamis > 0 ? `${screenData.okunmamis} okunmamış` : 'Yeni mesaj yok'}
-                badge={screenData.okunmamis > 0 ? String(screenData.okunmamis) : null}
+                title="Mesajlar"
+                subtitle={screenData.unread > 0 ? `${screenData.unread} okunmamış` : 'Yeni mesaj yok'}
+                badge={screenData.unread > 0 ? String(screenData.unread) : null}
                 onPress={() => navigation.navigate('Chats')}
               />
               {/* "Duyurular" kutusu: basınca Announcements açılır; altında son duyurunun başlığı */}
               <Tile
                 icon="announcement"
-                baslik="Duyurular"
+                title="Duyurular"
                 subtitle={screenData.latestAnnouncement ? `Son: ${screenData.latestAnnouncement}` : 'Henüz duyuru yok'}
                 onPress={() => navigation.navigate('Announcements')}
               />
@@ -178,11 +178,11 @@ export default function ManagerHomeScreen({ navigation }) {
           </View>
           <View style={styles.row}>
             {/* "Daireler" kutusu: basınca Flats açılır (davet kodları) */}
-            <Tile icon="key" baslik="Daireler" subtitle="Davet kodları" onPress={() => navigation.navigate('Flats')} />
+            <Tile icon="key" title="Daireler" subtitle="Davet kodları" onPress={() => navigation.navigate('Flats')} />
             {/* "Hatırlatma gönder" kutusu: basınca önce onay sorulur (confirmReminder), sonra sendReminder çalışır */}
             <Tile
               icon="bell"
-              baslik="Hatırlatma gönder"
+              title="Hatırlatma gönder"
               subtitle={reminding ? 'Gönderiliyor…' : "Her ayın 10'unda otomatik"}
               onPress={confirmReminder}
             />
@@ -191,27 +191,27 @@ export default function ManagerHomeScreen({ navigation }) {
             {/* "Aidat tutarı" kutusu: basınca DueAmount açılır, mevcut tutar da gönderilir */}
             <Tile
               icon="lira"
-              baslik="Aidat tutarı"
-              subtitle={summary.aidatTutari == null ? 'Belirlenmedi' : `${amountText} / ay`}
-              onPress={() => navigation.navigate('DueAmount', { aidatTutari: summary.aidatTutari })}
+              title="Aidat tutarı"
+              subtitle={summary.dueAmount == null ? 'Belirlenmedi' : `${amountText} / ay`}
+              onPress={() => navigation.navigate('DueAmount', { dueAmount: summary.dueAmount })}
             />
             {/* "Yöneticiliği devret" kutusu: basınca Handover açılır */}
-            <Tile icon="handover" baslik="Yöneticiliği devret" subtitle="Bir sakine" onPress={() => navigation.navigate('Handover')} />
+            <Tile icon="handover" title="Yöneticiliği devret" subtitle="Bir sakine" onPress={() => navigation.navigate('Handover')} />
           </View>
         </>
       )}
 
       {/* Hesap kartı: Çıkış yap ve Hesabımı sil */}
-      <AccountCard navigation={navigation} rol="Yönetici" />
+      <AccountCard navigation={navigation} role="Yönetici" />
     </ScrollView>
   );
 }
 
 // Bu ayın aidat özeti: solda hız kadranı (ödeyenlerin oranı), sağda Ödedi / Bekliyor / Ödemedi sayıları.
 // Oran sadece sakini olan dairelere göre hesaplanır (boş daireler aidat ödemez).
-function SummaryCard({ map, ay: month, yil: year }) {
-  const { odendi: paid, bekliyor: waiting, odenmedi: unpaid } = map.ozet;
-  const occupied = paid + waiting + unpaid;
+function SummaryCard({ map, month, year }) {
+  const { paid, pending, unpaid } = map.summary;
+  const occupied = paid + pending + unpaid;
   return (
     <View style={styles.card}>
       <View style={styles.cardTop}>
@@ -222,13 +222,13 @@ function SummaryCard({ map, ay: month, yil: year }) {
         <Gauge ratio={occupied === 0 ? 0 : paid / occupied} />
         <View style={styles.summaryList}>
           {[
-            ['odendi', paid],
-            ['bekliyor', waiting],
-            ['odenmedi', unpaid],
+            ['paid', paid],
+            ['pending', pending],
+            ['unpaid', unpaid],
           ].map(([d, n]) => (
             <View key={d} style={styles.summaryRow}>
-              <Icon ad={STATUSES[d].icon} size={17} color={STATUSES[d].color} />
-              <Text style={styles.summaryName}>{STATUSES[d].ad}</Text>
+              <Icon name={STATUSES[d].icon} size={17} color={STATUSES[d].color} />
+              <Text style={styles.summaryName}>{STATUSES[d].label}</Text>
               <Text style={styles.summaryCount}>{n}</Text>
             </View>
           ))}
@@ -240,7 +240,7 @@ function SummaryCard({ map, ay: month, yil: year }) {
 
 // Mini harita (MiniMap): ilk 16 dairenin bu ayki durumu, 4 sütunluk küçük kareler (ince renk tonu + çerçeve).
 function MiniMap({ map }) {
-  const flats = map.binalar.flatMap((b) => b.daireler).slice(0, 16);
+  const flats = map.buildings.flatMap((b) => b.flats).slice(0, 16);
   // 4'erli satırlara bölünür; son satır eksikse boş yer tutucularla tamamlanır ki kareler hizalı kalsın.
   const rows = [];
   for (let i = 0; i < flats.length; i += 4) rows.push(flats.slice(i, i + 4));
@@ -251,13 +251,13 @@ function MiniMap({ map }) {
           {[0, 1, 2, 3].map((i) => {
             const d = row[i];
             if (!d) return <View key={i} style={styles.miniSquareEmpty} />;
-            const color = STATUSES[d.durum].color;
+            const color = STATUSES[d.status].color;
             return (
               <View
                 key={d.id}
                 style={[
                   styles.miniSquare,
-                  d.durum === 'bos'
+                  d.status === 'empty'
                     ? { borderColor: colors.border }
                     : { backgroundColor: mix(color, 0.26), borderColor: mix(color, 0.6) },
                 ]}
@@ -271,7 +271,7 @@ function MiniMap({ map }) {
 }
 
 // Kurulum yapılmadıysa: 3 adımlı yol haritası ve iki buton (kurulum, aidat tutarı)
-function BeforeSetup({ navigation, aidatTutari: dueAmount }) {
+function BeforeSetup({ navigation, dueAmount }) {
   const steps = [
     ['Binaları ve daireleri oluşturun', 'Her daireye 6 haneli davet kodu verilir.'],
     ['Aylık aidat tutarını belirleyin', 'Sakinlerin formunda hazır gelir.'],
@@ -293,13 +293,13 @@ function BeforeSetup({ navigation, aidatTutari: dueAmount }) {
         ))}
       </View>
       {/* "Bina ve daire kurulumu" butonu: basınca Setup ekranına geçilir */}
-      <Button baslik="Bina ve daire kurulumu" icon="setup" onPress={() => navigation.navigate('Setup')} />
+      <Button title="Bina ve daire kurulumu" icon="setup" onPress={() => navigation.navigate('Setup')} />
       {/* "Aidat tutarını belirle" butonu: basınca DueAmount ekranı açılır */}
       <Button
-        baslik={dueAmount == null ? 'Aidat tutarını belirle' : 'Aidat tutarını değiştir'}
+        title={dueAmount == null ? 'Aidat tutarını belirle' : 'Aidat tutarını değiştir'}
         icon="lira"
         variant="secondary"
-        onPress={() => navigation.navigate('DueAmount', { aidatTutari: dueAmount })}
+        onPress={() => navigation.navigate('DueAmount', { dueAmount })}
       />
     </>
   );
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   // paddingTop: saat çubuğunun altında (marginTop ile) kalan küçük boşluk
-  icerik: {
+  content: {
     paddingHorizontal: 18,
     paddingTop: 20,
     paddingBottom: 28,
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   muted: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 13,
     color: colors.muted,
   },
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   },
   summaryName: {
     flex: 1,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 13.5,
     color: colors.text,
   },
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stepTitle: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     fontWeight: '600',
     color: colors.text,

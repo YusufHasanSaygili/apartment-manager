@@ -5,16 +5,16 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { radius, colors, fonts } from '../theme';
 import Icon from './Icon';
 
-// mesaj: gösterilecek hata metni.
+// message: gösterilecek hata metni.
 // onRetry: verilirse "Tekrar dene" butonu çıkar ve basınca bu fonksiyon çalışır.
-export default function ErrorMessage({ mesaj: message, onRetry }) {
+export default function ErrorMessage({ message, onRetry }) {
   return (
     // accessibilityRole="alert": ekran okuyucu bu kutuyu uyarı olarak okur.
     <View style={styles.box} accessibilityRole="alert">
       {/* Uyarı üçgeni + mesaj aynı satırda; mesaj uzunsa alt satıra kayar */}
       <View style={styles.row}>
-        <Icon ad="warning" size={20} color={colors.error} background={colors.errorBackground} />
-        <Text style={styles.mesaj}>{message}</Text>
+        <Icon name="warning" size={20} color={colors.error} background={colors.errorBackground} />
+        <Text style={styles.message}>{message}</Text>
       </View>
 
       {/* "Tekrar dene" butonu: basınca ekranın gönderdiği onRetry fonksiyonu çalışır */}
@@ -45,9 +45,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  mesaj: {
+  message: {
     flex: 1,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     color: colors.error,
   },
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     fontWeight: '600',
   },

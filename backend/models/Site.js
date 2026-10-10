@@ -5,15 +5,15 @@ const mongoose = require('mongoose');
 
 const siteSchema = new mongoose.Schema(
   {
-    ad: { type: String, required: true, trim: true, maxlength: 80 },
+    name: { type: String, required: true, trim: true, maxlength: 80 },
     // Sitenin şu anki yöneticisi. Yönetici devrinde (Görev 6.2) bu alan değişir.
-    yoneticiId: { type: mongoose.Schema.Types.ObjectId, ref: 'Kullanici', required: true },
+    managerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     // Yöneticinin belirlediği aylık aidat tutarı (TL). Sakinin bildirim formunda hazır gelir.
     // Henüz belirlenmediyse null.
-    aidatTutari: { type: Number, default: null, min: 0.01, max: 99999.99 },
+    dueAmount: { type: Number, default: null, min: 0.01, max: 99999.99 },
   },
-  // Oluşturulma tarihi otomatik eklenir; alan adı veri modelindeki gibi "olusturmaTarihi".
-  { timestamps: { createdAt: 'olusturmaTarihi', updatedAt: false } }
+  // Oluşturulma tarihi otomatik eklenir; alan adı "createdAt".
+  { timestamps: { updatedAt: false } }
 );
 
 module.exports = mongoose.model('Site', siteSchema);

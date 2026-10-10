@@ -15,24 +15,24 @@ export default function WelcomeScreen({ navigation }) {
         {/* Image: logo resmi (assets/logo.png). require ile verilen resim uygulamanın içine paketlenir,
             internet olmadan da görünür. Logo süs olduğu için ekran okuyucudan gizlenir; adı hemen altında yazıyor. */}
         <Image source={require('../assets/logo.png')} style={styles.logo} accessible={false} />
-        <Text style={styles.baslik}>Apartmanım</Text>
-        <Text style={styles.altBaslik}>Aidat, duyuru ve mesajlar tek yerde.</Text>
+        <Text style={styles.title}>Apartmanım</Text>
+        <Text style={styles.subtitle}>Aidat, duyuru ve mesajlar tek yerde.</Text>
       </View>
 
       <View style={styles.buttons}>
         {/* "Giriş yap" butonu: hesabı olanlar için; basınca Login ekranına geçilir */}
-        <Button baslik="Giriş yap" onPress={() => navigation.navigate('Login')} />
+        <Button title="Giriş yap" onPress={() => navigation.navigate('Login')} />
 
         {/* "Yeni site/apartman oluştur" butonu: basınca CreateSite ekranına geçilir */}
         <Button
-          baslik="Yeni site/apartman oluştur"
+          title="Yeni site/apartman oluştur"
           subtitle="(Yönetici hesabı ile başlar)"
           variant="secondary"
           onPress={() => navigation.navigate('CreateSite')}
         />
 
         {/* "Davet koduyla katıl" butonu: sakinler için; basınca JoinWithCode ekranına geçilir */}
-        <Button baslik="Davet koduyla katıl" variant="secondary" onPress={() => navigation.navigate('JoinWithCode')} />
+        <Button title="Davet koduyla katıl" variant="secondary" onPress={() => navigation.navigate('JoinWithCode')} />
       </View>
     </SafeAreaView>
   );
@@ -56,16 +56,16 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   // Uygulama adı: büyük, kalın ve altın; harfler biraz sıkı (letterSpacing eksi).
-  baslik: {
-    fontFamily: fonts.metin,
+  title: {
+    fontFamily: fonts.text,
     fontSize: 42,
     fontWeight: '700',
     letterSpacing: -1.2,
     color: colors.primary,
   },
-  altBaslik: {
+  subtitle: {
     marginTop: 6,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 16,
     lineHeight: 23,
     color: colors.muted,

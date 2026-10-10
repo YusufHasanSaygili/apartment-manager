@@ -5,14 +5,14 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const DeletedAccount = require('./models/DeletedAccount');
-const { DAIREDEN_CIKARILDI: REMOVED_FROM_FLAT, SIFRE_DEGISTI: PASSWORD_CHANGED } = require('./middleware/auth');
+const { REMOVED_FROM_FLAT, PASSWORD_CHANGED } = require('./middleware/auth');
 
 // Sunucu tarafındaki Socket.io nesnesi; startSocket çağrılınca oluşturulur.
 let io = null;
 
 // Her kullanıcının kişisel odasının adı. Oda: aynı anda birden fazla bağlantıya (örn. kullanıcının
 // iki telefonu) tek seferde mesaj göndermeye yarayan gruptur.
-const roomName = (userId) => `kullanici:${userId}`;
+const roomName = (userId) => `user:${userId}`;
 
 // httpServer: Express'in üzerinde çalıştığı HTTP sunucusu (Socket.io aynı portu paylaşır).
 // corsOrigins: API ile aynı CORS kuralı; mobil uygulama CORS'tan etkilenmez, web sitelerine izin yoktur.
@@ -26,26 +26,26 @@ function startSocket(httpServer, corsOrigins) {
   io.use(async (socket, next) => {
     try {
       const { id, iat } = jwt.verify(socket.handshake.auth?.token, process.env.JWT_SECRET);
-      const user = await User.findById(id).select('_id sifreDegisme').lean();
-      // Daireden çıkarılan sakinin hesabı silinmiştir; bağlantı reddedilir. error.data.kod: telefon bu reddi diğer
+      const user = await User.findById(id).select('_id passwordChangedAt').lean();
+      // Daireden çıkarılan sakinin hesabı silinmiştir; bağlantı reddedilir. error.data.code: telefon bu reddi diğer
       // bağlantı hatalarından ayırt edip oturumu kapatabilsin diye eklenir (telefon kapalıyken çıkarılan sakin,
       // uygulamayı açınca hemen bilgilendirilir).
-      const removed = !user && (await DeletedAccount.exists({ kullaniciId: id }));
+      const removed = !user && (await DeletedAccount.exists({ userId: id }));
       if (!user && !removed) return next(new Error('Oturum geçersiz'));
       if (removed) {
         const error = new Error(REMOVED_FROM_FLAT);
-        error.data = { kod: 'DAIREDEN_CIKARILDI' };
+        error.data = { code: 'REMOVED_FROM_FLAT' };
         return next(error);
       }
       // Şifre değiştikten önce verilmiş token ile anlık bağlantı da kurulamaz (requireAuth ile aynı kural).
-      // error.data.kod: telefon kapalıyken şifre değiştiyse, uygulama açılınca soket bu kodu görür ve oturumu hemen kapatır.
+      // error.data.code: telefon kapalıyken şifre değiştiyse, uygulama açılınca soket bu kodu görür ve oturumu hemen kapatır.
       if (User.isTokenStale(user, iat)) {
         const error = new Error(PASSWORD_CHANGED);
-        error.data = { kod: 'SIFRE_DEGISTI' };
+        error.data = { code: 'PASSWORD_CHANGED' };
         return next(error);
       }
       // Kullanıcının kimliği bağlantıya yazılır; oda bu bilgiyle seçilir (istekten alınmaz).
-      socket.data.kullaniciId = String(user._id);
+      socket.data.userId = String(user._id);
       next();
     } catch {
       next(new Error('Oturum geçersiz'));
@@ -56,13 +56,13 @@ function startSocket(httpServer, corsOrigins) {
   // Bağlantı kabul edilince kullanıcı SADECE kendi kişisel odasına alınır. Hangi odaya gireceğini
   // telefon seçemez; bu yüzden kimse başka birinin mesajlarını dinleyemez.
   io.on('connection', (socket) => {
-    socket.join(roomName(socket.data.kullaniciId));
+    socket.join(roomName(socket.data.userId));
   });
 }
 
-// Bir kullanıcının bağlı tüm cihazlarına anlık olay gönderir (örn. 'yeniMesaj').
+// Bir kullanıcının bağlı tüm cihazlarına anlık olay gönderir (örn. 'newMessage').
 // Kullanıcı o an bağlı değilse olay kaybolur; telefon bağlanınca mesajları API'den yeniden çeker.
-// emit: olayı adı ve verisiyle gönderir; telefonda soket.on(olay, ...) ile dinlenir.
+// emit: olayı adı ve verisiyle gönderir; telefonda socket.on(event, ...) ile dinlenir.
 // io?. : soket henüz başlatılmadıysa (io null) hata vermeden hiçbir şey yapmaz; mesaj yine veritabanına kaydedilmiş olur.
 function sendToUser(userId, event, payload) {
   io?.to(roomName(String(userId))).emit(event, payload);

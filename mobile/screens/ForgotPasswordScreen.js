@@ -1,7 +1,7 @@
 // Şifremi unuttum ekranı: iki adımda şifre sıfırlanır.
 // 1. adım: kullanıcı e-postasını yazar, "Kod gönder"e basar; e-postasına 6 haneli bir kod gelir.
 // 2. adım: kodu ve yeni şifresini yazar; şifre değişir ve kullanıcı doğrudan giriş yapmış olur.
-// route.params.eposta: giriş ekranında yazılmışsa e-posta kutusu dolu gelir.
+// route.params.email: giriş ekranında yazılmışsa e-posta kutusu dolu gelir.
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
@@ -19,7 +19,7 @@ export default function ForgotPasswordScreen({ route }) {
   const { openSession } = useSession();
 
   // useState: form alanları. codeSent: 2. adıma geçildi mi (kod ve yeni şifre alanları görünür).
-  const [email, setEmail] = useState(route.params?.eposta ?? '');
+  const [email, setEmail] = useState(route.params?.email ?? '');
   const [codeSent, setCodeSent] = useState(false);
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -28,15 +28,15 @@ export default function ForgotPasswordScreen({ route }) {
   const [info, setInfo] = useState('');
   const [error, setError] = useState('');
 
-  // API isteği: POST /api/hesap/sifre-sifirla/kod-iste ile e-postayı gönderir. Sunucu, e-posta kayıtlı olsun
+  // API isteği: POST /api/account/password-reset/request-code ile e-postayı gönderir. Sunucu, e-posta kayıtlı olsun
   // olmasın aynı mesajı döner (hangi e-postaların kayıtlı olduğu anlaşılmasın diye); mesaj ekranda gösterilir.
   const requestCode = async () => {
     if (!email.trim()) return setError('E-posta adresinizi girin.');
     setError('');
     setLoading(true);
     try {
-      const { data } = await api.post('/hesap/sifre-sifirla/kod-iste', { eposta: email });
-      setInfo(data.mesaj);
+      const { data } = await api.post('/account/password-reset/request-code', { email });
+      setInfo(data.message);
       setCodeSent(true);
     } catch (e) {
       setError(e.message);
@@ -45,7 +45,7 @@ export default function ForgotPasswordScreen({ route }) {
     }
   };
 
-  // API isteği: POST /api/hesap/sifre-sifirla ile e-posta, kod ve yeni şifreyi gönderir.
+  // API isteği: POST /api/account/password-reset ile e-posta, kod ve yeni şifreyi gönderir.
   // Başarılıysa sunucu token döner; oturum açılır ve uygulama kendiliğinden ana ekrana geçer.
   const resetPassword = async () => {
     if (!/^\d{6}$/.test(code.trim())) return setError('E-postanıza gelen 6 haneli kodu girin.');
@@ -53,7 +53,7 @@ export default function ForgotPasswordScreen({ route }) {
     setError('');
     setLoading(true);
     try {
-      const { data } = await api.post('/hesap/sifre-sifirla', { eposta: email, kod: code.trim(), yeniSifre: newPassword });
+      const { data } = await api.post('/account/password-reset', { email, code: code.trim(), newPassword });
       // Başarılıysa setLoading(false) çağrılmaz: oturum açılınca bu ekran kapanıp ana ekrana geçilir.
       await openSession(data);
     } catch (e) {
@@ -67,11 +67,11 @@ export default function ForgotPasswordScreen({ route }) {
     // KeyboardAwareScrollView: klavye açılınca alanlar ve butonlar klavyenin altında kalmaz.
     <KeyboardAwareScrollView
       style={styles.container}
-      contentContainerStyle={styles.icerik}
+      contentContainerStyle={styles.content}
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.aciklama}>
+      <Text style={styles.note}>
         Hesabınızın e-posta adresini yazın; şifrenizi sıfırlamak için 6 haneli bir kod göndereceğiz.
       </Text>
 
@@ -89,7 +89,7 @@ export default function ForgotPasswordScreen({ route }) {
 
       {!codeSent ? (
         // "Kod gönder" butonu: basınca requestCode çalışır ve kod e-postaya gönderilir.
-        <Button baslik="Kod gönder" onPress={requestCode} loading={loading} />
+        <Button title="Kod gönder" onPress={requestCode} loading={loading} />
       ) : (
         <>
           {info !== '' && <Text style={styles.info}>{info}</Text>}
@@ -103,14 +103,14 @@ export default function ForgotPasswordScreen({ route }) {
             autoCapitalize="none"
             autoComplete="new-password"
           />
-          {error !== '' && <ErrorMessage mesaj={error} />}
+          {error !== '' && <ErrorMessage message={error} />}
           {/* "Şifremi değiştir" butonu: basınca resetPassword çalışır; kod doğruysa şifre değişir ve giriş yapılır */}
-          <Button baslik="Şifremi değiştir" onPress={resetPassword} loading={loading} />
+          <Button title="Şifremi değiştir" onPress={resetPassword} loading={loading} />
           {/* "Kodu tekrar gönder" bağlantısı: basınca requestCode yeniden çalışır; yeni kod gelir, eskisi geçersiz olur */}
-          <TextButton baslik="Kodu tekrar gönder" onPress={requestCode} disabled={loading} />
+          <TextButton title="Kodu tekrar gönder" onPress={requestCode} disabled={loading} />
           {/* "Farklı e-posta" bağlantısı: 1. adıma döner, e-posta kutusu yeniden düzenlenebilir olur */}
           <TextButton
-            baslik="Farklı e-posta"
+            title="Farklı e-posta"
             onPress={() => {
               setCodeSent(false);
               setCode('');
@@ -123,7 +123,7 @@ export default function ForgotPasswordScreen({ route }) {
       )}
 
       {/* 1. adımdaki hata (2. adımın hatası yukarıda, kendi butonunun hemen üstünde gösterilir) */}
-      {!codeSent && error !== '' && <ErrorMessage mesaj={error} />}
+      {!codeSent && error !== '' && <ErrorMessage message={error} />}
     </KeyboardAwareScrollView>
   );
 }
@@ -133,20 +133,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 24,
     gap: 4,
   },
-  aciklama: {
+  note: {
     marginBottom: 20,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     lineHeight: 22,
     color: colors.muted,
   },
   info: {
     marginBottom: 16,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     lineHeight: 22,
     color: colors.success,

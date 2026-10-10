@@ -6,7 +6,7 @@ const nodemailer = require('nodemailer');
 
 // Bir e-posta gönderir. SMTP ayarlanmamışsa veya gönderim başarısız olursa hata fırlatır (çağıran yakalar).
 // Bağlantı her gönderimde yeniden kurulur: günde birkaç e-posta için bağlantıyı saklamaya (önbelleğe) gerek yok.
-async function sendEmail({ to, subject, metin: text }) {
+async function sendEmail({ to, subject, text }) {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM } = process.env;
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASSWORD) throw new Error('E-posta ayarları (.env içindeki SMTP_) yapılmamış.');
   const port = Number(SMTP_PORT) || 587;
@@ -17,7 +17,7 @@ async function sendEmail({ to, subject, metin: text }) {
     secure: port === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASSWORD },
   });
-  await transporter.sendMail({ from: SMTP_FROM || SMTP_USER, to: to, subject: subject, text: text });
+  await transporter.sendMail({ from: SMTP_FROM || SMTP_USER, to, subject, text });
 }
 
 module.exports = { sendEmail };

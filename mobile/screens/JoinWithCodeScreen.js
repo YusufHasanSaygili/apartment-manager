@@ -45,10 +45,10 @@ export default function JoinWithCodeScreen() {
     setError('');
     setLoading(true);
     try {
-      // API isteği: kodu ve hesap bilgilerini POST /api/hesap/katil adresine gönderir.
+      // API isteği: kodu ve hesap bilgilerini POST /api/account/join adresine gönderir.
       // Cevapta token, kullanıcı, site ve daire bilgisi gelir.
-      const { data } = await api.post('/hesap/katil', { davetKodu: inviteCode, ad: name, eposta: email, sifre: password });
-      // Oturum açılınca App.js rol 'sakin' olduğu için sakin ana ekranına geçer.
+      const { data } = await api.post('/account/join', { inviteCode, name, email, password });
+      // Oturum açılınca App.js rol 'resident' olduğu için sakin ana ekranına geçer.
       // Başarılı durumda setLoading(false) gerekmez; bu ekran kapanıyor.
       await openSession(data);
     } catch (e) {
@@ -62,11 +62,11 @@ export default function JoinWithCodeScreen() {
     // KeyboardAwareScrollView: klavye açılınca sayfayı dokunulan alana kaydırır.
     <KeyboardAwareScrollView
       style={styles.container}
-      contentContainerStyle={styles.icerik}
+      contentContainerStyle={styles.content}
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.aciklama}>
+      <Text style={styles.note}>
         Davet kodunu site yöneticinizden alabilirsiniz. Hesabınız kodun ait olduğu daireye bağlanır.
       </Text>
 
@@ -92,10 +92,10 @@ export default function JoinWithCodeScreen() {
       />
 
       {/* Hata varsa ortak hata kutusu gösterilir */}
-      {error !== '' && <ErrorMessage mesaj={error} />}
+      {error !== '' && <ErrorMessage message={error} />}
 
       {/* "Katıl" butonu: basınca join çalışır ve bilgiler backend'e gönderilir */}
-      <Button baslik="Katıl" onPress={join} loading={loading} />
+      <Button title="Katıl" onPress={join} loading={loading} />
     </KeyboardAwareScrollView>
   );
 }
@@ -105,13 +105,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 24,
     gap: 4,
   },
-  aciklama: {
+  note: {
     marginBottom: 20,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     lineHeight: 22,
     color: colors.muted,

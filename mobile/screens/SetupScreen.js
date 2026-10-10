@@ -88,12 +88,12 @@ export default function SetupScreen({ navigation }) {
     );
   };
 
-  // API isteği: POST /api/kurulum ile bina ve daire sayısını gönderir; daireler ve davet kodları sunucuda oluşur.
+  // API isteği: POST /api/setup ile bina ve daire sayısını gönderir; daireler ve davet kodları sunucuda oluşur.
   // Başarılıysa ana ekrana dönülür (orada kurulum tamamlanmış görünür).
   const runSetup = async () => {
     setLoading(true);
     try {
-      await api.post('/kurulum', { binaSayisi: building, daireSayisi: flat });
+      await api.post('/setup', { buildingCount: building, flatCount: flat });
       navigation.goBack();
     } catch (e) {
       setError(e.message);
@@ -104,15 +104,15 @@ export default function SetupScreen({ navigation }) {
   // Önizleme: en fazla 3 bina ve her binada en fazla 12 daire gösterilir (fazlası "+N" ile belirtilir)
   const preview = valid
     ? Array.from({ length: Math.min(building, 3) }, (_, b) => ({
-        ad: LETTERS[b],
-        daireler: Array.from({ length: Math.min(flat, 12) }, (_, d) => ({ id: `${b}-${d}`, ad: `${LETTERS[b]}${d + 1}`, durum: 'bosDaire' })),
+        name: LETTERS[b],
+        flats: Array.from({ length: Math.min(flat, 12) }, (_, d) => ({ id: `${b}-${d}`, name: `${LETTERS[b]}${d + 1}`, status: 'emptyFlat' })),
       }))
     : [];
 
   return (
     // KeyboardAwareScrollView: klavye açılınca kutular ve buton klavyenin altında kalmaz.
-    <KeyboardAwareScrollView style={styles.container} contentContainerStyle={styles.icerik} bottomOffset={100} keyboardShouldPersistTaps="handled">
-      <Text style={textStyles.aciklama}>Binalar A, B, C… diye, daireler A1, A2… diye otomatik adlandırılır.</Text>
+    <KeyboardAwareScrollView style={styles.container} contentContainerStyle={styles.content} bottomOffset={100} keyboardShouldPersistTaps="handled">
+      <Text style={textStyles.note}>Binalar A, B, C… diye, daireler A1, A2… diye otomatik adlandırılır.</Text>
 
       <NumberField label="Bina sayısı" subtitle="En fazla 26 (A–Z)" value={buildingCount} change={setBuildingCount} max={26} />
       <NumberField label="Her binadaki daire" subtitle="En fazla 99" value={flatCount} change={setFlatCount} max={99} />
@@ -127,17 +127,17 @@ export default function SetupScreen({ navigation }) {
             </Text>
           </View>
           {preview.map((b) => (
-            <BuildingCard key={b.ad} ad={b.ad} daireler={b.daireler} hideIcon small columns={6} frameless />
+            <BuildingCard key={b.name} name={b.name} flats={b.flats} hideIcon small columns={6} frameless />
           ))}
           {(building > 3 || flat > 12) && <Text style={styles.subtitle}>… A1 – {lastBuilding}{flat} arası tüm daireler oluşturulur.</Text>}
         </View>
       )}
 
       {/* Hata varsa ortak hata kutusu gösterilir */}
-      {error !== '' && <ErrorMessage mesaj={error} />}
+      {error !== '' && <ErrorMessage message={error} />}
 
       {/* "Daireleri oluştur" butonu: basınca askConfirm çalışır; onaylanırsa runSetup backend'e gönderir */}
-      <Button baslik="Daireleri oluştur" icon="setup" onPress={askConfirm} loading={loading} />
+      <Button title="Daireleri oluştur" icon="setup" onPress={askConfirm} loading={loading} />
     </KeyboardAwareScrollView>
   );
 }
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 18,
     gap: 12,
   },
@@ -167,13 +167,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     fontWeight: '600',
     color: colors.text,
   },
   subtitle: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 12,
     color: colors.muted,
   },
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   stepLabel: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 20,
     fontWeight: '600',
     color: colors.text,

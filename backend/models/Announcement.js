@@ -5,14 +5,14 @@ const announcementSchema = new mongoose.Schema(
   {
     // Duyurunun ait olduğu site: sakinler sadece kendi sitelerinin duyurularını görür.
     siteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Site', required: true },
-    baslik: { type: String, required: true, trim: true, maxlength: 80 },
-    icerik: { type: String, required: true, trim: true, maxlength: 1000 },
+    title: { type: String, required: true, trim: true, maxlength: 80 },
+    content: { type: String, required: true, trim: true, maxlength: 1000 },
   },
-  // tarih: duyurunun yapıldığı an (otomatik eklenir).
-  { timestamps: { createdAt: 'tarih', updatedAt: false } }
+  // date: duyurunun yapıldığı an (otomatik eklenir).
+  { timestamps: { createdAt: 'date', updatedAt: false } }
 );
 
 // Bir sitenin duyurularını yeniden eskiye hızlı listelemek için.
-announcementSchema.index({ siteId: 1, tarih: -1 });
+announcementSchema.index({ siteId: 1, date: -1 });
 
-module.exports = mongoose.model('Duyuru', announcementSchema);
+module.exports = mongoose.model('Announcement', announcementSchema);

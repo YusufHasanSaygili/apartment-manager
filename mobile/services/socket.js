@@ -53,7 +53,7 @@ export function disconnectSocket() {
 
 // Ekranların soket olaylarını dinlemesi için hook. Ekran açıkken olay dinlenir, ekran kapanınca
 // (veya handler değişince) dinleme bırakılır; böylece kapanmış ekrana mesaj eklenmeye çalışılmaz.
-// event: örn. 'yeniMesaj' (yeni mesaj geldi) veya 'connect' (bağlantı kuruldu/yeniden kuruldu).
+// event: örn. 'newMessage' (yeni mesaj geldi) veya 'connect' (bağlantı kuruldu/yeniden kuruldu).
 // handler: olay gelince çalışacak fonksiyon; her çizimde yeniden kurulmaması için useCallback ile verilmeli.
 export function useSocketEvent(event, handler) {
   // useEffect: dinleyiciyi ekler; döndürdüğü temizlik fonksiyonu ekran kapanınca dinleyiciyi kaldırır.

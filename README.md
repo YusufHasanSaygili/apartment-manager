@@ -122,7 +122,7 @@ adresiniz, `SMTP_PASSWORD` 16 haneli uygulama şifresi olsun. (Kişisel Outlook/
 desteklemiyor.) Bu ayarlar yapılmazsa uygulama çalışır, sadece şifre sıfırlama kodu gönderilemez.
 
 Konsolda `MongoDB bağlantısı kuruldu` ve `Sunucu 3000 portunda çalışıyor` yazmalıdır.
-Tarayıcıda `http://localhost:3000/api/saglik` adresi `{"durum":"ok", ...}` döndürür.
+Tarayıcıda `http://localhost:3000/api/health` adresi `{"status":"ok", ...}` döndürür.
 
 **Demo verisi (isteğe bağlı):** Uygulamayı boş bir site yerine dolu bir örnekle görmek için:
 

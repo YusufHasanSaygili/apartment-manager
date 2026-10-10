@@ -19,11 +19,11 @@ import { mix, radius, colors, fonts, textStyles } from '../theme';
 
 // Bildirim durumu → rozetin rengi (Status.js'teki durum) ve yazısı
 const REPORT_STATUS = {
-  bekliyor: { durum: 'bekliyor', text: 'Onay bekliyor' },
-  onaylandi: { durum: 'odendi', text: 'Ödendi' },
-  reddedildi: { durum: 'odenmedi', text: 'Reddedildi' },
+  pending: { status: 'pending', text: 'Onay bekliyor' },
+  approved: { status: 'paid', text: 'Ödendi' },
+  rejected: { status: 'unpaid', text: 'Reddedildi' },
 };
-const METHODS = { banka: 'Banka havalesi', elden: 'Elden' };
+const METHODS = { bank: 'Banka havalesi', cash: 'Elden' };
 // Mini takvimdeki ay baş harfleri (Ocak … Aralık)
 const MONTH_INITIALS = ['O', 'Ş', 'M', 'N', 'M', 'H', 'T', 'A', 'E', 'E', 'K', 'A'];
 
@@ -33,7 +33,7 @@ export default function ResidentHomeScreen({ navigation }) {
   // useSafeAreaInsets: telefonun üstteki saat/şarj çubuğunun (ve çentiğin) yüksekliği. Bu ekranda üst başlık çubuğu
   // olmadığı için kaydırılan sayfa bu yükseklik kadar aşağıdan başlar; yoksa içerik saatin altına girerdi.
   const { top: topOffset } = useSafeAreaInsets();
-  // useState: ekranın verisi { mine, aylar, manager, newAnnouncements }. null → henüz yüklenmedi.
+  // useState: ekranın verisi { mine, months, manager, newAnnouncements }. null → henüz yüklenmedi.
   const [screenData, setScreenData] = useState(null);
   // useState: veri yüklenemezse gösterilecek hata mesajı.
   const [error, setError] = useState('');
@@ -42,24 +42,24 @@ export default function ResidentHomeScreen({ navigation }) {
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
-  // API istekleri (aynı anda): GET /api/aidatlar/benim (son bildirimler, aidat tutarı), GET /api/aidatlar/takvim
-  // (bu yılın ayları: bu ayın durumu ve mini takvim), GET /api/mesajlar/sohbetler (yöneticinin adı, okunmamış mesaj),
-  // GET /api/duyurular (bugün gelen duyuru sayısı).
+  // API istekleri (aynı anda): GET /api/dues/mine (son bildirimler, aidat tutarı), GET /api/dues/calendar
+  // (bu yılın ayları: bu ayın durumu ve mini takvim), GET /api/messages/chats (yöneticinin adı, okunmamış mesaj),
+  // GET /api/announcements (bugün gelen duyuru sayısı).
   // useCallback: load her çizimde yeniden oluşturulmaz; useFocusEffect ona bağlı olduğu için gereksiz istek atılmaz.
   const load = useCallback(async () => {
     setError('');
     try {
       const [mine, calendar, chats, announcements] = await Promise.all([
-        api.get('/aidatlar/benim'),
-        api.get('/aidatlar/takvim', { params: { yil: year } }),
-        api.get('/mesajlar/sohbetler'),
-        api.get('/duyurular'),
+        api.get('/dues/mine'),
+        api.get('/dues/calendar', { params: { year } }),
+        api.get('/messages/chats'),
+        api.get('/announcements'),
       ]);
       setScreenData({
         mine: mine.data,
-        aylar: calendar.data.aylar,
+        months: calendar.data.months,
         manager: chats.data[0] ?? null,
-        newAnnouncements: announcements.data.filter((d) => relativeDay(d.tarih) === 'Bugün').length,
+        newAnnouncements: announcements.data.filter((d) => relativeDay(d.date) === 'Bugün').length,
       });
     } catch (e) {
       setError(e.message);
@@ -76,17 +76,17 @@ export default function ResidentHomeScreen({ navigation }) {
   // Aşağı çekip yenileme (refreshControl): sayfa en üstteyken aşağı çekilince load tekrar çalışır (components/Refresh.js).
   const refreshControl = useRefresh(load);
 
-  // Takvimdeki durumu ekrana çevirir: gelecek ayların "ödenmedi"si "henüz gelmedi", katılmadan önceki aylar "once"
-  const monthStatusOf = (a) => (a.durum === 'odenmedi' && a.ay > month ? 'gelecek' : a.durum === 'bos' ? 'once' : a.durum);
-  const thisMonth = screenData ? monthStatusOf(screenData.aylar[month - 1]) : null;
-  const thisMonthText = { odendi: 'Ödendi', bekliyor: 'Onay bekliyor', odenmedi: 'Ödenmedi', once: 'Henüz katılmadınız' }[thisMonth];
+  // Takvimdeki durumu ekrana çevirir: gelecek ayların "ödenmedi"si "henüz gelmedi", katılmadan önceki aylar "before"
+  const monthStatusOf = (a) => (a.status === 'unpaid' && a.month > month ? 'upcoming' : a.status === 'empty' ? 'before' : a.status);
+  const thisMonth = screenData ? monthStatusOf(screenData.months[month - 1]) : null;
+  const thisMonthText = { paid: 'Ödendi', pending: 'Onay bekliyor', unpaid: 'Ödenmedi', before: 'Henüz katılmadınız' }[thisMonth];
 
   return (
     // ScrollView: içerik ekrana sığmazsa sayfa kaydırılır.
-    <ScrollView style={[styles.container, { marginTop: topOffset }]} contentContainerStyle={styles.icerik} refreshControl={refreshControl}>
+    <ScrollView style={[styles.container, { marginTop: topOffset }]} contentContainerStyle={styles.content} refreshControl={refreshControl}>
       {/* Selamlama ve site adı, adın sağında logo (SiteHeader, ImageBackground) */}
       <View style={styles.greetingBlock}>
-        <SiteHeader greeting={`Hoş geldin, ${session.kullanici.ad}`} ad={session.site.ad} />
+        <SiteHeader greeting={`Hoş geldin, ${session.user.name}`} name={session.site.name} />
       </View>
 
       {/* Daire kartı: solda daire adı (büyük, mono), sağda bu ayın aidat durumu ("EKİM" zümrüt renkte) */}
@@ -95,14 +95,14 @@ export default function ResidentHomeScreen({ navigation }) {
           <View>
             <Text style={textStyles.label}>DAİRENİZ</Text>
             {/* daire normalde hep doludur; sunucu dairenin kaydını bulamazsa null gelir, o durumda çizgi gösterilir */}
-            <Text style={styles.flatLarge}>{session.daire?.ad ?? '—'}</Text>
+            <Text style={styles.flatLarge}>{session.flat?.name ?? '—'}</Text>
           </View>
           {thisMonth && thisMonthText && (
-            <View style={styles.buAy}>
+            <View style={styles.thisMonth}>
               <Text style={textStyles.label}>
                 <Text style={{ color: colors.emerald }}>{MONTH_NAMES[month - 1].toLocaleUpperCase('tr-TR')}</Text> AİDATI
               </Text>
-              <StatusBadge durum={thisMonth === 'once' ? 'gelecek' : thisMonth} text={thisMonthText} />
+              <StatusBadge status={thisMonth === 'before' ? 'upcoming' : thisMonth} text={thisMonthText} />
             </View>
           )}
         </View>
@@ -110,7 +110,7 @@ export default function ResidentHomeScreen({ navigation }) {
 
       {error !== '' ? (
         // Hata olursa "Tekrar dene" ile load yeniden çalışır
-        <ErrorMessage mesaj={error} onRetry={load} />
+        <ErrorMessage message={error} onRetry={load} />
       ) : screenData === null ? (
         <ActivityIndicator color={colors.primary} style={styles.loading} />
       ) : (
@@ -121,22 +121,22 @@ export default function ResidentHomeScreen({ navigation }) {
             wide
             highlighted
             icon="reportPayment"
-            baslik="Aidat bildirimi gönder"
+            title="Aidat bildirimi gönder"
             subtitle="Ödediğinizi yöneticiye bildirin"
-            onPress={() => navigation.navigate('ReportPayment', { aidatTutari: screenData.mine.aidatTutari })}
+            onPress={() => navigation.navigate('ReportPayment', { dueAmount: screenData.mine.dueAmount })}
           />
           <View style={styles.row}>
             <View style={styles.columns}>
               {/* "Aidat takvimim" (uzun, mini takvimli): basınca DueCalendar açılır (sakinin kendi dairesi) */}
-              <Tile icon="calendar" baslik="Aidat takvimim" subtitle={String(year)} onPress={() => navigation.navigate('DueCalendar')}>
-                <MiniCalendar aylar={screenData.aylar.map(monthStatusOf)} buAy={month} />
+              <Tile icon="calendar" title="Aidat takvimim" subtitle={String(year)} onPress={() => navigation.navigate('DueCalendar')}>
+                <MiniCalendar months={screenData.months.map(monthStatusOf)} thisMonth={month} />
               </Tile>
             </View>
             <View style={styles.columns}>
               {/* "Duyurular": basınca duyuru listesi açılır; rozet bugün gelen duyuru sayısı */}
               <Tile
                 icon="announcement"
-                baslik="Duyurular"
+                title="Duyurular"
                 subtitle={screenData.newAnnouncements > 0 ? `${screenData.newAnnouncements} yeni duyuru` : 'Sitenin duyuruları'}
                 badge={screenData.newAnnouncements > 0 ? String(screenData.newAnnouncements) : null}
                 onPress={() => navigation.navigate('Announcements')}
@@ -144,36 +144,36 @@ export default function ResidentHomeScreen({ navigation }) {
               {/* "Yöneticiye mesaj gönder": basınca Chat açılır; sakin sadece sitenin yöneticisiyle yazışabilir */}
               <Tile
                 icon="message"
-                baslik="Yöneticiye mesaj gönder"
-                subtitle={screenData.manager?.ad ?? 'Site yöneticisi'}
-                badge={screenData.manager?.okunmamis > 0 ? String(screenData.manager.okunmamis) : null}
-                onPress={() => navigation.navigate('Chat', { baslik: screenData.manager ? `${screenData.manager.ad} · Yönetici` : undefined })}
+                title="Yöneticiye mesaj gönder"
+                subtitle={screenData.manager?.name ?? 'Site yöneticisi'}
+                badge={screenData.manager?.unread > 0 ? String(screenData.manager.unread) : null}
+                onPress={() => navigation.navigate('Chat', { title: screenData.manager ? `${screenData.manager.name} · Yönetici` : undefined })}
               />
             </View>
           </View>
 
           <Text style={[textStyles.label, styles.section]}>SON BİLDİRİMLERİM</Text>
-          {screenData.mine.bildirimler.length === 0 && <Text style={textStyles.aciklama}>Henüz bildirim göndermediniz.</Text>}
-          {screenData.mine.bildirimler.map((b) => {
-            const d = REPORT_STATUS[b.durum];
-            const rejected = b.durum === 'reddedildi';
+          {screenData.mine.reports.length === 0 && <Text style={textStyles.note}>Henüz bildirim göndermediniz.</Text>}
+          {screenData.mine.reports.map((b) => {
+            const d = REPORT_STATUS[b.status];
+            const rejected = b.status === 'rejected';
             return (
               // Reddedilen bildirime basınca o ay için formu yeniden açar (ay ve yıl hazır gelir); diğerleri basılamaz.
               <Pressable
                 key={b.id}
                 style={({ pressed }) => [styles.card, styles.reportCard, pressed && styles.pressed]}
                 disabled={!rejected}
-                onPress={() => navigation.navigate('ReportPayment', { aidatTutari: screenData.mine.aidatTutari, ay: b.ay, yil: b.yil })}
+                onPress={() => navigation.navigate('ReportPayment', { dueAmount: screenData.mine.dueAmount, month: b.month, year: b.year })}
                 accessibilityRole={rejected ? 'button' : undefined}
                 accessibilityHint={rejected ? 'Bu ay için yeniden bildirim gönderir' : undefined}
               >
                 <View style={styles.reportHeader}>
-                  <Text style={styles.reportMonth}>{monthLabel(b.ay, b.yil)}</Text>
-                  <StatusBadge durum={d.durum} text={d.text} />
+                  <Text style={styles.reportMonth}>{monthLabel(b.month, b.year)}</Text>
+                  <StatusBadge status={d.status} text={d.text} />
                 </View>
                 <Text style={styles.muted}>
-                  {formatMoney(b.tutar)} · {METHODS[b.odemeYontemi]}
-                  {b.aciklama !== '' ? ` · “${b.aciklama}”` : ''}
+                  {formatMoney(b.amount)} · {METHODS[b.paymentMethod]}
+                  {b.note !== '' ? ` · “${b.note}”` : ''}
                 </Text>
                 {rejected && <Text style={styles.repeat}>Tekrar göndermek için dokunun ›</Text>}
               </Pressable>
@@ -183,21 +183,21 @@ export default function ResidentHomeScreen({ navigation }) {
       )}
 
       {/* Hesap kartı: Çıkış yap ve Hesabımı sil */}
-      <AccountCard navigation={navigation} rol={`Sakin${session.daire ? ` · ${session.daire.ad}` : ''}`} />
+      <AccountCard navigation={navigation} role={`Sakin${session.flat ? ` · ${session.flat.name}` : ''}`} />
     </ScrollView>
   );
 }
 
 // Mini takvim (MiniCalendar): yılın 12 ayı, 4 sütunlu küçük kutularda ay baş harfleriyle. Ödenen ay yeşil, bekleyen sarı halka,
 // ödenmeyen kırmızı; katılmadan önceki aylar soluk.
-function MiniCalendar({ aylar: months, buAy: thisMonth }) {
+function MiniCalendar({ months, thisMonth }) {
   return (
     <View style={styles.mini}>
       {[0, 1, 2].map((s) => (
         <View key={s} style={styles.miniRow}>
           {months.slice(s * 4, s * 4 + 4).map((status, i) => {
             const monthIndex = s * 4 + i;
-            const filled = ['odendi', 'bekliyor', 'odenmedi'].includes(status);
+            const filled = ['paid', 'pending', 'unpaid'].includes(status);
             const color = STATUSES[status].color;
             return (
               <View
@@ -205,11 +205,11 @@ function MiniCalendar({ aylar: months, buAy: thisMonth }) {
                 style={[
                   styles.miniSquare,
                   filled && { backgroundColor: mix(color, 0.14), borderColor: color, borderWidth: 1.5 },
-                  status === 'once' && { opacity: 0.45 },
+                  status === 'before' && { opacity: 0.45 },
                   monthIndex + 1 === thisMonth && !filled && { borderColor: colors.borderStrong },
                 ]}
               >
-                <Text style={[styles.miniLetter, filled && { color: color }]}>{MONTH_INITIALS[monthIndex]}</Text>
+                <Text style={[styles.miniLetter, filled && { color }]}>{MONTH_INITIALS[monthIndex]}</Text>
               </View>
             );
           })}
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   // paddingTop: saat çubuğunun altında (marginTop ile) kalan küçük boşluk
-  icerik: {
+  content: {
     paddingHorizontal: 18,
     paddingTop: 20,
     paddingBottom: 28,
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     letterSpacing: -2,
     color: colors.text,
   },
-  buAy: {
+  thisMonth: {
     alignItems: 'flex-end',
     gap: 6,
   },
@@ -310,18 +310,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reportMonth: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
   },
   muted: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 13,
     color: colors.muted,
   },
   repeat: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 13,
     fontWeight: '600',
     color: colors.primary,

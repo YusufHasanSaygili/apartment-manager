@@ -48,10 +48,10 @@ const PATHS = {
   removeResident: '<circle fill="currentColor" fill-opacity="0.2" stroke="none" cx="9.5" cy="8" r="3.6"/><circle cx="9.5" cy="8" r="3.6"/><path d="M3.5 20c.9-3.3 3.2-5.2 6-5.2 1.5 0 2.9.5 3.9 1.5M15.5 16.5l5 5M20.5 16.5l-5 5"/>',
 };
 
-// ad: ikonun adı (PATHS'teki anahtarlardan biri), size: piksel cinsinden genişlik ve yükseklik,
+// name: ikonun adı (PATHS'teki anahtarlardan biri), size: piksel cinsinden genişlik ve yükseklik,
 // color: çizgi ve dolgunun rengi, background: ikonun durduğu zeminin rengi (sadece pendingList ikonunda kullanılır).
 // İkonlar süs amaçlıdır, yanlarında her zaman yazı olur; bu yüzden ekran okuyucudan gizlenir (accessible={false}).
-export default function Icon({ ad: name, size = 20, color = colors.text, background = colors.card }) {
+export default function Icon({ name, size = 20, color = colors.text, background = colors.card }) {
   // Seçilen ikonun parçaları ortak bir <svg> çerçevesinin içine konur: çerçeve 24x24 çizim alanını, çizgi kalınlığını
   // ve yuvarlak uçları her ikon için bir kez tanımlar. replace: "BACKGROUND" yazan yerlere zemin rengini yazar.
   const xml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${PATHS[name].replace(/BACKGROUND/g, background)}</svg>`;

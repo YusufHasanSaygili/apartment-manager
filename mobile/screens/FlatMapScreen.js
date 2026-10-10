@@ -15,20 +15,20 @@ import { colors, fonts } from '../theme';
 
 // Bugünün ayı (harita açılınca bu ay seçili gelir) ve gidilebilecek en ileri ay (gelecek yılın Aralık'ı).
 const today = new Date();
-const THIS_MONTH = { ay: today.getMonth() + 1, yil: today.getFullYear() };
-const LAST_MONTH = { ay: 12, yil: today.getFullYear() + 1 };
+const THIS_MONTH = { month: today.getMonth() + 1, year: today.getFullYear() };
+const LAST_MONTH = { month: 12, year: today.getFullYear() + 1 };
 
 // Ayı ileri/geri kaydırır; Date nesnesi yıl geçişini (Aralık → Ocak) kendisi halleder.
-function shiftMonth({ ay: month, yil: year }, diff) {
+function shiftMonth({ month, year }, diff) {
   const date = new Date(year, month - 1 + diff, 1);
-  return { ay: date.getMonth() + 1, yil: date.getFullYear() };
+  return { month: date.getMonth() + 1, year: date.getFullYear() };
 }
 
 // navigation: daireye dokununca DueCalendar ekranını açmak için kullanılır.
 export default function FlatMapScreen({ navigation }) {
   // useState: seçili ay. Değişince load yeniden oluşur ve harita o ay için istenir.
   const [selectedMonth, setSelectedMonth] = useState(THIS_MONTH);
-  // useState: sunucudan gelen harita ({ binalar, ozet }). null → yükleniyor.
+  // useState: sunucudan gelen harita ({ buildings, summary }). null → yükleniyor.
   const [screenData, setScreenData] = useState(null);
   // useState: harita yüklenemezse gösterilecek hata mesajı.
   const [error, setError] = useState('');
@@ -37,13 +37,13 @@ export default function FlatMapScreen({ navigation }) {
   // sadece en son isteğin cevabı ekrana konur.
   const lastRequest = useRef(0);
 
-  // API isteği: GET /api/yonetim/aidatlar/harita?ay=10&yil=2026 → seçilen ayda tüm dairelerin durumu ve özet sayılar.
+  // API isteği: GET /api/manager/dues/map?month=10&year=2026 → seçilen ayda tüm dairelerin durumu ve özet sayılar.
   // useCallback: fonksiyon her çizimde yeniden oluşmasın; useFocusEffect/useEffect buna bağlı olduğu için istek gereksiz yere tekrar atılmaz.
   const load = useCallback(async () => {
     const requestNo = ++lastRequest.current;
     setError('');
     try {
-      const { data } = await api.get('/yonetim/aidatlar/harita', { params: selectedMonth });
+      const { data } = await api.get('/manager/dues/map', { params: selectedMonth });
       if (requestNo === lastRequest.current) setScreenData(data);
     } catch (e) {
       if (requestNo === lastRequest.current) setError(e.message);
@@ -67,17 +67,17 @@ export default function FlatMapScreen({ navigation }) {
   // Aşağı çekip yenileme (refreshControl): sayfa en üstteyken aşağı çekilince load tekrar çalışır (components/Refresh.js).
   const refreshControl = useRefresh(load);
 
-  const isLast = selectedMonth.ay === LAST_MONTH.ay && selectedMonth.yil === LAST_MONTH.yil;
-  const summary = screenData?.ozet;
-  const occupied = summary ? summary.odendi + summary.bekliyor + summary.odenmedi : 0;
+  const isLast = selectedMonth.month === LAST_MONTH.month && selectedMonth.year === LAST_MONTH.year;
+  const summary = screenData?.summary;
+  const occupied = summary ? summary.paid + summary.pending + summary.unpaid : 0;
 
   // Listenin üst kısmı: ay seçici, lejant (durumlar ve sayıları), hata veya yükleniyor
   const header = (
     <View style={styles.header}>
       {/* Ay seçici: sol ok bir önceki ay, sağ ok bir sonraki ay (gelecek yılın Aralık'ında durur) */}
       <Pager
-        baslik={monthLabel(selectedMonth.ay, selectedMonth.yil)}
-        subtitle={summary ? `${occupied} dolu daire · ${summary.odendi} ödedi` : ' '}
+        title={monthLabel(selectedMonth.month, selectedMonth.year)}
+        subtitle={summary ? `${occupied} dolu daire · ${summary.paid} ödedi` : ' '}
         onPrevious={() => changeMonth(-1)}
         onNext={() => changeMonth(1)}
         nextDisabled={isLast}
@@ -87,15 +87,15 @@ export default function FlatMapScreen({ navigation }) {
       {summary && (
         <Legend
           items={[
-            ['odendi', summary.odendi],
-            ['bekliyor', summary.bekliyor],
-            ['odenmedi', summary.odenmedi],
-            ['bos', summary.bos],
+            ['paid', summary.paid],
+            ['pending', summary.pending],
+            ['unpaid', summary.unpaid],
+            ['empty', summary.empty],
           ]}
         />
       )}
       {/* Hata kutusundaki "Tekrar dene" butonu: basınca load çalışır ve harita yeniden istenir */}
-      {error !== '' && <ErrorMessage mesaj={error} onRetry={load} />}
+      {error !== '' && <ErrorMessage message={error} onRetry={load} />}
       {screenData === null && error === '' && <ActivityIndicator color={colors.primary} />}
     </View>
   );
@@ -105,17 +105,17 @@ export default function FlatMapScreen({ navigation }) {
     <FlatList
       refreshControl={refreshControl}
       style={styles.container}
-      contentContainerStyle={styles.icerik}
-      data={screenData?.binalar ?? []}
+      contentContainerStyle={styles.content}
+      data={screenData?.buildings ?? []}
       keyExtractor={(building) => building.id}
       ListHeaderComponent={header}
-      ListEmptyComponent={screenData && <Text style={styles.bos}>Henüz daire oluşturulmamış.</Text>}
+      ListEmptyComponent={screenData && <Text style={styles.empty}>Henüz daire oluşturulmamış.</Text>}
       renderItem={({ item: building }) => (
         // Daire kutusuna basınca o dairenin aidat takvimi açılır (daire adı başlıkta görünür)
         <BuildingCard
-          ad={building.ad}
-          daireler={building.daireler.map((d) => ({ ...d, accessibilityName: `Daire ${d.ad}: ${STATUSES[d.durum]?.ad ?? d.durum}. Aidat takvimini aç` }))}
-          onFlatPress={(d) => navigation.navigate('DueCalendar', { daireId: d.id, flatName: d.ad })}
+          name={building.name}
+          flats={building.flats.map((d) => ({ ...d, accessibilityName: `Daire ${d.name}: ${STATUSES[d.status]?.label ?? d.status}. Aidat takvimini aç` }))}
+          onFlatPress={(d) => navigation.navigate('DueCalendar', { flatId: d.id, flatName: d.name })}
         />
       )}
     />
@@ -127,16 +127,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 18,
     gap: 14,
   },
   header: {
     gap: 12,
   },
-  bos: {
+  empty: {
     textAlign: 'center',
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     color: colors.muted,
   },

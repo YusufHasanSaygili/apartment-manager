@@ -17,7 +17,7 @@ const { generateInviteCodes } = require('../services/inviteCode');
 const router = express.Router();
 
 // Bu dosyadaki tüm route'lar sadece giriş yapmış YÖNETİCİ içindir.
-// siteId her zaman req.kullanici'dan (veritabanından) alınır, istekten asla alınmaz.
+// siteId her zaman req.user'dan (veritabanından) alınır, istekten asla alınmaz.
 router.use(requireAuth, managerOnly);
 
 // Bina adları için harfler: en fazla 26 bina olabilir (A–Z).
@@ -29,49 +29,49 @@ const numberError = (field) => (issue) =>
 
 // Kurulum formunun kuralları: iki tam sayı. Mobil ekran da en fazla 2 hane kabul eder.
 const setupSchema = z.object({
-  binaSayisi: z
+  buildingCount: z
     .number({ error: numberError('Bina sayısı') })
     .int('Bina sayısı tam sayı olmalı')
     .min(1, 'En az 1 bina olmalı')
     .max(26, 'En fazla 26 bina olabilir (A–Z)'),
-  daireSayisi: z
+  flatCount: z
     .number({ error: numberError('Daire sayısı') })
     .int('Daire sayısı tam sayı olmalı')
     .min(1, 'Her binada en az 1 daire olmalı')
     .max(99, 'Bir binada en fazla 99 daire olabilir'),
 });
 
-// GET /api/kurulum
+// GET /api/setup
 // Kim kullanabilir: yönetici. Kendi sitesindeki bina ve daire sayısını, aylık aidat tutarını ve
 // onay bekleyen aidat bildirimi sayısını döner.
 // Ana ekran kurulumun yapılıp yapılmadığını ve özetini bununla gösterir.
 router.get('/', async (req, res) => {
-  const { siteId } = req.kullanici;
+  const { siteId } = req.user;
   const [buildingCount, flatCount, site, pendingCount] = await Promise.all([
     Building.countDocuments({ siteId }),
     Flat.countDocuments({ siteId }),
-    Site.findById(siteId).select('aidatTutari').lean(),
-    Due.countDocuments({ siteId, durum: 'bekliyor' }),
+    Site.findById(siteId).select('dueAmount').lean(),
+    Due.countDocuments({ siteId, status: 'pending' }),
   ]);
-  res.json({ binaSayisi: buildingCount, daireSayisi: flatCount, aidatTutari: site?.aidatTutari ?? null, bekleyenSayisi: pendingCount });
+  res.json({ buildingCount, flatCount, dueAmount: site?.dueAmount ?? null, pendingCount });
 });
 
-// PUT /api/kurulum/aidat-tutari
+// PUT /api/setup/due-amount
 // Kim kullanabilir: yönetici. Sitenin aylık aidat tutarını belirler veya değiştirir.
 // Yeni tutar sadece bundan sonraki bildirimlerde formda hazır gelir; eski bildirimler değişmez.
-router.put('/aidat-tutari', validate(z.object({ aidatTutari: amountRule })), async (req, res) => {
-  const dueAmount = Math.round(req.body.aidatTutari * 100) / 100; // tam 2 kuruş basamağı
+router.put('/due-amount', validate(z.object({ dueAmount: amountRule })), async (req, res) => {
+  const dueAmount = Math.round(req.body.dueAmount * 100) / 100; // tam 2 kuruş basamağı
   // Sadece yöneticinin KENDİ sitesi güncellenir (siteId token'dan).
-  await Site.updateOne({ _id: req.kullanici.siteId }, { aidatTutari: dueAmount });
-  res.json({ aidatTutari: dueAmount });
+  await Site.updateOne({ _id: req.user.siteId }, { dueAmount });
+  res.json({ dueAmount });
 });
 
-// POST /api/kurulum
+// POST /api/setup
 // Kim kullanabilir: yönetici. Girilen sayılara göre binaları (A, B, C...) ve daireleri
 // (A1, A2... C12) oluşturur, her daireye benzersiz davet kodu verir. Sadece BİR KEZ yapılabilir.
 router.post('/', validate(setupSchema), async (req, res) => {
-  const { siteId } = req.kullanici;
-  const { binaSayisi: buildingCount, daireSayisi: flatCount } = req.body;
+  const { siteId } = req.user;
+  const { buildingCount, flatCount } = req.body;
 
   // Kurulum zaten yapılmışsa tekrar yapılmaz (daireler ve kodları değişmesin).
   // 409 (çakışma): istek geçerli ama mevcut durumla çelişiyor. Express 5 async fonksiyondaki
@@ -87,7 +87,7 @@ router.post('/', validate(setupSchema), async (req, res) => {
       // Transaction: binalar ve daireler ya hep birlikte oluşur ya hiç oluşmaz.
       await mongoose.connection.transaction(async (session) => {
         const buildings = await Building.insertMany(
-          LETTERS.slice(0, buildingCount).split('').map((name) => ({ siteId, ad: name })),
+          LETTERS.slice(0, buildingCount).split('').map((name) => ({ siteId, name })),
           { session }
         );
 
@@ -96,9 +96,9 @@ router.post('/', validate(setupSchema), async (req, res) => {
         const flats = buildings.flatMap((building, b) =>
           Array.from({ length: flatCount }, (_, i) => ({
             siteId,
-            binaId: building._id,
-            daireNo: i + 1,
-            davetKodu: codes[b * flatCount + i],
+            buildingId: building._id,
+            flatNumber: i + 1,
+            inviteCode: codes[b * flatCount + i],
           }))
         );
         await Flat.insertMany(flats, { session });
@@ -107,13 +107,13 @@ router.post('/', validate(setupSchema), async (req, res) => {
     } catch (error) {
       // 11000: MongoDB'nin "benzersiz alan tekrarlandı" hata kodu. Sadece davet kodu çakışmasında
       // yeniden denenir; başka bir hata (örn. aynı anda gelen ikinci kurulum) hemen fırlatılır.
-      if (error.code === 11000 && /davetKodu/.test(error.message) && attempt < 3) continue;
+      if (error.code === 11000 && /inviteCode/.test(error.message) && attempt < 3) continue;
       throw error;
     }
   }
 
   // 201: kayıtlar oluşturuldu.
-  res.status(201).json({ binaSayisi: buildingCount, daireSayisi: buildingCount * flatCount });
+  res.status(201).json({ buildingCount, flatCount: buildingCount * flatCount });
 });
 
 module.exports = router;

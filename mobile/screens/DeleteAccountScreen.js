@@ -17,21 +17,21 @@ export default function DeleteAccountScreen({ navigation }) {
   // session: rolü öğrenmek için; closeSession: silme başarılı olunca bu telefondaki oturumu kapatıp mesaj gösterir.
   const { session, closeSession } = useSession();
   // manager: aynı ekran iki rolde de açılır; bu değere göre aşağıda farklı içerik gösterilir.
-  const manager = session.kullanici.rol === 'yonetici';
+  const manager = session.user.role === 'manager';
 
   // useState: şifre kutusundaki metin, istek sürerken true olan yükleniyor bayrağı ve hata mesajı.
   const [password, setPassword] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
 
-  // API isteği: DELETE /api/hesap ile şifreyi gönderir (axios'ta DELETE gövdesi "data" ile verilir).
+  // API isteği: DELETE /api/account ile şifreyi gönderir (axios'ta DELETE gövdesi "data" ile verilir).
   // Başarılıysa oturum bu telefonda kapatılır, uygulama açılış ekranına döner ve "Hesabınız silindi" gösterilir.
   // Şifre yanlışsa sunucu 400 döner; mesaj ekranda gösterilir, kullanıcı tekrar deneyebilir.
   const deleteAccount = async () => {
     setError('');
     setDeleting(true);
     try {
-      await api.delete('/hesap', { data: { sifre: password } });
+      await api.delete('/account', { data: { password } });
     } catch (e) {
       // deleting sadece hata olunca false yapılır: başarıda ekran zaten kapanıp açılış ekranına geçilir.
       setError(e.message);
@@ -59,16 +59,16 @@ export default function DeleteAccountScreen({ navigation }) {
         {/* Uyarı kartı: gri zeminde sarı kalkan, başlık ve açıklama */}
         <View style={styles.card}>
           <View style={styles.largeIcon}>
-            <Icon ad="shield" size={30} color={colors.warning} background={colors.surface3} />
+            <Icon name="shield" size={30} color={colors.warning} background={colors.surface3} />
           </View>
           <Text style={styles.cardTitle}>Önce yöneticiliği devredin</Text>
-          <Text style={styles.metin}>
+          <Text style={styles.text}>
             Site yöneticisiz kalamaz. Yöneticiliği bir sakine devrettikten sonra sakin olursunuz ve hesabınızı buradan
             silebilirsiniz.
           </Text>
         </View>
         {/* "Yöneticiliği devret" butonu: basınca Handover (devir) ekranı açılır */}
-        <Button baslik="Yöneticiliği devret" icon="handover" onPress={() => navigation.navigate('Handover')} />
+        <Button title="Yöneticiliği devret" icon="handover" onPress={() => navigation.navigate('Handover')} />
       </View>
     );
   }
@@ -77,17 +77,17 @@ export default function DeleteAccountScreen({ navigation }) {
     // KeyboardAwareScrollView: klavye açılınca şifre kutusu ve buton klavyenin altında kalmaz.
     <KeyboardAwareScrollView
       style={styles.container}
-      contentContainerStyle={styles.icerik}
+      contentContainerStyle={styles.content}
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
       {/* Uyarı kartı: kırmızı çerçeve, piksellere dağılan kimlik kartı ikonu ve silinecek bilgiler */}
       <View style={[styles.card, styles.cardDanger]}>
         <View style={[styles.largeIcon, styles.largeIconDanger]}>
-          <Icon ad="deleteAccount" size={30} color={colors.error} background={colors.errorBackground} />
+          <Icon name="deleteAccount" size={30} color={colors.error} background={colors.errorBackground} />
         </View>
         <Text style={styles.cardTitle}>Hesabınız kalıcı olarak silinecek</Text>
-        <Text style={styles.metin}>
+        <Text style={styles.text}>
           Adınız, e-postanız ve mesajlarınız silinir; bu hesapla bir daha giriş yapılamaz. Aidat geçmişi dairede kalır ama
           sizinle bağlantısı kaldırılır. Bu işlem geri alınamaz.
         </Text>
@@ -96,9 +96,9 @@ export default function DeleteAccountScreen({ navigation }) {
       {/* Şifre: hesabı sadece sahibinin silebilmesi için tekrar istenir (sağdaki göz ikonuyla görülebilir) */}
       <FormField label="Şifreniz" value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" />
 
-      {error !== '' && <ErrorMessage mesaj={error} />}
+      {error !== '' && <ErrorMessage message={error} />}
       {/* "Hesabımı kalıcı olarak sil" butonu: basınca confirmDelete çalışır (önce son onay sorulur) */}
-      <Button baslik="Hesabımı kalıcı olarak sil" icon="deleteAccount" variant="danger" onPress={confirmDelete} loading={deleting} />
+      <Button title="Hesabımı kalıcı olarak sil" icon="deleteAccount" variant="danger" onPress={confirmDelete} loading={deleting} />
     </KeyboardAwareScrollView>
   );
 }
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 18,
     gap: 14,
   },
@@ -144,13 +144,13 @@ const styles = StyleSheet.create({
     borderColor: colors.errorBorder,
   },
   cardTitle: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 17,
     fontWeight: '600',
     color: colors.text,
   },
-  metin: {
-    fontFamily: fonts.metin,
+  text: {
+    fontFamily: fonts.text,
     fontSize: 14,
     lineHeight: 20,
     color: colors.muted,

@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 
 const router = express.Router();
 
-// GET /api/saglik
+// GET /api/health
 // Sunucunun çalıştığını ve veritabanı bağlantısının durumunu döner.
 // readyState === 1 → Mongoose şu an MongoDB'ye bağlı demektir.
 router.get('/', (req, res) => {
@@ -15,11 +15,11 @@ router.get('/', (req, res) => {
   // Veritabanı yoksa 503 (hizmet kullanılamıyor) döneriz; böylece mobil taraf
   // "sunucu açık ama veritabanı yok" durumunu da ayırt edebilir.
   res.status(databaseConnected ? 200 : 503).json({
-    durum: databaseConnected ? 'ok' : 'veritabani-yok',
-    veritabani: databaseConnected,
+    status: databaseConnected ? 'ok' : 'no-database',
+    database: databaseConnected,
     // Hata durumunda mobilin ortak hata gösterimi bu mesajı kullanır.
-    ...(databaseConnected ? {} : { mesaj: 'Sunucu açık ama veritabanına bağlanamadı.' }),
-    zaman: new Date().toISOString(),
+    ...(databaseConnected ? {} : { message: 'Sunucu açık ama veritabanına bağlanamadı.' }),
+    time: new Date().toISOString(),
   });
 });
 

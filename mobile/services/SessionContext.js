@@ -13,12 +13,12 @@ import { connectSocket, disconnectSocket, useSocketEvent } from './socket';
 const TOKEN_KEY = 'sessionToken';
 
 // Sunucu soket bağlantısını bir kodla reddederse gösterilecek uyarı başlıkları (kod → başlık).
-const CONNECTION_REJECT_TITLES = { DAIREDEN_CIKARILDI: 'Oturum kapandı', SIFRE_DEGISTI: 'Şifre değişti' };
+const CONNECTION_REJECT_TITLES = { REMOVED_FROM_FLAT: 'Oturum kapandı', PASSWORD_CHANGED: 'Şifre değişti' };
 
 const SessionContext = createContext(null);
 
 export function SessionProvider({ children }) {
-  // useState: giriş yapan kullanıcının bilgileri ({ token, kullanici, site }).
+  // useState: giriş yapan kullanıcının bilgileri ({ token, user, site }).
   // null → giriş yapılmamış. Değişince App.js ekranları otomatik olarak değiştirir.
   const [session, setSession] = useState(null);
 
@@ -35,7 +35,7 @@ export function SessionProvider({ children }) {
   // (internet yok, sunucu kapalı) kendini çıkış yapmış sanırdı.
   const [startupError, setStartupError] = useState('');
 
-  // Otomatik giriş: telefonda kayıtlı token varsa GET /api/hesap/ben ile hâlâ geçerli mi diye sorulur.
+  // Otomatik giriş: telefonda kayıtlı token varsa GET /api/account/me ile hâlâ geçerli mi diye sorulur.
   // useCallback: açılışta bir kez, sonra "Tekrar dene" butonuyla tekrar çağrılır.
   // errorMessage: sonuç en sonda tek seferde yazılır; böylece tekrar denerken ekran arada açılış ekranına atlamaz.
   const loadSavedSession = useCallback(async () => {
@@ -44,7 +44,7 @@ export function SessionProvider({ children }) {
       const token = await SecureStore.getItemAsync(TOKEN_KEY);
       if (token) {
         setToken(token);
-        const { data } = await api.get('/hesap/ben');
+        const { data } = await api.get('/account/me');
         // Token geçerli: anlık mesajlar için soket bağlantısı da bu token ile açılır.
         connectSocket(token);
         setSession({ token, ...data });
@@ -54,7 +54,7 @@ export function SessionProvider({ children }) {
       // 401: token süresi dolmuş veya hesap silinmiş → kayıtlı token silinir, açılış ekranı gösterilir.
       // Diğer hatalarda (internet yok, sunucu kapalı, sunucu hatası) token silinmez; "Tekrar dene" ekranı çıkar,
       // sunucuya ulaşılınca oturum kaldığı yerden devam eder.
-      if (error.durumKodu === 401) {
+      if (error.statusCode === 401) {
         await SecureStore.deleteItemAsync(TOKEN_KEY);
       } else {
         errorMessage = error.message;
@@ -71,14 +71,14 @@ export function SessionProvider({ children }) {
   }, [loadSavedSession]);
 
   // useEffect: oturum açıldığında (giriş, kayıt, katılma veya otomatik giriş) çalışır.
-  // Telefonun push token'ı alınıp PUT /api/hesap/push-token ile hesaba kaydedilir; böylece
+  // Telefonun push token'ı alınıp PUT /api/account/push-token ile hesaba kaydedilir; böylece
   // duyuru gibi bildirimler bu telefona gelir. Bağımlılık kullanıcı id'si: aynı kullanıcı için tekrar çalışmaz.
   // Hata olursa sessizce geçilir (bildirim alınamaz ama uygulama çalışmaya devam eder).
-  const userId = session?.kullanici.id;
+  const userId = session?.user.id;
   useEffect(() => {
     if (!userId) return;
     getPushToken()
-      .then((pushToken) => pushToken && api.put('/hesap/push-token', { token: pushToken }))
+      .then((pushToken) => pushToken && api.put('/account/push-token', { token: pushToken }))
       .catch(() => {});
   }, [userId]);
 
@@ -99,7 +99,7 @@ export function SessionProvider({ children }) {
   // sonra soket bağlantısı kapatılır, token telefondan ve isteklerden silinir, oturum boşaltılır → App.js açılış ekranına döner.
   // Push token silme isteği başarısız olsa bile (örn. internet yok) çıkış yine yapılır.
   const logout = async () => {
-    await api.delete('/hesap/push-token').catch(() => {});
+    await api.delete('/account/push-token').catch(() => {});
     disconnectSocket();
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     setToken(null);
@@ -133,19 +133,19 @@ export function SessionProvider({ children }) {
   //   aynıdır: hangisi önce gelirse gelsin kullanıcı aynı uyarıyı görür.
   // - passwordChanged: şifre başka bir telefondan sıfırlandı; bu telefondaki (artık eski) oturum kapatılır.
   // Mesaj sunucudan gelir; başlık olaya göre seçilir. useCallback: dinleyiciler her çizimde yeniden kurulmasın.
-  const removedFromFlat = useCallback(({ mesaj: message }) => sessionDropped(message), [sessionDropped]);
-  const accountDeleted = useCallback(({ mesaj: message }) => sessionDropped(message, 'Hesap silindi'), [sessionDropped]);
-  const passwordChanged = useCallback(({ mesaj: message }) => sessionDropped(message, 'Şifre değişti'), [sessionDropped]);
-  useSocketEvent('dairedenCikarildi', removedFromFlat);
-  useSocketEvent('hesapSilindi', accountDeleted);
-  useSocketEvent('sifreDegisti', passwordChanged);
+  const removedFromFlat = useCallback(({ message }) => sessionDropped(message), [sessionDropped]);
+  const accountDeleted = useCallback(({ message }) => sessionDropped(message, 'Hesap silindi'), [sessionDropped]);
+  const passwordChanged = useCallback(({ message }) => sessionDropped(message, 'Şifre değişti'), [sessionDropped]);
+  useSocketEvent('removedFromFlat', removedFromFlat);
+  useSocketEvent('accountDeleted', accountDeleted);
+  useSocketEvent('passwordChanged', passwordChanged);
 
   // Soket bağlanamadıysa ve sunucu nedenini bir kodla bildirdiyse (telefon kapalıyken daireden çıkarılmış ya da
   // şifresi başka yerden değiştirilmiş olabilir) oturum kapatılır. CONNECTION_REJECT_TITLES: kod → uyarı başlığı.
   // Kodu olmayan bağlantı hatalarında (internet yok vb.) hiçbir şey yapılmaz, soket kendisi tekrar dener.
   const connectionRejected = useCallback(
     (error) => {
-      const title = CONNECTION_REJECT_TITLES[error.data?.kod];
+      const title = CONNECTION_REJECT_TITLES[error.data?.code];
       if (title) sessionDropped(error.message, title);
     },
     [sessionDropped]
@@ -160,7 +160,7 @@ export function SessionProvider({ children }) {
   // setSession((previous) => ...): o anki oturumu okuyup token'ı korur; bu arada çıkış yapıldıysa (null) dokunmaz.
   const refreshSession = useCallback(async () => {
     try {
-      const { data } = await api.get('/hesap/ben');
+      const { data } = await api.get('/account/me');
       setSession((previous) => (previous ? { token: previous.token, ...data } : previous));
     } catch {
       // ağ hatası: bir sonraki açılışta zaten güncel bilgi gelir
@@ -169,7 +169,7 @@ export function SessionProvider({ children }) {
 
   // Soket olayı: yöneticilik devredildi (bu kişi yönetici oldu ya da yöneticiliği bıraktı).
   // Uygulama açıksa ekranlar anında yeni role geçer; diğer cihazdaki uygulama da aynı anda değişir.
-  useSocketEvent('rolDegisti', refreshSession);
+  useSocketEvent('roleChanged', refreshSession);
 
   // Provider: içine sarılan tüm ekranlara oturum bilgisini ve fonksiyonları dağıtır.
   // startupError + loadSavedSession: App.js açılışta sunucuya ulaşılamazsa "Tekrar dene" ekranı için kullanır.

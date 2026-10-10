@@ -17,12 +17,12 @@ export default function FlatsScreen({ navigation }) {
   // useState: liste yüklenemezse gösterilecek hata mesajı.
   const [error, setError] = useState('');
 
-  // API isteği: GET /api/daireler → binalar, her binanın daireleri, davet kodları ve dairedeki sakin.
+  // API isteği: GET /api/flats → binalar, her binanın daireleri, davet kodları ve dairedeki sakin.
   // useCallback: fonksiyon her çizimde yeniden oluşmasın; useFocusEffect/useEffect buna bağlı olduğu için istek gereksiz yere tekrar atılmaz.
   const loadList = useCallback(async () => {
     setError('');
     try {
-      const { data } = await api.get('/daireler');
+      const { data } = await api.get('/flats');
       setBuildings(data);
     } catch (e) {
       setError(e.message);
@@ -44,7 +44,7 @@ export default function FlatsScreen({ navigation }) {
     return (
       <View style={styles.center}>
         {/* "Tekrar dene" butonu: basınca loadList yeniden çalışır */}
-        <ErrorMessage mesaj={error} onRetry={loadList} />
+        <ErrorMessage message={error} onRetry={loadList} />
       </View>
     );
   }
@@ -62,30 +62,30 @@ export default function FlatsScreen({ navigation }) {
     <FlatList
       refreshControl={refreshControl}
       style={styles.container}
-      contentContainerStyle={styles.icerik}
+      contentContainerStyle={styles.content}
       data={buildings}
       keyExtractor={(building) => building.id}
-      ListEmptyComponent={<Text style={styles.bos}>Henüz daire oluşturulmamış.</Text>}
-      ListHeaderComponent={<Legend items={[['dolu'], ['bosDaire']]} />}
+      ListEmptyComponent={<Text style={styles.empty}>Henüz daire oluşturulmamış.</Text>}
+      ListHeaderComponent={<Legend items={[['occupied'], ['emptyFlat']]} />}
       renderItem={({ item: building }) => (
         // Daire kutusuna basınca InviteCode penceresi açılır; dairenin kodu, sakini ve durumu da gönderilir
         <BuildingCard
-          ad={building.ad}
+          name={building.name}
           hideIcon
-          daireler={building.daireler.map((d) => ({
+          flats={building.flats.map((d) => ({
             ...d,
-            ad: `${building.ad}${d.daireNo}`,
-            durum: d.dolu ? 'dolu' : 'bosDaire',
-            accessibilityName: `Daire ${building.ad}${d.daireNo}${d.dolu ? ', sakin katılmış' : ''}, davet kodunu göster`,
+            name: `${building.name}${d.flatNumber}`,
+            status: d.occupied ? 'occupied' : 'emptyFlat',
+            accessibilityName: `Daire ${building.name}${d.flatNumber}${d.occupied ? ', sakin katılmış' : ''}, davet kodunu göster`,
           }))}
           onFlatPress={(d) =>
             navigation.navigate('InviteCode', {
-              daireId: d.id,
-              flatName: d.ad,
-              davetKodu: d.davetKodu,
-              dolu: d.dolu,
-              sakinAdi: d.sakinAdi,
-              yoneticiDairesi: d.yoneticiDairesi,
+              flatId: d.id,
+              flatName: d.name,
+              inviteCode: d.inviteCode,
+              occupied: d.occupied,
+              residentName: d.residentName,
+              managerFlat: d.managerFlat,
             })
           }
         />
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 18,
     gap: 14,
   },
@@ -110,9 +110,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background,
   },
-  bos: {
+  empty: {
     textAlign: 'center',
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     color: colors.muted,
   },

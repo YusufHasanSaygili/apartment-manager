@@ -37,7 +37,7 @@ function Cell({ text, badge, isSelected, color, onPress }) {
           <Text style={[styles.badgeText, isSelected && { color: colors.background }]}>{badge}</Text>
         </View>
       ) : null}
-      <Text style={[styles.cellText, isSelected && { color: color }]} numberOfLines={1}>
+      <Text style={[styles.cellText, isSelected && { color }]} numberOfLines={1}>
         {text}
       </Text>
     </Pressable>
@@ -51,22 +51,22 @@ export default function HandoverScreen() {
   // refreshSession: devirden sonra rolü sunucudan yeniden çeker; App.js sakin ekranlarına geçer.
   const { refreshSession } = useSession();
 
-  // useState: sunucudan gelen seçenekler { adaylar, kendiDairem, bosDaireler }. null → yükleniyor.
+  // useState: sunucudan gelen seçenekler { candidates, myFlat, emptyFlats }. null → yükleniyor.
   const [choices, setChoices] = useState(null);
   // useState: seçenekler yüklenemezse hata mesajı; doluysa ekranda "Tekrar dene" kutusu gösterilir.
   const [error, setError] = useState('');
   // useState: seçilen yeni yöneticinin dairesi ve (gerekiyorsa) yöneticinin kendi oturacağı daire.
-  const [newManager, setNewManager] = useState(null);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [ownFlat, setOwnFlat] = useState(null);
   // useState: devir isteği sürerken true; buton tekrar basılamaz.
   const [handingOver, setHandingOver] = useState(false);
 
-  // API isteği: GET /api/devir/secenekler ile sakini olan daireleri ve boş daireleri çeker.
+  // API isteği: GET /api/handover/options ile sakini olan daireleri ve boş daireleri çeker.
   // useCallback: fonksiyon sabit kalsın; useEffect bağımlılığı ve "Tekrar dene" butonu aynı fonksiyonu kullanır.
   const load = useCallback(async () => {
     setError('');
     try {
-      const { data } = await api.get('/devir/secenekler');
+      const { data } = await api.get('/handover/options');
       setChoices(data);
     } catch (e) {
       setError(e.message);
@@ -79,27 +79,27 @@ export default function HandoverScreen() {
   }, [load]);
 
   // Kendi dairesi kayıtlıysa seçmesine gerek yok; değilse boş dairelerden birini seçmek zorunlu.
-  const requireOwnFlat = choices && !choices.kendiDairem;
+  const requireOwnFlat = choices && !choices.myFlat;
   // ready: gerekli tüm seçimler yapıldı mı; değilse devret butonu sadece uyarı gösterir.
-  const ready = newManager && (!requireOwnFlat || ownFlat);
+  const ready = selectedCandidate && (!requireOwnFlat || ownFlat);
 
-  // API isteği: POST /api/devir ile seçimleri gönderir. Başarılıysa oturum yenilenir ve uygulama
+  // API isteği: POST /api/handover ile seçimleri gönderir. Başarılıysa oturum yenilenir ve uygulama
   // kendiliğinden sakin ekranlarına geçer (bu ekran da kapanır).
   const handover = async () => {
     setHandingOver(true);
     try {
-      const { data } = await api.post('/devir', {
-        yeniYoneticiDaireId: newManager.daireId,
-        // kendiDaireId sadece gerekiyorsa eklenir (false yayılınca hiçbir alan eklenmez).
-        ...(requireOwnFlat && { kendiDaireId: ownFlat.id }),
+      const { data } = await api.post('/handover', {
+        newManagerFlatId: selectedCandidate.flatId,
+        // ownFlatId sadece gerekiyorsa eklenir (false yayılınca hiçbir alan eklenmez).
+        ...(requireOwnFlat && { ownFlatId: ownFlat.id }),
       });
-      Alert.alert('Devir tamamlandı', `Yöneticilik ${data.yeniYonetici} adlı sakine devredildi. Artık sakin olarak devam ediyorsunuz.`);
+      Alert.alert('Devir tamamlandı', `Yöneticilik ${data.newManager} adlı sakine devredildi. Artık sakin olarak devam ediyorsunuz.`);
       await refreshSession();
     } catch (e) {
       Alert.alert('Devredilemedi', e.message);
       setHandingOver(false);
       // Liste eskimiş olabilir (örn. seçilen daire bu arada doldu): seçimler sıfırlanır, seçenekler yeniden çekilir.
-      setNewManager(null);
+      setSelectedCandidate(null);
       setOwnFlat(null);
       load();
     }
@@ -107,10 +107,10 @@ export default function HandoverScreen() {
 
   // Devir geri alınamaz (geri almak için yeni yöneticinin tekrar devretmesi gerekir); önce onay sorulur.
   const confirmHandover = () => {
-    const own = requireOwnFlat ? ownFlat.ad : choices.kendiDairem.ad;
+    const own = requireOwnFlat ? ownFlat.name : choices.myFlat.name;
     Alert.alert(
       'Yöneticiliği devret',
-      `${newManager.ad} dairesindeki ${newManager.sakinAdi} yönetici olacak. Siz ${own} dairesinin sakini olacaksınız ve yönetici ekranlarına erişiminiz kalkacak. Onaylıyor musunuz?`,
+      `${selectedCandidate.name} dairesindeki ${selectedCandidate.residentName} yönetici olacak. Siz ${own} dairesinin sakini olacaksınız ve yönetici ekranlarına erişiminiz kalkacak. Onaylıyor musunuz?`,
       [
         { text: 'Vazgeç', style: 'cancel' },
         { text: 'Devret', style: 'destructive', onPress: handover },
@@ -122,7 +122,7 @@ export default function HandoverScreen() {
     return (
       <View style={styles.center}>
         {/* "Tekrar dene" butonu: basınca load çalışır ve seçenekler yeniden istenir */}
-        <ErrorMessage mesaj={error} onRetry={load} />
+        <ErrorMessage message={error} onRetry={load} />
       </View>
     );
   }
@@ -135,12 +135,12 @@ export default function HandoverScreen() {
   }
 
   // Butonun yazısı ne olacağını söyler: "A3'e devret, A4'e geç"
-  const targetFlat = choices.kendiDairem ?? ownFlat;
-  const buttonLabel = newManager && targetFlat ? `${withDativeSuffix(newManager.ad)} devret, ${withDativeSuffix(targetFlat.ad)} geç` : 'Yöneticiliği devret';
+  const targetFlat = choices.myFlat ?? ownFlat;
+  const buttonLabel = selectedCandidate && targetFlat ? `${withDativeSuffix(selectedCandidate.name)} devret, ${withDativeSuffix(targetFlat.name)} geç` : 'Yöneticiliği devret';
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.icerik}>
-      <Text style={textStyles.aciklama}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={textStyles.note}>
         Seçtiğiniz dairenin sakini yönetici olur; siz sakin olursunuz. Daireler, aidat geçmişi ve duyurular olduğu gibi kalır.
       </Text>
 
@@ -148,24 +148,24 @@ export default function HandoverScreen() {
         <View style={styles.stepNumber}>
           <Text style={styles.stepNumberText}>1</Text>
         </View>
-        <Text style={styles.baslik}>Yeni yönetici</Text>
+        <Text style={styles.title}>Yeni yönetici</Text>
       </View>
-      {choices.adaylar.length === 0 ? (
-        <Text style={styles.bos}>Sitede henüz kayıtlı sakin yok. Yöneticilik bir sakine devredilebilir.</Text>
+      {choices.candidates.length === 0 ? (
+        <Text style={styles.empty}>Sitede henüz kayıtlı sakin yok. Yöneticilik bir sakine devredilebilir.</Text>
       ) : (
         // Adaylar 2 eşit sütunda; seçilen yeşil (yönetici olarak gelecek kişi).
-        // Aday kutusu: basınca setNewManager çalışır, o dairenin sakini yeni yönetici olarak seçilir.
-        chunk(choices.adaylar, 2).map((row, i) => (
+        // Aday kutusu: basınca setSelectedCandidate çalışır, o dairenin sakini yeni yönetici olarak seçilir.
+        chunk(choices.candidates, 2).map((row, i) => (
           <View key={i} style={styles.row}>
             {[0, 1].map((j) =>
               row[j] ? (
                 <Cell
-                  key={row[j].daireId}
-                  badge={row[j].ad}
-                  text={row[j].sakinAdi}
+                  key={row[j].flatId}
+                  badge={row[j].name}
+                  text={row[j].residentName}
                   color={colors.success}
-                  isSelected={newManager?.daireId === row[j].daireId}
-                  onPress={() => setNewManager(row[j])}
+                  isSelected={selectedCandidate?.flatId === row[j].flatId}
+                  onPress={() => setSelectedCandidate(row[j])}
                 />
               ) : (
                 <View key={j} style={[styles.cell, styles.cellPerson, styles.placeholder]} />
@@ -179,21 +179,21 @@ export default function HandoverScreen() {
         <View style={styles.stepNumber}>
           <Text style={styles.stepNumberText}>2</Text>
         </View>
-        <Text style={styles.baslik}>Sizin daireniz</Text>
+        <Text style={styles.title}>Sizin daireniz</Text>
       </View>
-      {choices.kendiDairem ? (
-        <Text style={textStyles.aciklama}>Devirden sonra {choices.kendiDairem.ad} dairesinin sakini olacaksınız.</Text>
+      {choices.myFlat ? (
+        <Text style={textStyles.note}>Devirden sonra {choices.myFlat.name} dairesinin sakini olacaksınız.</Text>
       ) : (
         <>
-          <Text style={textStyles.aciklama}>Devirden sonra oturacağınız boş daire. Seçtiğiniz daire kırmızı (siz gidiyorsunuz).</Text>
+          <Text style={textStyles.note}>Devirden sonra oturacağınız boş daire. Seçtiğiniz daire kırmızı (siz gidiyorsunuz).</Text>
           {/* Boş daireler 5 eşit sütunda. Boş daire kutusu: basınca setOwnFlat çalışır */}
-          {chunk(choices.bosDaireler, 5).map((row, i) => (
+          {chunk(choices.emptyFlats, 5).map((row, i) => (
             <View key={i} style={styles.row}>
               {[0, 1, 2, 3, 4].map((j) =>
                 row[j] ? (
                   <Cell
                     key={row[j].id}
-                    text={row[j].ad}
+                    text={row[j].name}
                     color={colors.error}
                     isSelected={ownFlat?.id === row[j].id}
                     onPress={() => setOwnFlat(row[j])}
@@ -205,8 +205,8 @@ export default function HandoverScreen() {
             </View>
           ))}
           {/* Boş daire yoksa ne yapılacağı açıklanır (yoksa liste boş görünür ve kullanıcı takılı kalır) */}
-          {choices.bosDaireler.length === 0 && (
-            <Text style={styles.bos}>
+          {choices.emptyFlats.length === 0 && (
+            <Text style={styles.empty}>
               Sitede boş daire yok. Oturduğunuz dairenin sakinini önce daireden çıkarın veya yöneticiliği o daireye devredin.
             </Text>
           )}
@@ -216,7 +216,7 @@ export default function HandoverScreen() {
       {/* Devret butonu: iki seçim de yapılınca confirmHandover çalışır (önce onay sorulur); eksikse uyarı çıkar */}
       <View style={styles.footer}>
         <Button
-          baslik={buttonLabel}
+          title={buttonLabel}
           icon="handover"
           onPress={ready ? confirmHandover : () => Alert.alert('Seçim eksik', 'Önce yeni yöneticiyi ve dairenizi seçin.')}
           loading={handingOver}
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 18,
     gap: 8,
   },
@@ -261,8 +261,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.muted,
   },
-  baslik: {
-    fontFamily: fonts.metin,
+  title: {
+    fontFamily: fonts.text,
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   },
   cellText: {
     flexShrink: 1,
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
@@ -315,8 +315,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  bos: {
-    fontFamily: fonts.metin,
+  empty: {
+    fontFamily: fonts.text,
     fontSize: 14,
     lineHeight: 20,
     color: colors.muted,

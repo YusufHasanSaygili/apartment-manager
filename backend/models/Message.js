@@ -5,20 +5,20 @@ const messageSchema = new mongoose.Schema(
   {
     // Mesajın ait olduğu site: her sorgu bu alanla filtrelenir, başka sitenin mesajı görülemez.
     siteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Site', required: true },
-    // gonderenId / aliciId: mesajı yazan ve alan kullanıcı. Gönderen her zaman token'dan alınır,
+    // senderId / recipientId: mesajı yazan ve alan kullanıcı. Gönderen her zaman token'dan alınır,
     // böylece kimse başkası adına mesaj kaydedemez.
-    gonderenId: { type: mongoose.Schema.Types.ObjectId, ref: 'Kullanici', required: true },
-    aliciId: { type: mongoose.Schema.Types.ObjectId, ref: 'Kullanici', required: true },
-    // icerik: düz metin; trim baştaki/sondaki boşlukları siler, maxlength aşırı uzun mesajı veritabanı seviyesinde de engeller.
-    icerik: { type: String, required: true, trim: true, maxlength: 1000 },
-    // okundu: alıcı mesajı gördü mü. false → gönderende ✓ (iletildi), true → ✓✓ (görüldü) görünür.
-    okundu: { type: Boolean, default: false },
+    senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    recipientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    // content: düz metin; trim baştaki/sondaki boşlukları siler, maxlength aşırı uzun mesajı veritabanı seviyesinde de engeller.
+    content: { type: String, required: true, trim: true, maxlength: 1000 },
+    // read: alıcı mesajı gördü mü. false → gönderende ✓ (iletildi), true → ✓✓ (görüldü) görünür.
+    read: { type: Boolean, default: false },
   },
-  // tarih: mesajın gönderildiği an (otomatik eklenir).
-  { timestamps: { createdAt: 'tarih', updatedAt: false } }
+  // date: mesajın gönderildiği an (otomatik eklenir).
+  { timestamps: { createdAt: 'date', updatedAt: false } }
 );
 
 // İki kişi arasındaki sohbeti tarihe göre hızlı getirmek için.
-messageSchema.index({ siteId: 1, gonderenId: 1, aliciId: 1, tarih: -1 });
+messageSchema.index({ siteId: 1, senderId: 1, recipientId: 1, date: -1 });
 
-module.exports = mongoose.model('Mesaj', messageSchema);
+module.exports = mongoose.model('Message', messageSchema);

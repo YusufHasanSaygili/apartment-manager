@@ -13,10 +13,10 @@ import { radius, colors, fonts, textStyles } from '../theme';
 // Hazır tutarlar: dokununca kutuya yazılır (yine de elle başka tutar girilebilir)
 const PRESETS = [1500, 5000, 10000];
 
-// route.params.aidatTutari: mevcut tutar (yönetici ana ekranından gelir; yoksa kutu boş başlar).
+// route.params.dueAmount: mevcut tutar (yönetici ana ekranından gelir; yoksa kutu boş başlar).
 export default function DueAmountScreen({ route, navigation }) {
   // useState: kutudaki tutar metni (örn. "750" veya "750,50").
-  const [amount, setAmount] = useState(amountText(route.params?.aidatTutari));
+  const [amount, setAmount] = useState(amountText(route.params?.dueAmount));
   // useState: istek sürerken true; form iki kez gönderilmez.
   const [loading, setLoading] = useState(false);
   // useState: hata olursa gösterilecek mesaj.
@@ -34,8 +34,8 @@ export default function DueAmountScreen({ route, navigation }) {
     setError('');
     setLoading(true);
     try {
-      // API isteği: yeni tutarı PUT /api/kurulum/aidat-tutari adresine gönderir.
-      await api.put('/kurulum/aidat-tutari', { aidatTutari: num });
+      // API isteği: yeni tutarı PUT /api/setup/due-amount adresine gönderir.
+      await api.put('/setup/due-amount', { dueAmount: num });
       // Ana ekrana dönülür; ana ekran öne gelince yeni tutarı yeniden çeker.
       navigation.goBack();
     } catch (e) {
@@ -50,17 +50,17 @@ export default function DueAmountScreen({ route, navigation }) {
     // KeyboardAwareScrollView: klavye açılınca alan ve buton klavyenin altında kalmaz.
     <KeyboardAwareScrollView
       style={styles.container}
-      contentContainerStyle={styles.icerik}
+      contentContainerStyle={styles.content}
       bottomOffset={100}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={textStyles.aciklama}>Sakinler aidat bildirimi gönderirken bu tutar hazır gelir.</Text>
+      <Text style={textStyles.note}>Sakinler aidat bildirimi gönderirken bu tutar hazır gelir.</Text>
 
       {/* Büyük tutar kutusu: ortada, monospace; elle yazılır (sadece rakam ve virgül, örn. 750 veya 750,50) */}
       <View style={styles.amountRow}>
         <Text style={styles.tl}>₺</Text>
         <TextInput
-          style={styles.tutar}
+          style={styles.amount}
           value={amount}
           onChangeText={(text) => setAmount(cleanAmount(text))}
           keyboardType="decimal-pad"
@@ -80,10 +80,10 @@ export default function DueAmountScreen({ route, navigation }) {
       </View>
 
       {/* Hata varsa ortak hata kutusu gösterilir */}
-      {error !== '' && <ErrorMessage mesaj={error} />}
+      {error !== '' && <ErrorMessage message={error} />}
 
       {/* "Kaydet" butonu: basınca save çalışır ve tutar backend'e gönderilir */}
-      <Button baslik="Kaydet" onPress={save} loading={loading} />
+      <Button title="Kaydet" onPress={save} loading={loading} />
     </KeyboardAwareScrollView>
   );
 }
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  icerik: {
+  content: {
     padding: 18,
     gap: 14,
   },
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: colors.muted,
   },
-  tutar: {
+  amount: {
     minWidth: 120,
     padding: 0,
     textAlign: 'center',

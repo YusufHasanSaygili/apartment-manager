@@ -4,11 +4,11 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { colors, fonts } from '../theme';
 
-// baslik: buton yazısı, onPress: basınca çalışacak fonksiyon, disabled: true ise basılamaz.
+// title: buton yazısı, onPress: basınca çalışacak fonksiyon, disabled: true ise basılamaz.
 // danger: true ise yazı kırmızı olur (geri alınamaz işlemler: silme gibi).
 // centered: true (varsayılan) ise satırın ortasında, üstünde boşlukla durur; false ise bulunduğu yere (örn. kart
 // başlığının sağına) boşluksuz yerleşir.
-export default function TextButton({ baslik: title, onPress, disabled = false, danger = false, centered = true }) {
+export default function TextButton({ title, onPress, disabled = false, danger = false, centered = true }) {
   return (
     // hitSlop: dokunma alanını yazının dışına 8 piksel genişletir; küçük yazıya parmakla basmak kolaylaşır.
     <Pressable
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   text: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     fontWeight: '600',
     color: colors.primary,

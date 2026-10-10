@@ -11,7 +11,7 @@ import { radius, colors, fonts } from '../theme';
 export default function ChoiceButton({ text, isSelected, onPress, multiple = false, style }) {
   return (
     <Pressable
-      style={({ pressed }) => [styles.button, isSelected && styles.isSelected, pressed && styles.pressed, style]}
+      style={({ pressed }) => [styles.button, isSelected && styles.selected, pressed && styles.pressed, style]}
       onPress={onPress}
       // accessibilityRole/State: ekran okuyucu düğmenin türünü ve seçili olup olmadığını söyler.
       accessibilityRole={multiple ? 'checkbox' : 'radio'}
@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.card,
   },
-  isSelected: {
+  selected: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryBackground,
   },
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   text: {
-    fontFamily: fonts.metin,
+    fontFamily: fonts.text,
     fontSize: 15,
     fontWeight: '600',
     color: colors.text,

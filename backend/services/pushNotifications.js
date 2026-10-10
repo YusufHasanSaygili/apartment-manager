@@ -6,9 +6,9 @@ const User = require('../models/User');
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 // tokens: telefonların Expo push adresleri ("ExponentPushToken[...]").
-// İkinci parametre: { baslik, icerik, pushData } — pushData, bildirime dokununca uygulamanın ne açacağını bilmesi için.
+// İkinci parametre: { title, content, pushData } — pushData, bildirime dokununca uygulamanın ne açacağını bilmesi için.
 // Bildirim gönderilemezse ana işlem (örn. duyuru yapmak) bozulmasın diye hata fırlatmaz, sadece loglar.
-async function sendPush(tokens, { baslik: title, icerik: content, pushData = {} }) {
+async function sendPush(tokens, { title, content, pushData = {} }) {
   if (tokens.length === 0) return;
 
   // Expo bir istekte en fazla 100 bildirim kabul eder; liste 100'lük parçalara bölünür.
@@ -22,7 +22,7 @@ async function sendPush(tokens, { baslik: title, icerik: content, pushData = {} 
         // kullanıcı bildirim yüzünden yükleniyor ekranında beklemez (hata aşağıdaki catch'e düşer).
         signal: AbortSignal.timeout(5000),
         body: JSON.stringify(
-          part.map((to) => ({ to, title: title, body: content, data: pushData, sound: 'default', channelId: 'varsayilan' }))
+          part.map((to) => ({ to, title, body: content, data: pushData, sound: 'default', channelId: 'default' }))
         ),
       });
       // Expo her bildirim için gönderilen sırayla bir "bilet" (sonuç) döner; tickets[j], part[j]'nin sonucudur.
