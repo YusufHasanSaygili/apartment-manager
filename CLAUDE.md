@@ -141,14 +141,15 @@ Yönetici değiştiğinde site **sıfırdan kurulmaz**; aidat geçmişi, dairele
 
 `Site` dışındaki **her modelde `siteId` bulunur** ve her sorgu bu alana göre filtrelenir.
 
-- **Site:** ad, yoneticiId, aidatTutari (yöneticinin belirlediği aylık tutar), olusturmaTarihi
-- **Kullanici:** siteId, ad, e-posta (giriş için, benzersiz), şifre (hash), rol (`yonetici` / `sakin`), daireId (oturduğu daire; siteyi kuran yönetici için boş), daireyeGiris (daireye geldiği tarih; aidat bu aydan itibaren beklenir), pushToken, sifirlamaKodu (hash) + sifirlamaSonTarih + sifirlamaDeneme (şifremi unuttum), sifreDegisme (bu andan önceki oturumlar geçersiz)
-- **Bina:** siteId, ad (A, B, C...)
-- **Daire:** siteId, binaId, daireNo, davetKodu, davetKoduKullanildi, sakinId
-- **Aidat:** siteId, daireId, ay, yil, tutar, odemeYontemi (`banka` / `elden` / `yonetici` = yönetici elle işaretledi), aciklama, durum (`bekliyor` / `onaylandi` / `reddedildi`), tarih
-- **Duyuru:** siteId, baslik, icerik, tarih
-- **Mesaj:** siteId, gonderenId, aliciId, icerik, okundu, tarih
-- **SilinenHesap:** epostaOzeti (e-postanın geri çevrilemez özeti), kullaniciId, tarih (30 gün sonra kendiliğinden silinir). Daireden çıkarılan sakine nedenini söyleyebilmek için bırakılan, kişisel bilgi içermeyen iz.
+- **Site:** name, managerId, dueAmount (yöneticinin belirlediği aylık aidat tutarı), createdAt
+- **User** (kullanıcı): siteId, name, email (giriş için, benzersiz), password (hash), role (`manager` = yönetici / `resident` = sakin), flatId (oturduğu daire; siteyi kuran yönetici için boş), moveInDate (daireye geldiği tarih; aidat bu aydan itibaren beklenir), pushToken, resetCode (hash) + resetExpiresAt + resetAttempts (şifremi unuttum), passwordChangedAt (bu andan önceki oturumlar geçersiz)
+- **Building** (bina): siteId, name (A, B, C...)
+- **Flat** (daire): siteId, buildingId, flatNumber, inviteCode (davet kodu), inviteCodeUsed, residentId
+- **Due** (aidat): siteId, flatId, month, year, amount, paymentMethod (`bank` / `cash` / `manager` = yönetici elle işaretledi), note, status (`pending` / `approved` / `rejected`), date
+- **Announcement** (duyuru): siteId, title, content, date
+- **RecurringAnnouncement** (tekrarlayan duyuru): siteId, title, content, days, hour, minute, lastSentAt
+- **Message** (mesaj): siteId, senderId, recipientId, content, read, date
+- **DeletedAccount** (silinen hesap): emailHash (e-postanın geri çevrilemez özeti), userId, date (30 gün sonra kendiliğinden silinir). Daireden çıkarılan sakine nedenini söyleyebilmek için bırakılan, kişisel bilgi içermeyen iz.
 
 Bir modeli değiştirmeden önce kullanıcıya sor.
 
@@ -157,7 +158,7 @@ Bir modeli değiştirmeden önce kullanıcıya sor.
 ## Klasör Yapısı
 
 ```
-site-yonetim/
+apartment-manager/
 ├── backend/
 │   ├── models/       → Mongoose şemaları
 │   ├── routes/       → API uçları
@@ -206,7 +207,7 @@ Hoca derste "bu kod ne işe yarıyor?" diye soracak. Bu yüzden:
 ## Güvenlik Kuralları
 
 ### Site izolasyonu (en kritik kural)
-- `siteId` ve `daireId` **asla istekten alınmaz**; her zaman giriş yapmış kullanıcının token'ından ve veritabanındaki kaydından alınır.
+- `siteId` ve `flatId` **asla istekten alınmaz**; her zaman giriş yapmış kullanıcının token'ından ve veritabanındaki kaydından alınır.
 - Site verisi içeren her sorgu `siteId` filtresi içerir. Filtresiz sorgu yazılmaz.
 - Başka bir siteye ait bir kayıt istendiğinde "bulunamadı" (404) dönülür; kaydın var olduğu belli edilmez.
 - Sakin sadece kendi dairesinin aidat ve mesaj verisine erişebilir.

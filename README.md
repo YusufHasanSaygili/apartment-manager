@@ -68,12 +68,12 @@ Sunumda uygulamanın nasıl gösterileceği [SUNUM.md](SUNUM.md) dosyasındadır
 
 ## Hazır APK
 
-Android telefona doğrudan kurulabilen APK, GitHub'daki **Releases** sayfasındadır (en güncel sürüm: `Apartmanim-v1.0.1.apk`). Telefonlarda ve Android Studio emülatöründe çalışır.
+Android telefona doğrudan kurulabilen APK, GitHub'daki **Releases** sayfasındadır (en güncel sürüm: `Apartmanim-v1.1.0.apk`). Telefonlarda ve Android Studio emülatöründe çalışır. v1.0.x sürümleri kodun Türkçe adlı eski haline (`turkce-son-surum` etiketi) aittir ve bu backend ile çalışmaz.
 
 - APK, backend'e derlendiği bilgisayarın yerel IP adresiyle (`mobile/.env` içindeki `EXPO_PUBLIC_API_URL`) bağlanır.
   Bu yüzden sadece backend'in çalıştığı bilgisayarla **aynı Wi-Fi ağındaki** telefonlarda çalışır. Kendi
   bilgisayarınızda kullanmak için `.env`'deki IP'yi değiştirip APK'yı aşağıdaki adımlarla yeniden derleyin.
-- Backend yerel ağda `http` ile çalıştığı için APK'da şifresiz bağlantı izni açıktır (`mobile/plugins/httpIzni.js`).
+- Backend yerel ağda `http` ile çalıştığı için APK'da şifresiz bağlantı izni açıktır (`mobile/plugins/allowHttp.js`).
   Giriş bilgileri yerel ağda şifrelenmeden gider; APK sunum/test amaçlıdır ve geliştirme (debug) anahtarıyla imzalıdır.
 - Kurulum: APK'yı telefona indirin, "Bilinmeyen kaynaklardan yükleme" iznini verip açın.
 

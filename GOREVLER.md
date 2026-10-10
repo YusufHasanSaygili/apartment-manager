@@ -2,7 +2,7 @@
 
 Proje küçük, uçtan uca görevlere (slice) bölünmüştür. Her görev **backend + mobil + test** olarak bitirilir ve sonunda telefonda denenebilecek, çalışan bir şey ortaya çıkar.
 
-**Mevcut görev:** 8.4
+**Mevcut görev:** Aşama 8 tamamlandı (opsiyonel O.1 kullanıcı isterse)
 
 Kurallar:
 - Görevler sırayla yapılır. Bir görev bitmeden sonrakine geçilmez.
@@ -168,7 +168,7 @@ Her dilim sonunda uygulama çalışır durumda olur ve telefonda denenir. Türk�
   - Deneme: Uygulama eskisi gibi çalışır, zamanlanmış görevler çalışır
 - [x] **8.3 Ortak dil:** Veritabanı modelleri ve alanları, API yolları, JSON alanları, durum değerleri, soket olayları (backend + mobil birlikte); demo yeniden kurulur
   - Deneme: Tüm özellikler baştan sona denenir
-- [ ] **8.4 Kapanış:** Demo betiği, README, SUNUM.md, ders örnekleri ve Türkçe → İngilizce ad sözlüğü
+- [x] **8.4 Kapanış:** Demo betiği, README, SUNUM.md, ders örnekleri ve Türkçe → İngilizce ad sözlüğü
   - Deneme: Belgeler ve örnekler yeni adlarla birebir uyumlu
 
 ## Opsiyonel (sadece kullanıcı isterse)
