@@ -35,3 +35,6 @@ tasarim-onizleme/
 
 # Android Studio proje ayarları (her bilgisayarda farklı)
 .idea/
+
+# Ders sunumu notları (sadece yerelde tutulur)
+SUNUM.md

@@ -64,8 +64,6 @@ Mobil Programlama dersi projesi olarak React Native (Expo) ve Node.js ile geliş
 | Veritabanı | MongoDB Atlas, Mongoose |
 | Push bildirim | Expo Push Service + Firebase Cloud Messaging (ücretsiz) |
 
-Sunumda uygulamanın nasıl gösterileceği [SUNUM.md](SUNUM.md) dosyasındadır.
-
 ## Hazır APK
 
 Android telefona doğrudan kurulabilen APK, GitHub'daki **Releases** sayfasındadır (en güncel sürüm: `Apartmanim-v1.1.0.apk`). Telefonlarda ve Android Studio emülatöründe çalışır. v1.0.x sürümleri kodun Türkçe adlı eski haline (`turkce-son-surum` etiketi) aittir ve bu backend ile çalışmaz.
@@ -183,6 +181,49 @@ Giriş yaptıktan sonra bildirim izni istenir; izin verilirse duyurular telefona
   adlandırıp `npx expo prebuild --platform android --clean` çalıştırın.
 - **Bildirim gelmiyor:** Telefonun ayarlarında uygulamanın bildirim izni açık mı? Duyuruyu yapan kişiye
   bildirim gitmez, sadece sitedeki diğer kişilere gider.
+
+## Kendi sunucunda yayına almak (internete açmak)
+
+Yukarıdaki kurulum, backend'i kendi bilgisayarınızda çalıştırır; uygulama sadece aynı Wi-Fi'daki telefonlarda
+çalışır. Uygulamayı her yerden kullanılabilir yapmak için backend'i internetteki bir sunucuya taşıyın:
+
+1. **Veritabanı:** MongoDB Atlas'ta kendi cluster'ınızı açın. Sunucunun IP adresi sabit değilse
+   Atlas > Security > Network Access'e `0.0.0.0/0` ekleyin (bağlantı yine kullanıcı adı ve şifreyle korunur).
+2. **Backend:** `backend/` klasörünü Node.js çalıştırabilen bir sunucuya veya barındırma servisine yükleyin
+   (Render, Railway, Fly.io, kendi VPS'iniz vb.). Ortam değişkenleri `backend/.env.example` içindekilerdir;
+   `.env` dosyasını yüklemek yerine servisin ortam değişkeni ayarlarına girin ve başlatma komutunu
+   `node server.js` yapın (`npm start` `.env` dosyası arar, dosya yoksa sunucu açılmaz).
+   - Servis isteklerinizi bir proxy üzerinden iletiyorsa (çoğu barındırma servisi öyle yapar) `server.js`'te
+     `app` oluşturulduktan sonra `app.set('trust proxy', 1);` ekleyin. Yoksa deneme sınırı (rate limit) tüm
+     kullanıcıları tek bir IP sayar.
+   - Uygulamanın otomatik görevleri (her ayın 10'unda aidat hatırlatması, tekrarlayan duyurular) sunucu
+     içinde çalışır. Boşta kalınca uyuyan ücretsiz planlarda bu görevler kaçabilir; sürekli açık kalan bir
+     sunucu tercih edin.
+3. **Mobil:** `mobile/.env` içindeki `EXPO_PUBLIC_API_URL` değerini sunucunuzun `https://` adresi yapın.
+   https kullanıldığı için `mobile/app.json` içindeki `./plugins/allowHttp` eklentisini kaldırabilirsiniz.
+4. **Kendi uygulama kimliğiniz:** `mobile/app.json` içinde `name`, `slug` ve `android.package` değerlerini
+   kendinize göre değiştirin; `owner` ve `extra.eas.projectId` satırlarını silip `npx eas init` ile kendi Expo
+   hesabınıza bağlayın. Firebase'de yeni paket adıyla bir Android uygulaması ekleyip kendi `google-services.json`
+   dosyanızı kullanın.
+5. **Dağıtım:** APK'yı kendi imzalama anahtarınızla (keystore) derleyin. Play Store'a yüklemek için `.aab`
+   paketi gerekir (`./gradlew bundleRelease` veya `eas build`).
+
+## Lisans ve atıf
+
+Bu proje [MIT Lisansı](LICENSE) ile yayınlanmıştır: kodu ücretsiz olarak kullanabilir, değiştirebilir, kendi
+sunucunuzda yayına alabilir ve dağıtabilirsiniz. Tek şart, `LICENSE` dosyasındaki telif satırını ve lisans
+metnini kopyalarınızda korumaktır.
+
+Projeyi temel alarak bir şey yayınlarsanız README'nize veya uygulamanın "Hakkında" kısmına bir atıf eklemeniz
+rica edilir, örneğin:
+
+> Bu uygulama Yusuf Hasan Saygılı'nın [apartment-manager](https://github.com/YusufHasanSaygili/apartment-manager)
+> projesine dayanır.
+
+**Kullandıysanız haber verin:** Projeyi kendi işinizde, ödevinizde veya sitenizde kullandıysanız bir
+[issue açıp](https://github.com/YusufHasanSaygili/apartment-manager/issues/new?title=Kulland%C4%B1m%20te%C5%9Fekk%C3%BCrler)
+kısaca nerede kullandığınızı yazmanız ve repoya yıldız (⭐) vermeniz beni çok mutlu eder. Zorunlu değil, ama
+projenin işe yaradığını görmek güzel.
 
 ## Klasör yapısı
 
